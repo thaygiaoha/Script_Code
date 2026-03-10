@@ -272,8 +272,15 @@ function mainDoGet(e) {
     const sbd = params.sbd;
     const sheet = ss.getSheetByName("danhsach");
     const data = sheet.getDataRange().getValues();
+    if (data.length < 2) {
+    return createResponse("error", "Danh sách thí sinh trống!");
+      }
+    const idgvFixed = data[1][5].toString().trim()
+    if (idgvFixed !== idNumber.trim()) {
+    return createResponse("error", "Sai IDGV!");
+      }
     for (let i = 1; i < data.length; i++) {
-      if (data[1][5].toString().trim() === idNumber.trim() && data[i][0].toString().trim() === sbd.trim()) {
+      if ((data[i][0] || "").toString().trim() === sbd.trim()) {
         return createResponse("success", "OK", {
           name: data[i][1], class: data[i][2], limit: data[i][3],
           limittab: data[i][4], taikhoanapp: data[i][6], idnumber: idNumber, sbd: sbd
@@ -350,7 +357,7 @@ function mainDoGet(e) {
   return createResponse("error", "Yêu cầu không hợp lệ");
 } 
 
-
+// =====================================================================================================================Hết Doget =======================================
 function mainDoPost(e) {
   const lock = LockService.getScriptLock();
   lock.tryLock(15000);
@@ -405,9 +412,9 @@ function mainDoPost(e) {
 
     if (action === "studentGetExam") {
       try {
-        const sbd = data.sbd?.toString().trim();
-        const examCode = data.examCode?.toString().trim();
-        const idgv = data.idgv?.toString().trim();
+        const sbd = data.sbd ? data.sbd.toString().trim() : "";
+        const examCode = data.examCode ? data.examCode.toString().trim() : "";
+        const idgv = data.idgv ? data.idgv.toString().trim() : "";
 
         const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");

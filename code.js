@@ -433,7 +433,7 @@ function mainDoPost(e) {
         // --- BỔ SUNG: CHẶN SỐ LẦN THI ---
         // Cột N là index 13. Lấy số lần thi tối đa cho phép.
         const maxAttempts = parseInt(exRow[13], 10) || 1;
-        const exRowKq = sheetKQ.getDataRange().getValues();
+        const exRowKq = sheetKQ.getRange(2,1,sheetKQ.getLastRow()-1,3).getValues();
         const currentAttempts = exRowKq.filter(r => 
       r[1].toString() === examCode && r[2].toString() === sbd
     ).length;

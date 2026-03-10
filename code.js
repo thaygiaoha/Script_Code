@@ -882,7 +882,507 @@ function mainDoPost(e) {
 }
 
 // CÁC HÀM PHỤ TRỢ (Để hết vào đây)
-function toInt(v, def = 0) { ... }
-function toFloat(v, def = 0) { ... }
-function createResponseW(status, message, data) { ... }
-// ... bất kỳ hàm nào thầy viết thêm
+function getLinkFromRouting(idNumber) {
+  const sheet = ssAdmin.getSheetByName("idgv");
+  const data = sheet.getDataRange().getValues();
+  const id = String(idNumber).trim();
+  for (let i = 1; i < data.length; i++) {
+    // Cột A: idNumber, Cột C: linkscript
+    if (data[i][0].toString().trim() === id) {
+      return data[i][2].toString().trim();
+    }
+  }
+  return null;
+}
+
+function getSpreadsheetByTarget(targetId) {
+  // 1. Nếu không có ID, dùng ngay file hiện tại (Active)
+  if (!targetId || targetId.toString().trim() === "") return SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheet = ssAdmin.getSheetByName("idgv");
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    // Cột A: idNumber, Cột C: linkscript
+    if (rows[i][0].toString().trim() === targetId.toString().trim()) {
+      let url = rows[i][2].toString().trim();
+      if (url && url.startsWith("http")) {
+        try {
+          // Nếu link là file Master thì trả về luôn
+          if (url.indexOf(ss.getId()) !== -1) return ss;
+          return SpreadsheetApp.openByUrl(url);
+        } catch (e) {
+          console.log("Lỗi mở file riêng, chuyển về file hiện tại.");
+        }
+      }
+      break;
+    }
+  }
+
+  // 2. QUAN TRỌNG: Nếu duyệt hết mà không thấy targetId trong bảng idgv 
+  // (Nghĩa là GV tự do hoặc ID mới chưa đăng ký)
+  // TRẢ VỀ file hiện tại (getActive) thay vì ép vào file Master cố định
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function replaceIdInBlock(block, newId) {
+  if (block.match(/id\s*:\s*\d+/)) return block.replace(/id\s*:\s*\d+/, "id: " + newId);
+  return block.replace("{", "{\nid: " + newId + ",");
+}
+
+
+function getAppConfig() {
+  var sheetCD = ssAdmin.getSheetByName("dangcd");
+  var dataCD = sheetCD.getDataRange().getValues();
+
+  var topics = [];
+  var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp
+
+  // Chạy từ dòng 2 (bỏ tiêu đề)
+  for (var i = 1; i < dataCD.length; i++) {
+    var lop = dataCD[i][0];   // Cột A: lop
+    var idcd = dataCD[i][1];  // Cột B: idcd
+    var namecd = dataCD[i][2]; // Cột C: namecd
+
+    if (lop) {
+      // 1. Đẩy vào danh sách chuyên đề
+      topics.push({
+        grade: lop,
+        id: idcd,
+        name: namecd
+      });
+
+      // 2. Thu thập danh sách lớp (để nạp vào CLASS_ID bên React)
+      // Ví dụ: Trong sheet có lớp 10, 11, 12 thì CLASS_ID sẽ có các lớp tương ứng
+      classesMap[lop] = true;
+    }
+  }
+
+  return {
+    topics: topics,
+    classes: Object.keys(classesMap).sort(function (a, b) { return a - b; }) // Trả về [9, 10, 11, 12] chẳng hạn
+  };
+}
+function parseDocByParagraph_(docId) {
+  const body = DocumentApp.openById(docId).getBody();
+  const paras = body.getParagraphs();
+
+  let part = "";
+  let current = null;
+  const questions = [];
+
+  paras.forEach(p => {
+    const text = p.getText().trim();
+    if (!text) return;
+
+    // PHẦN
+    if (/^Phần\s*I/i.test(text)) part = "MCQ";
+    if (/^Phần\s*II/i.test(text)) part = "TF";
+    if (/^Phần\s*III/i.test(text)) part = "SA";
+
+    // CÂU HỎI
+    if (/^Câu\s+\d+/i.test(text)) {
+      if (current) questions.push(current);
+      current = {
+        part,
+        question: text,
+        options: [],
+        answers: [],
+        key: ""
+      };
+      return;
+    }
+
+    if (!current) return;
+
+    // PHẦN III – KEY
+    if (part === "SA") {
+      const m = text.match(/<key\s*=\s*([^>]+)>/i);
+      if (m) current.key = m[1].trim();
+      else current.question += "\n" + text;
+      return;
+    }
+
+    // PHẦN I & II – OPTION
+    if (/^[A-D]\./.test(text)) {
+      const letter = text[0];
+      const isUnderline = hasUnderline_(p);
+      current.options.push(text);
+
+      if (isUnderline) {
+        current.answers.push(letter);
+      }
+    } else {
+      current.question += "\n" + text;
+    }
+  });
+
+  if (current) questions.push(current);
+  return questions;
+}
+// kiểm tra gạch chân
+function hasUnderline_(paragraph) {
+  const text = paragraph.editAsText();
+  for (let i = 0; i < text.getText().length; i++) {
+    if (text.getUnderline(i)) return true;
+  }
+  return false;
+}
+// chuẩn hóa trước khi ghi exam_data
+function normalizeQuestion_(q) {
+  if (q.part === "MCQ") {
+    return {
+      type: "MCQ",
+      answer: q.answers[0] || ""
+    };
+  }
+
+  if (q.part === "TF") {
+    return {
+      type: "TF",
+      answer: q.answers.join(",")
+    };
+  }
+
+  if (q.part === "SA") {
+    return {
+      type: "SA",
+      answer: q.key
+    };
+  }
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ==== Ghi exam_data
+
+
+function parseQuestionFromCell(text, id) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const qLine = lines.find(l => l.startsWith('?'));
+  const question = qLine ? qLine.slice(1).trim() : '';
+  const options = lines.filter(l => /^[A-D]\./.test(l)).map(l => l.slice(2).trim());
+  const ansLine = lines.find(l => l.startsWith('='));
+  const ansIndex = ansLine ? ansLine.replace('=', '').trim().charCodeAt(0) - 65 : -1;
+  return { id, type: 'mcq', question, o: options, a: options[ansIndex] || '' };
+}
+// tìm câu trùng=========================================================================================================================================
+function findDuplicateQuestions() {
+  const ss = SpreadsheetApp.openById("1LlFAI1J0b7YQ84BL674r2kr3wSoW9shgsXSIXVPDypM");
+  const sheet = ss.getSheetByName("nganhang"); 
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const rows = data.slice(1); // Bỏ dòng tiêu đề
+  
+  const results = [];
+  const processedIdx = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    if (processedIdx.has(i)) continue;
+    
+    let group = { 
+      mainId: rows[i][0], 
+      score: 0, 
+      items: [getRowObj(rows[i], headers, i + 2)] 
+    };
+    
+    for (let j = i + 1; j < rows.length; j++) {
+      if (processedIdx.has(j)) continue;
+      
+      let score = calculateSimilarity(rows[i], rows[j]);
+      
+      if (score >= 50) { 
+        group.items.push(getRowObj(rows[j], headers, j + 2));
+        if (score > group.score) group.score = score;
+        processedIdx.add(j);
+      }
+    }
+    
+    if (group.items.length > 1) {
+      results.push(group);
+      processedIdx.add(i);
+    }
+  }
+  return { status: "success", data: results };
+}
+
+function calculateSimilarity(q1, q2) {
+  let score = 0;
+  // Cột: 0:id, 1:classTag, 4:question, 5:options, 6:answer
+  
+  // 1. Answer (20%) - Bỏ latex $, khoảng trắng
+  const a1 = String(q1[6]).replace(/\$|\s/g, '');
+  const a2 = String(q2[6]).replace(/\$|\s/g, '');
+  if (a1 !== "" && a1 === a2) score += 20;
+
+  // 2. Options (30%) - Parse và so sánh không cần thứ tự
+  try {
+    const o1 = JSON.parse(q1[5] || "[]").sort().join('|');
+    const o2 = JSON.parse(q2[5] || "[]").sort().join('|');
+    if (o1 !== "" && o1 === o2) score += 30;
+  } catch(e) {}
+
+  // 3. Question (40%) - Xóa khoảng trắng và chữ hoa/thường
+  const txt1 = String(q1[4]).replace(/\s+/g, '').toLowerCase();
+  const txt2 = String(q2[4]).replace(/\s+/g, '').toLowerCase();
+  if (txt1 !== "" && txt1 === txt2) score += 40;
+
+  // 4. ClassTag (5%) - So sánh mã xyzt (4 số đầu)
+  const tag1 = String(q1[1]).substring(0, 4);
+  const tag2 = String(q2[1]).substring(0, 4);
+  if (tag1 !== "" && tag1 === tag2) score += 5;
+
+  if (score >= 95) return 99;
+  return score;
+}
+
+function getRowObj(row, headers, rowIdx) {
+  let obj = { rowIdx: rowIdx };
+  headers.forEach((h, i) => { obj[h] = row[i]; });
+  return obj;
+}
+
+function deleteQuestionRow(rowIdx) {
+  try {
+    const ss = SpreadsheetApp.openById("1LlFAI1J0b7YQ84BL674r2kr3wSoW9shgsXSIXVPDypM");
+    const sheet = ss.getSheetByName("nganhang");
+    sheet.deleteRow(parseInt(rowIdx));
+    return { status: "success" };
+  } catch(e) {
+    return { status: "error", message: e.toString() };
+  }
+}
+// ======= sửa câu hỏi =====================================================
+function updateQuestion(payload) {
+  try {
+    const data = payload.data;
+    const sheet = sheetNH;
+    const fullData = sheet.getDataRange().getValues();
+    const headers = fullData[0];
+    
+    // 1. Kiểm tra ID gửi lên có tồn tại không
+    if (!data.id) return { status: "error", message: "ID gửi lên bị trống!" };
+
+    // 2. Duyệt tìm dòng
+    for (var i = 1; i < fullData.length; i++) {
+      // KIỂM TRA: Nếu ô ID bị trống thì bỏ qua dòng này, không .toString() nữa
+      if (!fullData[i][0]) continue; 
+
+      // So sánh ID an toàn
+      if (fullData[i][0].toString() === data.id.toString()) {
+        const rowNum = i + 1;
+        
+        // Cập nhật các cột dựa trên tên Header
+        Object.keys(data).forEach(key => {
+          const colIdx = headers.indexOf(key);
+          if (colIdx !== -1) {
+            sheet.getRange(rowNum, colIdx + 1).setValue(data[key]);
+          }
+        });
+        
+        return { status: "success" };
+      }
+    }
+    return { status: "error", message: "Không tìm thấy ID: " + data.id };
+  } catch (e) {
+    return { status: "error", message: "Lỗi hệ thống: " + e.toString() };
+  }
+}
+// lọc mã exems chung
+function getExamsList(type) {
+
+  let sheetName;
+  let columnIndex;
+
+  if (type === "ketqua") {
+    sheetName = "ketqua";
+    columnIndex = 1; // cột B
+  }
+
+  else if (type === "matran") {
+    sheetName = "matran";
+    columnIndex = 1; // cột B
+  }
+
+  else if (type === "exams") {
+    sheetName = "exams";
+    columnIndex = 0; // cột A
+  }
+
+  else if (type === "exam_data") {
+    sheetName = "exam_data";
+    columnIndex = 0; // cột A
+  }
+
+  else {
+    return createResponse("error", "Type không hợp lệ");
+  }
+
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    return createResponse("error", "Không tìm thấy sheet " + sheetName);
+  }
+
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return createResponse("success", "OK", []);
+  }
+
+  const examsColumn = sheet
+    .getRange(2, columnIndex + 1, lastRow - 1, 1)
+    .getValues()
+    .flat()
+    .filter(v => v && v !== "");
+
+  const unique = [...new Set(examsColumn)];
+
+  return createResponse("success", "OK", unique);
+}
+// Reset chung
+function resetData(type, password, mode, exams) {
+
+  if (password !== passReset) {
+    return createResponse("error", "Sai mật khẩu!");
+  }
+
+  let sheetName = "";
+
+  if (type === "ketqua") sheetName = "ketqua";
+  else if (type === "matran") sheetName = "matran";
+  else if (type === "exams") sheetName = "exams";
+  else if (type === "exam_data") sheetName = "exam_data";
+  else return createResponse("error", "Type không hợp lệ");
+
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    return createResponse("error", "Không tìm thấy sheet " + sheetName);
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return createResponse("success", "Không có dữ liệu để xóa");
+  }
+
+  // ======================
+  // MODE 1 — XÓA ALL
+  // ======================
+  if (mode === "all") {
+    sheet.deleteRows(2, lastRow - 1);
+    return createResponse("success", "Đã xóa toàn bộ dữ liệu trong sheet(" + sheetName + ")");
+  }
+
+  // ======================
+  // MODE 2 — XÓA THEO EXAMS
+  // ======================
+  if (mode === "byExams") {
+
+    if (!exams) {
+      return createResponse("error", "Thiếu mã exams");
+    }
+
+    const data = sheet
+      .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
+      .getValues();
+
+    let rowsToDelete = [];
+
+    data.forEach((row, index) => {
+
+      let rowExams = "";
+
+      // Cột chứa mã exams
+      if (type === "ketqua") rowExams = row[1];      // cột B
+      if (type === "matran") rowExams = row[1];      // cột B
+      if (type === "exams") rowExams = row[0];       // cột A
+      if (type === "exam_data") rowExams = row[0];   // cột A
+
+      if (String(rowExams).trim() === String(exams).trim()) {
+        rowsToDelete.push(index + 2); // +2 vì bỏ header
+      }
+
+    });
+
+    if (rowsToDelete.length === 0) {
+      return createResponse("error", "Không tìm thấy mã exams");
+    }
+
+    // Xóa từ dưới lên
+    rowsToDelete.reverse().forEach(r => sheet.deleteRow(r));
+
+    return createResponse(
+      "success",
+      "Đã xóa " + rowsToDelete.length + " dòng trong sheet(" + sheetName + ")"
+    );
+  }
+
+  return createResponse("error", "Mode không hợp lệ");
+}
+// =============================================================Kết thúc Reset chung=========================================================================
+
+// xem điểm
+function getScore(e) {
+  const sbd = e.parameter.sbd;
+  const exams = e.parameter.exams;
+
+  const sheet = ss.getSheetByName("ketqua");
+  const data = sheet.getDataRange().getValues();
+
+  const results = data.slice(1).filter(row =>
+    row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
+    row[2].toString().trim() === sbd.trim()
+  );
+
+  if (results.length === 0) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "not_found" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const row = results[0];
+
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      status: "success",
+      data: {
+        exams: row[1],
+        sbd: row[2],
+        name: row[3],
+        class: row[4],
+        tongdiem: row[5],
+        time: row[6]
+      }
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function createResponseW(status, message, data = null) {
+  const output = { status: status, message: message };
+  if (data !== null) output.data = data;
+  return ContentService
+    .createTextOutput(JSON.stringify(output))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+function createResponse(status, message, data) {
+  const output = { status: status, message: message };
+  if (data) output.data = data;
+  return ContentService
+    .createTextOutput(JSON.stringify(output))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Giữ lại resJSON để phục vụ các đoạn code cũ đang gọi tên này
+function resJSON(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+function jsonOutput(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}

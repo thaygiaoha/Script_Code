@@ -705,7 +705,7 @@ if (closeTime && now > closeTime) {
       }
 
       const rowData = [
-        examCode, "'" + idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
+        examCode, "'0" + idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
         cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.close, cfg.open, cfg.maxthi
       ];
 

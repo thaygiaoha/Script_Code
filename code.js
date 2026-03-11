@@ -703,12 +703,12 @@ if (closeTime && now > closeTime) {
       if (existingRow !== -1 && !isForce) {
         return createResponse("exists", "Mã đề đã tồn tại!");
       }
-
+        sheetExamsGV.getRange("B:B").setNumberFormat("@");
       const rowData = [
         examCode, idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
         cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.close, cfg.open, cfg.maxthi
       ];
-        sheetExamsGV.getRange("B:B").setNumberFormat("@");
+      
       if (existingRow !== -1) {
         // THỰC HIỆN GHI ĐÈ tại đây
         sheetExamsGV.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);

@@ -425,8 +425,18 @@ function mainDoPost(e) {
         const idgvFixed = allDataDS[1] ? allDataDS[1][5].toString().trim() : "";
 
         // 1. Check học sinh & Cấu hình đề (Thầy giữ logic cũ nhưng dùng .trim() cho chắc)
-        const student = allDataDS.find(r => r[0].toString() === sbd && idgvFixed === idgv.toString().trim());
-        if (!student) return createResponseW("error", "SBD hoặc IDGV không đúng!");
+        if (idgvFixed !== idgv) {
+          return createResponse("error", "Sai IDGV!");
+          }
+
+          // tìm học sinh
+          const student = allDataDS.slice(1).find(r =>
+          (r[0] || "").toString().trim() === sbd
+        );
+
+        if (!student) {
+          return createResponseW("error", "SBD không tồn tại!");
+        }
 
 
         const exRow = sheetExam.getDataRange().getValues().find(r => r[0].toString() == examCode);

@@ -711,7 +711,7 @@ if (closeTime && now > closeTime) {
 
       if (existingRow !== -1) {
         // THỰC HIỆN GHI ĐÈ tại đây
-        sheetExamsGV.getRange(existingRow, 1, 1, 14).setValues([rowData]);
+        sheetExamsGV.getRange(existingRow, 1, 1, rowData.length).setValues([rowData]);
         return createResponse("success", "✅ Đã GHI ĐÈ cấu hình đề " + examCode);
       } else {
         // THÊM MỚI

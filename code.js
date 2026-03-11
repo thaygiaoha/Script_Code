@@ -439,7 +439,7 @@ function mainDoPost(e) {
         }
 
 
-        const exRow = sheetExam.getDataRange().getValues().find(r => r[0].toString() == examCode);
+        const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() == examCode);
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();
@@ -452,12 +452,25 @@ const closeTime = exRow[11] instanceof Date
   ? exRow[11] 
   : new Date(exRow[11]);
 
-if (openTime && now < openTime) {
+        // --- BỔ SUNG: CHẶN SỐ LẦN THI ---
+        // Cột N là index 13. Lấy số lần thi tối đa cho phép.
+        const maxAttempts = parseInt(exRow[13], 10) || 1;
+        let exRowKq = [];
+
+        if (sheetKQ.getLastRow() > 1) {
+        exRowKq = sheetKQ.getRange(2,1,sheetKQ.getLastRow()-1,3).getValues();
+          }
+        const currentAttempts = exRowKq.filter(r => 
+      r[1].toString() === examCode && r[2].toString() === sbd
+    ).length;
+
+    if (sbd !== "8888") {       
+      if (openTime && now < openTime) {
   return createResponseW("error", 
     "⏳ Bài thi chưa mở. Thời gian mở: " +
     Utilities.formatDate(openTime, "GMT+7", "yyyy/MM/dd HH:mm")
   );
-}
+}     
 
 if (closeTime && now > closeTime) {
   return createResponseW("error", 
@@ -465,16 +478,7 @@ if (closeTime && now > closeTime) {
     Utilities.formatDate(closeTime, "GMT+7", "yyyy/MM/dd HH:mm")
   );
 }
-        // --- BỔ SUNG: CHẶN SỐ LẦN THI ---
-        // Cột N là index 13. Lấy số lần thi tối đa cho phép.
-        const maxAttempts = parseInt(exRow[13], 10) || 1;
-        const exRowKq = sheetKQ.getRange(2,1,sheetKQ.getLastRow()-1,3).getValues();
-        const currentAttempts = exRowKq.filter(r => 
-      r[1].toString() === examCode && r[2].toString() === sbd
-    ).length;
-
-    if (sbd !== "8888") { 
-      if (currentAttempts >= maxAttempts) {
+       if (currentAttempts >= maxAttempts) {
         return createResponseW("error", `Bạn đã hết lượt thi! Mã đề ${examCode} chỉ cho phép thi tối đa ${maxAttempts} lần.`);
       }
     }
@@ -702,7 +706,7 @@ if (closeTime && now > closeTime) {
 
       const rowData = [
         examCode, idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
-        cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.close
+        cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.open, cfg.close, cfg.limit
       ];
 
       if (existingRow !== -1) {

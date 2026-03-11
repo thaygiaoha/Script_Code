@@ -441,19 +441,6 @@ const closeTime = exRow[11] instanceof Date
   ? exRow[11] 
   : new Date(exRow[11]);
 
-if (openTime && now < openTime) {
-  return createResponseW("error", 
-    "⏳ Bài thi chưa mở. Thời gian mở: " +
-    Utilities.formatDate(openTime, "GMT+7", "yyyy/MM/dd HH:mm")
-  );
-}
-
-if (closeTime && now > closeTime) {
-  return createResponseW("error", 
-    "⛔ Bài thi đã đóng lúc: " +
-    Utilities.formatDate(closeTime, "GMT+7", "yyyy/MM/dd HH:mm")
-  );
-}
         // --- BỔ SUNG: CHẶN SỐ LẦN THI ---
         // Cột N là index 13. Lấy số lần thi tối đa cho phép.
         const maxAttempts = parseInt(exRow[13], 10) || 1;
@@ -462,11 +449,35 @@ if (closeTime && now > closeTime) {
       r[1].toString() === examCode && r[2].toString() === sbd
     ).length;
 
-    if (sbd !== "8888") { 
-      if (currentAttempts >= maxAttempts) {
-        return createResponseW("error", `Bạn đã hết lượt thi! Mã đề ${examCode} chỉ cho phép thi tối đa ${maxAttempts} lần.`);
-      }
-    }
+    // ===== ADMIN BYPASS =====
+if (sbd !== "8888") {
+
+  // 1️⃣ HẾT LƯỢT THI
+  if (currentAttempts >= maxAttempts) {
+    return createResponseW(
+      "error",
+      `❌ Bạn đã hết lượt thi! Mã đề ${examCode} chỉ cho phép ${maxAttempts} lần.`
+    );
+  }
+
+  // 2️⃣ CHƯA ĐẾN GIỜ MỞ
+  if (openTime && now < openTime) {
+    return createResponseW(
+      "error",
+      "⏳ Bài thi chưa mở. Thời gian mở: " +
+      Utilities.formatDate(openTime, "GMT+7", "yyyy/MM/dd HH:mm")
+    );
+  }
+
+  // 3️⃣ QUÁ GIỜ ĐÓNG
+  if (closeTime && now > closeTime) {
+    return createResponseW(
+      "error",
+      "⛔ Bài thi đã đóng lúc: " +
+      Utilities.formatDate(closeTime, "GMT+7", "yyyy/MM/dd HH:mm")
+    );
+  }
+}
         // chuẩn hóa
         const toInt = (v, def = 0) => {
           const n = parseInt(v?.toString().trim(), 10);

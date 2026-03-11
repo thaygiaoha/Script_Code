@@ -439,7 +439,7 @@ function mainDoPost(e) {
         }
 
 
-        const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() == examCode);
+        const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();

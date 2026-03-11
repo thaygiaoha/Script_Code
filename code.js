@@ -335,27 +335,14 @@ function mainDoGet(e) {
     return createResponse("success", "OK", results);
   }
 
-  // 9. LẤY TẤT CẢ CÂU HỎI (Hàm này thầy bị trùng, em gom lại bản chuẩn nhất)
+  // 9. LẤY TẤT CẢ CÂU HỎI 
   if (action === "getQuestions") {
-    var sheet = ssAdmin.getSheetByName("nganhang");
-    var rows = sheet.getDataRange().getValues();
-    var questions = [];
-    for (var i = 1; i < rows.length; i++) {
-      var raw = rows[i][2];
-      if (!raw) continue;
-      try {
-        var jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
-        var obj = JSON.parse(jsonText);
-        if (!obj.classTag) obj.classTag = rows[i][1];
-        obj.loigiai = rows[i][4] || "";
-        questions.push(obj);
-      } catch (e) { }
-    }
-    return createResponse("success", "OK", questions);
-  }
 
-  return createResponse("error", "Yêu cầu không hợp lệ");
-} 
+  const questions = getQuestionBank();
+
+  return createResponse("success", "OK", questions);
+
+}
 
 // =====================================================================================================================Hết Doget =======================================
 function mainDoPost(e) {
@@ -420,7 +407,7 @@ function mainDoPost(e) {
         const sheetData = ss.getSheetByName("exam_data");
         const sheetExam = ss.getSheetByName("exams");
         const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
-        const allDataDS = sheetDS.getDataRange().getValues();
+        const allDataDS = getStudents(); // đã tăng tốc
         const idgvFixed = allDataDS[1] ? allDataDS[1][5].toString().trim() : "";
 
         // 1. Check học sinh & Cấu hình đề (Thầy giữ logic cũ nhưng dùng .trim() cho chắc)
@@ -500,7 +487,7 @@ if (sbd !== "8888") {
         };
 
         // 2. Lấy câu hỏi - ĐOẠN ĐÃ TỐI ƯU
-        const allRows = sheetData.getDataRange().getValues();
+        const allRows = getQuestionBankW(examCode); // đã tăng tốc
         const filteredQuestions = allRows.slice(1)
           .filter(r => r[0].toString().trim() === examCode)
           .map(r => {
@@ -1421,4 +1408,114 @@ function jsonOutput(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+// tăng tốc
+function getQuestionBankW(examCode) {
+
+  const cache = CacheService.getScriptCache();
+  const key = "bank_" + examCode;
+
+  let data = cache.get(key);
+
+  if (data) {
+    return JSON.parse(data);
+  }
+
+  const sheet = ss.getSheetByName("exam_data");
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const rows = sheet.getRange(2,1,lastRow-1,5).getValues();
+
+  const result = rows.filter(r =>
+    String(r[0]).trim() === String(examCode).trim()
+  );
+
+  cache.put(key, JSON.stringify(result), 120);
+
+  return result;
+}
+
+
+function getQuestionBank() {
+
+  const cache = CacheService.getScriptCache();
+  const key = "question_bank";
+
+  let data = cache.get(key);
+
+  if (data) {
+    return JSON.parse(data);
+  }
+
+  const sheet = ssAdmin.getSheetByName("nganhang");
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  // chỉ đọc 5 cột cần thiết
+  const rows = sheet.getRange(2,1,lastRow-1,5).getValues();
+
+  const questions = [];
+
+  for (let i = 0; i < rows.length; i++) {
+
+    const raw = rows[i][2];
+    if (!raw) continue;
+
+    try {
+
+      const jsonText = raw
+        .replace(/(\w+):/g, '"$1":')
+        .replace(/'/g, '"');
+
+      const obj = JSON.parse(jsonText);
+
+      if (!obj.classTag) obj.classTag = rows[i][1];
+
+      obj.loigiai = rows[i][4] || "";
+
+      questions.push(obj);
+
+    } catch (e) {}
+
+  }
+
+  // cache 5 phút
+  cache.put(key, JSON.stringify(questions), 300);
+
+  return questions;
+}
+
+
+function getStudents(){
+
+  const cache = CacheService.getScriptCache();
+  let students = cache.get("students");
+
+  if (students){
+    return JSON.parse(students);
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(2000);
+
+  students = cache.get("students");
+
+  if (!students){
+
+    const lastRow = sheetDS.getLastRow();
+    const data = sheetDS.getRange(2,1,lastRow-1,10).getValues();
+
+    cache.put("students", JSON.stringify(data), 300);
+
+    lock.releaseLock();
+
+    return data;
+  }
+
+  lock.releaseLock();
+
+  return JSON.parse(students);
 }

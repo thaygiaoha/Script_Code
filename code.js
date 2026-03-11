@@ -706,12 +706,12 @@ if (closeTime && now > closeTime) {
 
       const rowData = [
         examCode, idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
-        cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.open, cfg.close, cfg.limit
+        cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.close, cfg.open, cfg.maxthi
       ];
 
       if (existingRow !== -1) {
         // THỰC HIỆN GHI ĐÈ tại đây
-        sheetExamsGV.getRange(existingRow, 1, 1, 12).setValues([rowData]);
+        sheetExamsGV.getRange(existingRow, 1, 1, 14).setValues([rowData]);
         return createResponse("success", "✅ Đã GHI ĐÈ cấu hình đề " + examCode);
       } else {
         // THÊM MỚI

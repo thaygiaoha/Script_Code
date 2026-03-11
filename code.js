@@ -780,8 +780,9 @@ if (closeTime && now > closeTime) {
         let s = String(v).trim();
         return s.startsWith("[") ? s : "[" + s + "]";
       };
+      sheetMatran.getRange("A:A").setNumberFormat("@");
       const rowData = [
-        toStr(data.gvId), toStr(data.makiemtra), toStr(data.name), toJson(data.topics),
+        "'" + toStr(data.gvId), toStr(data.makiemtra), toStr(data.name), toJson(data.topics),
         toNum(data.duration), toJson(data.numMC), toNum(data.scoreMC), toJson(data.mcL3),
         toJson(data.mcL4), toJson(data.numTF), toNum(data.scoreTF), toJson(data.tfL3),
         toJson(data.tfL4), toJson(data.numSA), toNum(data.scoreSA), toJson(data.saL3), toJson(data.saL4)

@@ -430,6 +430,30 @@ function mainDoPost(e) {
 
         const exRow = sheetExam.getDataRange().getValues().find(r => r[0].toString() == examCode);
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
+        // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
+const now = new Date();
+
+const openTime = exRow[12] instanceof Date 
+  ? exRow[12] 
+  : new Date(exRow[12]);
+
+const closeTime = exRow[11] instanceof Date 
+  ? exRow[11] 
+  : new Date(exRow[11]);
+
+if (openTime && now < openTime) {
+  return createResponseW("error", 
+    "⏳ Bài thi chưa mở. Thời gian mở: " +
+    Utilities.formatDate(openTime, "GMT+7", "yyyy/MM/dd HH:mm")
+  );
+}
+
+if (closeTime && now > closeTime) {
+  return createResponseW("error", 
+    "⛔ Bài thi đã đóng lúc: " +
+    Utilities.formatDate(closeTime, "GMT+7", "yyyy/MM/dd HH:mm")
+  );
+}
         // --- BỔ SUNG: CHẶN SỐ LẦN THI ---
         // Cột N là index 13. Lấy số lần thi tối đa cho phép.
         const maxAttempts = parseInt(exRow[13], 10) || 1;
@@ -504,7 +528,8 @@ function mainDoPost(e) {
           minSubmitTime: toInt(exRow[9], 0),     // minitime
           maxTabSwitches: toInt(exRow[10], 3),        // tab limit
           maxthi: maxAttempts,
-          deadline: toDateISO(exRow[11]),     // yyyy-MM-dd
+          deadline: Utilities.formatDate(closeTime, "GMT+7", "yyyy/MM/dd HH:mm"),
+          openTime: Utilities.formatDate(openTime, "GMT+7", "yyyy/MM/dd HH:mm"),
           scoreMCQ: toFloat(exRow[3], 0),
           scoreTF: toFloat(exRow[5], 0),
           scoreSA: toFloat(exRow[7], 0),

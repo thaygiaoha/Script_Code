@@ -111,10 +111,7 @@ function mainDoGet(e) {
   // Thêm vào trong function doGet(e)
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
-    const sheet = ss.getSheetByName("exam_data");
-    if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
-
-    const data = sheet.getDataRange().getValues();
+    const data = getExamDataCached();    
     const results = [];
 
     for (let i = 1; i < data.length; i++) {
@@ -297,7 +294,7 @@ if (action === 'getAppConfigmt') {
   }
 
   // 7. LẤY CÂU HỎI THEO ID
-  if (action === 'getQuestionById') {
+  if (action === 'uestionById') {
     var id = params.id;
     var dataNH = sheetNH.getDataRange().getValues();
     for (var i = 1; i < dataNH.length; i++) {
@@ -343,27 +340,9 @@ if (action === 'getAppConfigmt') {
 
   // 9. LẤY TẤT CẢ CÂU HỎI (Hàm này thầy bị trùng, em gom lại bản chuẩn nhất)
   if (action === "getQuestions") {
-    var sheet = ssAdmin.getSheetByName("nganhang");
-    var lastRow = sheet.getLastRow();
-    var rows = sheet.getRange(2,1,lastRow-1,9).getValues();
-    var questions = [];
-    for (var i = 1; i < rows.length; i++) {
-      var raw = rows[i][2];
-      if (!raw) continue;
-      try {
-        var jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
-        var obj = JSON.parse(jsonText);
-        if (!obj.classTag) obj.classTag = rows[i][1];
-        obj.loigiai = rows[i][4] || "";
-        questions.push(obj);
-      } catch (e) { }
-    }
-    return createResponse("success", "OK", questions);
-  }
-
-  return createResponse("error", "Yêu cầu không hợp lệ");
-} 
-
+  const questions = getQuestionBankCached();
+  return createResponse("success", "OK", questions);
+}
 // =====================================================================================================================Hết Doget =======================================
 function mainDoPost(e) {
   const lock = LockService.getScriptLock();
@@ -674,6 +653,7 @@ if (closeTime && now > closeTime) {
   ]);
 
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+      CacheService.getScriptCache().remove("exam_data");
   var lastRow = sheet.getLastRow();
       sheet.getRange("E:H").setWrap(true);
 
@@ -830,6 +810,7 @@ if (closeTime && now > closeTime) {
         sheetNH.getRange(startRow, 1, rows.length, rows[0].length)
           .setValues(rows);
       }
+      CacheService.getScriptCache().remove("nganhang");
       var lastRow = sheetNH.getLastRow();
       sheetNH.getRange("D:H").setWrap(true);
 
@@ -1462,4 +1443,51 @@ function jsonOutput(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+function getQuestionBankCached() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("nganhang");
+
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
+  const sheet = ssAdmin.getSheetByName("nganhang");
+  const lastRow = sheet.getLastRow();
+  const rows = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+
+  const questions = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const raw = rows[i][2];
+    if (!raw) continue;
+
+    try {
+      const jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
+      const obj = JSON.parse(jsonText);
+
+      if (!obj.classTag) obj.classTag = rows[i][1];
+      obj.loigiai = rows[i][4] || "";
+
+      questions.push(obj);
+    } catch (e) {}
+  }
+
+  cache.put("nganhang", JSON.stringify(questions), 300); // cache 5 phút
+
+  return questions;
+}
+
+  function getExamDataCached() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get("exam_data");
+
+  if (cached) return JSON.parse(cached);
+
+  const sheet = ss.getSheetByName("exam_data");
+  const data = sheet.getDataRange().getValues();
+
+  cache.put("exam_data", JSON.stringify(data), 300);
+
+  return data;
 }

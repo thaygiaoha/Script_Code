@@ -348,7 +348,7 @@ if (action === 'getAppConfigmt') {
     var rows = sheet.getRange(2,1,lastRow-1,9).getValues();
     var questions = [];
     for (var i = 1; i < rows.length; i++) {
-      var raw = rows[i][2];
+      var raw = rows[i][4];
       if (!raw) continue;
       try {
         var jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');

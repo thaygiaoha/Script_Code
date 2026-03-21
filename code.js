@@ -13,6 +13,42 @@ function mainDoGet(e) {
       verified: isCorrect
     })).setMimeType(ContentService.MimeType.JSON);
   }
+
+  // Xác minh quản lý admin
+  function doGet(e) {
+  const action = e.parameter.action;
+  
+
+  // Nếu đăng nhập đúng và yêu cầu lấy app
+  if (action === "getAdminApps") {
+  const inputID = e.parameter.id;
+  const inputPass = e.parameter.pass;  
+    // Kiểm tra đăng nhập
+  if (inputID !== idadmin || inputPass !== passAdmin) {
+    return createResponse({ success: false, message: "Sai ID hoặc mật khẩu!" });
+  }    
+    const sheet = ssAdmin.getSheetByName("idgv");
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow < 2) return createResponse([]);
+
+    const data = sheet.getRange("E2:G" + lastRow).getValues();
+    
+    const adminApps = data
+      .filter(row => row[0].toString().trim() !== "") 
+      .map(row => ({
+        name: row[0],
+        icon: row[1] || "fas fa-external-link-alt",
+        link: row[2]
+      }));
+
+    return createResponse({ success: true, data: adminApps });
+  }
+
+  return createResponse({ success: false, message: "Lệnh không hợp lệ" });
+}
+
+
   //= TÌM CÂU HỎI LẺ
   if (action === "getSingleQuestion") {
 

@@ -844,7 +844,7 @@ if (closeTime && now > closeTime) {
 
     // 4. XÁC MINH GIÁO VIÊN (verifyGV)
     if (action === "verifyGV") {
-      var sheetGV = ss.getSheetByName("idgv");
+      var sheetGV = ssAdmin.getSheetByName("idgv");
       var rows = sheetGV.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
         if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {

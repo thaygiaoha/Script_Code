@@ -48,7 +48,7 @@ function mainDoGet(e) {
   return createResponse("error", "Không tìm thấy câu hỏi");
 } 
   // load ngân hàng đề
-  if (action === 'loadQuestions') {
+  if (action === "loadQuestions") {
 
     var values = sheetNH.getDataRange().getValues();
     if (values.length <= 1) {

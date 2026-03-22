@@ -13,7 +13,7 @@ function mainDoGet(e) {
       verified: isCorrect
     })).setMimeType(ContentService.MimeType.JSON);
   }
-  //= TÌM CÂU HỎI LẺ
+  //= TÌM CÂU HỎI LẺ=======
   if (action === "getSingleQuestion") {
 
   const sheet = ss.getSheetByName("exam_data");
@@ -228,7 +228,7 @@ if (action === 'getAppConfigmt') {
 
   // 2. LẤY DANH SÁCH ỨNG DỤNG
   if (params.sheet === "ungdung") {
-    var sheet = ss.getSheetByName("ungdung");
+    var sheet = ssAdmin.getSheetByName("ungdung");
     var rows = sheet.getDataRange().getValues();
     var data = [];
     for (var i = 1; i < rows.length; i++) {
@@ -239,7 +239,7 @@ if (action === 'getAppConfigmt') {
 
   // 3. TOP 10
   if (type === 'top10') {
-    const sheet = ss.getSheetByName("Top10Display");
+    const sheet = ssAdmin.getSheetByName("Top10Display");
     if (!sheet) return createResponse("error", "Không tìm thấy sheet Top10Display");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "Chưa có dữ liệu Top 10", []);

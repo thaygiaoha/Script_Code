@@ -1150,9 +1150,8 @@ function parseQuestionFromCell(text, id) {
   return { id, type: 'mcq', question, o: options, a: options[ansIndex] || '' };
 }
 // tìm câu trùng=========================================================================================================================================
-function findDuplicateQuestions() {
-  const ss = SpreadsheetApp.openById("1LlFAI1J0b7YQ84BL674r2kr3wSoW9shgsXSIXVPDypM");
-  const sheet = ss.getSheetByName("nganhang"); 
+function findDuplicateQuestions() {  
+  const sheet = ssAdmin.getSheetByName("nganhang"); 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const rows = data.slice(1); // Bỏ dòng tiêu đề
@@ -1227,8 +1226,7 @@ function getRowObj(row, headers, rowIdx) {
 
 function deleteQuestionRow(rowIdx) {
   try {
-    const ss = SpreadsheetApp.openById("1LlFAI1J0b7YQ84BL674r2kr3wSoW9shgsXSIXVPDypM");
-    const sheet = ss.getSheetByName("nganhang");
+    const sheet = ssAdmin.getSheetByName("nganhang");
     sheet.deleteRow(parseInt(rowIdx));
     return { status: "success" };
   } catch(e) {

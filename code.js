@@ -5,6 +5,17 @@ const params = e.parameter;
   const type = params.type;
   const action = params.action || e.parameter.action;  
 //#01
+  // Xác minh bên VBA
+ if (action === "getIdGV") {
+  const sheet = ssAdmin.getSheetByName("idgv");
+  const data = sheet.getRange("A2:A" + sheet.getLastRow()).getValues().flat();
+  
+  // Lọc bỏ ô trống và chuyển về chữ thường
+  const cleanData = data.filter(String).map(id => id.toString().toLowerCase().trim());
+  
+  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
+  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+}
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   

@@ -449,9 +449,7 @@ const lock = LockService.getScriptLock();
       sheetNH.getRange("D:H").setWrap(true);
 
       // Tự chỉnh chiều cao từ dòng 2 trở xuống
-      if (lastRow > 1) {
-        sheetNH.autoResizeRows(2, lastRow - 1);
-      }
+      
 
       return ContentService.createTextOutput("🚀 Đã xong! Điền tiếp " + count + " lời giải. ID trong LG đã được đồng bộ theo ID câu hỏi.").setMimeType(ContentService.MimeType.TEXT);
     }
@@ -513,10 +511,7 @@ const lock = LockService.getScriptLock();
       var lastRow = sheetNH.getLastRow();
       sheetNH.getRange("D:H").setWrap(true);
 
-      // Tự chỉnh chiều cao từ dòng 2 trở xuống
-      if (lastRow > 1) {
-        sheetNH.autoResizeRows(2, lastRow - 1);
-      }
+      // Tự chỉnh chiều cao từ dòng 2 trở xuống     
 
       return createResponse("success", "Đã lưu " + rows.length + " câu hỏi thành công!");
     }

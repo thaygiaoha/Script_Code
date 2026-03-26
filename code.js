@@ -767,10 +767,7 @@ if (closeTime && now > closeTime) {
         }
       });
             sheet.getRange("D:H").setWrap(true);
-      // Tự chỉnh chiều cao từ dòng 2 trở xuống
-      if (lastRow > 1) {
-        sheet.autoResizeRows(2, lastRow - 1);
-      }
+      // Tự chỉnh chiều cao từ dòng 2 trở xuống   
 
       return createResponse("success", `Đã nạp xong ${updatedCount} lời giải cho mã ${examCode}!`);
     }
@@ -833,9 +830,7 @@ if (closeTime && now > closeTime) {
       sheet.getRange("E:H").setWrap(true);
 
       // Tự chỉnh chiều cao từ dòng 2 trở xuống
-      if (lastRow > 1) {
-        sheet.autoResizeRows(2, lastRow - 1);
-      }
+      
   return createResponse("success", `Đã nạp ${rows.length} câu vào mã ${examCode}`);
 }
 

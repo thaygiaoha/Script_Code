@@ -559,6 +559,7 @@ const lock = LockService.getScriptLock();
 
         sheetKq.appendRow([
           data.timestamp,                                // Cột A
+          data.idgv,
           data.examCode || data.exams || "",             // Cột B: Nhận cả 2 tên biến
           data.sbd || "",                                // Cột C
           data.name || "",                               // Cột D

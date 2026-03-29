@@ -85,7 +85,7 @@ const params = e.parameter;
     if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
       }
-    const idgvFixed = data[1][5].toString().trim()
+    const idgvFixed = data[i][5].toString().trim()
     if (idgvFixed !== idNumber.trim()) {
     return createResponse("error", "Sai IDGV!");
       }
@@ -901,7 +901,16 @@ if (closeTime && now > closeTime) {
     // 9. LƯU KẾT QUẢ THI TỔNG HỢP (Mặc định nếu có data.examCode)
     if (data.examCode) {
       let sheetResult = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
-      sheetResult.appendRow([new Date(), data.examCode, data.sbd, data.name, data.className, data.score, data.totalTime, data.idgv, JSON.stringify(data.details)]);
+      sheetResult.appendRow([
+        new Date(), 
+        data.examCode, 
+        data.sbd, 
+        data.name, 
+        data.className, 
+        data.score, 
+        data.totalTime, 
+        data.idgv, 
+        JSON.stringify(data.details)]);
       return createResponse("success", "Đã lưu kết quả thi");
     }
 // Kết thúc Dopost

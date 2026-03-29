@@ -558,15 +558,15 @@ const lock = LockService.getScriptLock();
         const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
 
         sheetKq.appendRow([
-          data.timestamp,                                // Cột A
-          data.idgv,
+          data.timestamp,                                // Cột A         
           data.examCode || data.exams || "",             // Cột B: Nhận cả 2 tên biến
           data.sbd || "",                                // Cột C
           data.name || "",                               // Cột D
           data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
-          data.details || ""                             // Cột H
+          data.idgv,                                      // Cột H
+          data.details || ""                             
         ]);
 
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))

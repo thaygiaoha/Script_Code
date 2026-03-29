@@ -565,7 +565,7 @@ const lock = LockService.getScriptLock();
           data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
-          "'" + data.idgv,                                      // Cột H
+          data.idgv,                                      // Cột H
           data.details || ""                             
         ]);
 
@@ -901,7 +901,7 @@ if (closeTime && now > closeTime) {
     // 9. LƯU KẾT QUẢ THI TỔNG HỢP (Mặc định nếu có data.examCode)
     if (data.examCode) {
       let sheetResult = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
-      sheetResult.appendRow([new Date(), data.examCode, data.sbd, data.name, data.className, data.score, data.totalTime, JSON.stringify(data.details)]);
+      sheetResult.appendRow([new Date(), data.examCode, data.sbd, data.name, data.className, data.score, data.totalTime, data.idgv, JSON.stringify(data.details)]);
       return createResponse("success", "Đã lưu kết quả thi");
     }
 // Kết thúc Dopost

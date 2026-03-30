@@ -589,8 +589,7 @@ const lock = LockService.getScriptLock();
         const sheetData = ss.getSheetByName("exam_data");
         const sheetExam = ss.getSheetByName("exams");
         const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
-        const dataDS = sheetDS.getDataRange().getValues();
-        const idgvFixed = allDataDS[1] ? allDataDS[i][5].toString().trim() : "";
+        const dataDS = sheetDS.getDataRange().getValues();        
         if (dataDS.length < 2) {
           return createResponse("error", "Danh sách thí sinh trống!");
       }    

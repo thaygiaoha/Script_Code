@@ -450,7 +450,72 @@ function mainDoPost(e) {
     if (e.postData && e.postData.type === "application/json") {
       data = JSON.parse(e.postData.contents);    }
    
-    const action = (data.action || e.parameter.action || "").toString();
+    const action = (data.action || e.parameter.action || JSON.parse(e.postData.contents).action || "").toString(); // mới thêm
+     // mới thêm đăng nhập giáo viên, học sinh
+     if (action === "registerTeacher") {
+    var sheet = ssAdmin.getSheetByName("idgv");
+    sheet.appendRow([data.idgv, data.fullname, data.pass, data.subject]);
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (action === "loginTeacher") {
+    var sheet = ssAdmin.getSheetByName("idgv");
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][0] == data.idgv && values[i][2] == data.pass) {
+        return ContentService.createTextOutput(JSON.stringify({ 
+          success: true, 
+          user: { idgv: values[i][0], fullname: values[i][1], subject: values[i][3] } 
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: "Sai tài khoản hoặc mật khẩu" })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (action === "loginStudent") {
+    var sheet = ss.getSheetByName("danhsach");
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][0] == data.sbd && values[i][5] == data.idgv) {
+        return ContentService.createTextOutput(JSON.stringify({ 
+          success: true, 
+          student: { sbd: values[i][0], name: values[i][1], class: values[i][2], idgv: values[i][5] } 
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, message: "Sai SBD hoặc IDGV" })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  if (action === "uploadStudents") {
+    var sheet = ss.getSheetByName("danhsach");
+    data.students.forEach(function(student) {
+      sheet.appendRow([student.sbd, student.name, student.class, student.limit, student.limittab, student.idgv, student.taikhoanapp]);
+    });
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === "deleteStudent") {
+    var sheet = ss.getSheetByName("danhsach");
+    var values = sheet.getDataRange().getValues();
+    for (var i = values.length - 1; i >= 1; i--) {
+      if (values[i][0] == data.sbd && values[i][5] == data.idgv) {
+        sheet.deleteRow(i + 1);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === "changePassword") {
+    var sheet = ssAdmin.getSheetByName("idgv");
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (values[i][0] == data.idgv) {
+        sheet.getRange(i + 1, 3).setValue(data.newPass);
+        return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+     // kết thúc mới thêm
 
     const res = (status, message, payload) =>
       ContentService.createTextOutput(

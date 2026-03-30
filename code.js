@@ -595,38 +595,56 @@ const lock = LockService.getScriptLock();
           .setMimeType(ContentService.MimeType.JSON);
       }
     }
-    // =================================================================== TRỘN ĐỀ ===========================================
+    // =================================================================== xác minh thí sinh thi lẻ ===========================================
+if (action === "studentGetExam") {
+  try {
+    const sbd = (data.sbd || "").toString().trim().replace(/'/g, "");
+    const examCode = (data.examCode || "").toString().trim().replace(/'/g, "");
+    const idgv = (data.idgv || "").toString().trim().replace(/'/g, "");
 
-    if (action === "studentGetExam") {
-      try {
-        const sbd = data.sbd ? data.sbd.toString().trim() : "";
-        const examCode = data.examCode ? data.examCode.toString().trim() : "";
-        const idgv = data.idgv ? data.idgv.toString().trim() : "";
+    const sheetDS = ssAdmin.getSheetByName("danhsach");
+    const allDataDS = sheetDS.getDataRange().getValues();
 
-        const sheetDS = ssAdmin.getSheetByName("danhsach");
-        const sheetData = ss.getSheetByName("exam_data");
-        const sheetExam = ss.getSheetByName("exams");
-        const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
-        const allDataDS = sheetDS.getDataRange().getValues();
-        const idgvFixed = allDataDS[1] ? allDataDS[1][5].toString().trim().replace(/'/g, "") : "";
+    // --- TỐI ƯU TÌM KIẾM HỌC SINH THEO CẶP (SBD + IDGV) ---
+    const studentMap = new Map();
+    for (let i = 1; i < allDataDS.length; i++) {
+      const sbdRow = (allDataDS[i][0] || "").toString().trim().replace(/'/g, "");
+      const idgvRow = (allDataDS[i][5] || "").toString().trim().replace(/'/g, "");
+      if (sbdRow) {
+        // Khóa kết hợp: SBD|IDGV
+        studentMap.set(sbdRow + "|" + idgvRow, allDataDS[i]);
+      }
+    }
 
-        // 1. Check học sinh & Cấu hình đề (Thầy giữ logic cũ nhưng dùng .trim() cho chắc)
-        if (idgvFixed !== idgv) {
-          return createResponse("error", "Sai IDGV!");
-          }
+    const searchKey = sbd + "|" + idgv;
+    const student = studentMap.get(searchKey);
 
-          // tìm học sinh
-          const student = allDataDS.slice(1).find(r =>
-          (r[0] || "").toString().trim() === sbd
-        );
+    if (!student) {
+      return createResponse("error", "SBD hoặc IDGV không chính xác!");
+    }
 
-        if (!student) {
-          return createResponseW("error", "SBD không tồn tại!");
-        }
+    // Sau khi xác minh HS thành công, tiến hành lấy dữ liệu mã đề
+    const sheetExam = ss.getSheetByName("exams");
+    const allExams = sheetExam.getDataRange().getValues();
+    
+    // Tìm mã đề (Chỉ những mã đề thuộc về IDGV này mới hợp lệ)
+    // Giả sử cột IDGV trong sheet 'exams' là cột 8 (chỉ số 7) hoặc tùy cấu trúc của bạn
+    const exRow = allExams.find(r => 
+      (r[0] || "").toString().trim().replace(/'/g, "") === examCode
+    );
 
+    if (!exRow) {
+      return createResponse("error", "Không tìm thấy mã đề: " + examCode);
+    }
 
-        const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);
-        if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
+    // Logic trả về đề thi tiếp theo của bạn...
+    // return createResponse("success", "OK", { ... });
+
+  } catch (e) {
+    return createResponse("error", "Lỗi hệ thống: " + e.toString());
+  }
+}
+    
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();
 

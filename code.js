@@ -87,7 +87,7 @@ if (type === 'verifyStudent') {
     return createResponse("error", "Danh sách thí sinh trống!");
   }
 
-  // Tạo Map với Key kết hợp: SBD + "|" + IDGV
+  // Tạo Map với Key kết hợp: SBD + "." + IDGV
   const studentMap = new Map();
   
   for (let i = 1; i < data.length; i++) {
@@ -96,12 +96,12 @@ if (type === 'verifyStudent') {
     
     if (sbdRow) {
       // Lưu khóa kết hợp để kiểm tra chính xác cặp SBD và IDGV
-      studentMap.set(sbdRow + "|" + idgvRow, data[i]);
+      studentMap.set(sbdRow + "." + idgvRow, data[i]);
     }
   }
 
   // Kiểm tra cặp (SBD + IDGV) từ params gửi lên
-  const searchKey = sbd + "|" + idNumber;
+  const searchKey = sbd + "." + idNumber;
 
   if (studentMap.has(searchKey)) {
     const row = studentMap.get(searchKey);
@@ -612,11 +612,11 @@ if (action === "studentGetExam") {
       const idgvRow = (allDataDS[i][5] || "").toString().trim().replace(/'/g, "");
       if (sbdRow) {
         // Khóa kết hợp: SBD|IDGV
-        studentMap.set(sbdRow + "|" + idgvRow, allDataDS[i]);
+        studentMap.set(sbdRow + "." + idgvRow, allDataDS[i]);
       }
     }
 
-    const searchKey = sbd + "|" + idgv;
+    const searchKey = sbd + "." + idgv;
     const student = studentMap.get(searchKey);
 
     if (!student) {

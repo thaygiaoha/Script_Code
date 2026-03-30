@@ -708,8 +708,8 @@ if (closeTime && now > closeTime) {
         };
 
         // 2. Lấy câu hỏi - ĐOẠN ĐÃ TỐI ƯU
-        const allRows = sheetData.getDataRange().getValues();
-        const filteredQuestions = allRows.slice(1)
+        const allRowstle = sheetData.getDataRange().getValues();
+        const filteredQuestions = allRowstle.slice(1)
           .filter(r => r[0].toString().trim() === examCode)
           .map(r => {
             let raw = r[4];

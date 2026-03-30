@@ -646,7 +646,7 @@ if (action === "studentGetExam") {
 }
     
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
-const now = new Date();
+var now = new Date();
 
 const openTime = exRow[12] instanceof Date 
   ? exRow[12] 

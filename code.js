@@ -96,6 +96,7 @@ const params = e.parameter;
           idnumber: idNumber, 
           sbd: sbd
         });
+         break; 
       }
     }
     return createResponse("error", "Thí sinh không tồn tại!");
@@ -611,18 +612,7 @@ for (var i = 1; i < dataDS.length; i++) {
 if (!studentRow) {
   return createResponse("error", "SBD hoặc IDGV không chính xác!");
 }
-
-// 3. Nếu tìm thấy, trả về dữ liệu
-return createResponse("success", "OK", {
-  name: studentRow[1], 
-  class: studentRow[2], 
-  limit: studentRow[3],
-  limittab: studentRow[4], 
-  taikhoanapp: studentRow[6], 
-  idnumber: "'" + idNumber, 
-  sbd: sbd
-});
-        const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);
+const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();

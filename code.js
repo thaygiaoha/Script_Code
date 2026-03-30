@@ -596,20 +596,20 @@ const lock = LockService.getScriptLock();
       }    
 
        // 1. Tìm học sinh bằng vòng lặp (An toàn và nhanh nhất)
-var studentRow = null;
+var student = null;
 for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = (dataDS[i][0] || "").toString().trim();
   var rowIDGV = (dataDS[i][5] || "").toString().trim();
   
   // So sánh chuẩn cả 2 điều kiện
   if (rowSBD === sbd.toString().trim() && rowIDGV === idgv) {
-    studentRow = dataDS[i];
+    student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
 }
 
 // 2. Kiểm tra nếu không tìm thấy
-if (!studentRow) {
+if (!student) {
   return createResponse("error", "SBD hoặc IDGV không chính xác!");
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);

@@ -980,7 +980,7 @@ function replaceIdInBlock(block, newId) {
 
 
 function getAppConfig() {
-  var sheetCD = ssAdmin.getSheetByName("dangcd");
+  var sheetCD = ss.getSheetByName("dangcd");
   var dataCD = sheetCD.getDataRange().getValues();
 
   var topics = [];
@@ -1015,7 +1015,7 @@ function getAppConfig() {
 function getAppConfigmt() {
   try {
     // Lưu ý: Đảm bảo ssAdmin đã được khai báo ở đầu script của bạn
-    var sheetCD = ssAdmin.getSheetByName("dangcd");
+    var sheetCD = ss.getSheetByName("dangcd");
     if (!sheetCD) return { topics: [] };
 
     var dataCD = sheetCD.getDataRange().getValues();

@@ -415,7 +415,7 @@ const lock = LockService.getScriptLock();
       var sheetGV = ssAdmin.getSheetByName("idgv");
       var rows = sheetGV.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
-        if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
+        if (rows[i][0].toString().trim().replace(/'/g, "") === data.idnumber.toString().trim() && rows[i][1].toString().trim().replace(/'/g, "") === data.password.toString().trim()) {
           return resJSON({ status: "success" });
         }
       }
@@ -423,7 +423,7 @@ const lock = LockService.getScriptLock();
     }
 // 6. XÁC MINH ADMIN (verifyAdmin)
     if (action === "verifyAdmin") {      
-      if (data.password.toString().trim() === passAdmin) return resJSON({ status: "success", message: "Chào Admin!" });
+      if (data.password.toString().trim().replace(/'/g, "") === passAdmin) return resJSON({ status: "success", message: "Chào Admin!" });
       return resJSON({ status: "error", message: "Sai mật khẩu!" });
     }
 // #06 Ma trận
@@ -603,12 +603,12 @@ const lock = LockService.getScriptLock();
         const examCode = data.examCode ? data.examCode.toString().trim() : "";
         const idgv = data.idgv ? data.idgv.toString().trim() : "";
 
-        const sheetDS = ss.getSheetByName("danhsach");
+        const sheetDS = ssAdmin.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");
         const sheetExam = ss.getSheetByName("exams");
         const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
         const allDataDS = sheetDS.getDataRange().getValues();
-        const idgvFixed = allDataDS[1] ? allDataDS[1][5].toString().trim() : "";
+        const idgvFixed = allDataDS[1] ? allDataDS[1][5].toString().trim().replace(/'/g, "") : "";
 
         // 1. Check học sinh & Cấu hình đề (Thầy giữ logic cũ nhưng dùng .trim() cho chắc)
         if (idgvFixed !== idgv) {

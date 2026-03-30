@@ -76,48 +76,30 @@ const params = e.parameter;
     return resJSON({ password: password.toString() });
   }
 
-  // 6. XÁC MINH THÍ SINH (Mỗi thí sinh 1 IDGV riêng - Tối ưu kép)
-if (type === 'verifyStudent') {
-  const idNumber = (params.idnumber || "").toString().trim();
-  const sbd = (params.sbd || "").toString().trim();
-  const sheet = ssAdmin.getSheetByName("danhsach");
-  const data = sheet.getDataRange().getValues();
-
-  if (data.length < 2) {
+  // 6. XÁC MINH THÍ SINH
+  if (type === 'verifyStudent') {
+    const idNumber = params.idnumber;
+    const sbd = params.sbd;
+    const sheet = ssAdmin.getSheetByName("danhsach");
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
-  }
-
-  // Tạo Map với Key kết hợp: SBD + "." + IDGV
-  const studentMap = new Map();
-  
-  for (let i = 1; i < data.length; i++) {
-    const sbdRow = (data[i][0] || "").toString().trim().replace(/'/g, "");
-    const idgvRow = (data[i][5] || "").toString().trim().replace(/'/g, "");
-    
-    if (sbdRow) {
-      // Lưu khóa kết hợp để kiểm tra chính xác cặp SBD và IDGV
-      studentMap.set(sbdRow + "." + idgvRow, data[i]);
+      }    
+    for (let i = 1; i < data.length; i++) {
+      if ((data[i][0] || "").toString().trim() === sbd.toString().trim() && data[i][5].toString().trim() === idNumber.toString().trim()) {
+        return createResponse("success", "OK", {
+          name: data[i][1], 
+          class: data[i][2], 
+          limit: data[i][3],
+          limittab: data[i][4], 
+          taikhoanapp: data[i][6], 
+          idnumber: idNumber, 
+          sbd: sbd
+        });
+      }
     }
+    return createResponse("error", "Thí sinh không tồn tại!");
   }
-
-  // Kiểm tra cặp (SBD + IDGV) từ params gửi lên
-  const searchKey = sbd + "." + idNumber;
-
-  if (studentMap.has(searchKey)) {
-    const row = studentMap.get(searchKey);
-    return createResponse("success", "OK", {
-      name: row[1], 
-      class: row[2], 
-      limit: row[3],
-      limittab: row[4], 
-      taikhoanapp: row[6], 
-      idnumber: idNumber, 
-      sbd: sbd
-    });
-  }
-  // Nếu không tìm thấy cặp khớp, trả về lỗi chung
-  return createResponse("error", "SBD hoặc IDGV không chính xác!");
-}
 
 // #02 Thi theo ma trận
 // load ngân hàng đề
@@ -415,7 +397,7 @@ const lock = LockService.getScriptLock();
       var sheetGV = ssAdmin.getSheetByName("idgv");
       var rows = sheetGV.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
-        if (rows[i][0].toString().trim().replace(/'/g, "") === data.idnumber.toString().trim() && rows[i][1].toString().trim().replace(/'/g, "") === data.password.toString().trim()) {
+        if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
           return resJSON({ status: "success" });
         }
       }
@@ -423,7 +405,7 @@ const lock = LockService.getScriptLock();
     }
 // 6. XÁC MINH ADMIN (verifyAdmin)
     if (action === "verifyAdmin") {      
-      if (data.password.toString().trim().replace(/'/g, "") === passAdmin) return resJSON({ status: "success", message: "Chào Admin!" });
+      if (data.password.toString().trim() === passAdmin) return resJSON({ status: "success", message: "Chào Admin!" });
       return resJSON({ status: "error", message: "Sai mật khẩu!" });
     }
 // #06 Ma trận
@@ -584,7 +566,7 @@ const lock = LockService.getScriptLock();
           data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
-          "'" + (data.idgv || ""),                                     // Cột H
+          "'" + data.idgv || "",                                      // Cột H
           data.details || ""                             
         ]);
 
@@ -595,58 +577,56 @@ const lock = LockService.getScriptLock();
           .setMimeType(ContentService.MimeType.JSON);
       }
     }
-    // =================================================================== xác minh thí sinh thi lẻ ===========================================
-if (action === "studentGetExam") {
-  try {
-    const sbd = (data.sbd || "").toString().trim().replace(/'/g, "");
-    const examCode = (data.examCode || "").toString().trim().replace(/'/g, "");
-    const idgv = (data.idgv || "").toString().trim().replace(/'/g, "");
+    // =================================================================== TRỘN ĐỀ ===========================================
 
-    const sheetDS = ssAdmin.getSheetByName("danhsach");
-    const allDataDS = sheetDS.getDataRange().getValues();
+    if (action === "studentGetExam") {
+      try {
+        const sbd = data.sbd ? data.sbd.toString().trim() : "";
+        const examCode = data.examCode ? data.examCode.toString().trim() : "";
+        const idgv = data.idgv ? data.idgv.toString().trim() : "";
 
-    // --- TỐI ƯU TÌM KIẾM HỌC SINH THEO CẶP (SBD + IDGV) ---
-    const studentMap = new Map();
-    for (let i = 1; i < allDataDS.length; i++) {
-      const sbdRow = (allDataDS[i][0] || "").toString().trim().replace(/'/g, "");
-      const idgvRow = (allDataDS[i][5] || "").toString().trim().replace(/'/g, "");
-      if (sbdRow) {
-        // Khóa kết hợp: SBD|IDGV
-        studentMap.set(sbdRow + "." + idgvRow, allDataDS[i]);
-      }
-    }
+        const sheetDS = ssAdmin.getSheetByName("danhsach");
+        const sheetData = ss.getSheetByName("exam_data");
+        const sheetExam = ss.getSheetByName("exams");
+        const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
+        const dataDS = sheetDS.getDataRange().getValues();
+        const idgvFixed = allDataDS[1] ? allDataDS[i][5].toString().trim() : "";
+        if (dataDS.length < 2) {
+          return createResponse("error", "Danh sách thí sinh trống!");
+      }    
 
-    const searchKey = sbd + "." + idgv;
-    const student = studentMap.get(searchKey);
-
-    if (!student) {
-      return createResponse("error", "SBD hoặc IDGV không chính xác!");
-    }
-
-    // Sau khi xác minh HS thành công, tiến hành lấy dữ liệu mã đề
-    const sheetExam = ss.getSheetByName("exams");
-    const allExams = sheetExam.getDataRange().getValues();
-    
-    // Tìm mã đề (Chỉ những mã đề thuộc về IDGV này mới hợp lệ)
-    // Giả sử cột IDGV trong sheet 'exams' là cột 8 (chỉ số 7) hoặc tùy cấu trúc của bạn
-    const exRow = allExams.find(r => 
-      (r[0] || "").toString().trim().replace(/'/g, "") === examCode
-    );
-
-    if (!exRow) {
-      return createResponse("error", "Không tìm thấy mã đề: " + examCode);
-    }
-
-    // Logic trả về đề thi tiếp theo của bạn...
-    // return createResponse("success", "OK", { ... });
-
-  } catch (e) {
-    return createResponse("error", "Lỗi hệ thống: " + e.toString());
+       // 1. Tìm học sinh bằng vòng lặp (An toàn và nhanh nhất)
+var studentRow = null;
+for (var i = 1; i < dataDS.length; i++) {
+  var rowSBD = (dataDS[i][0] || "").toString().trim();
+  var rowIDGV = (dataDS[i][5] || "").toString().trim();
+  
+  // So sánh chuẩn cả 2 điều kiện
+  if (rowSBD === sbd.toString().trim() && rowIDGV === idNumber.toString().trim()) {
+    studentRow = dataDS[i];
+    break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
 }
-    
+
+// 2. Kiểm tra nếu không tìm thấy
+if (!studentRow) {
+  return createResponse("error", "SBD hoặc IDGV không chính xác!");
+}
+
+// 3. Nếu tìm thấy, trả về dữ liệu
+return createResponse("success", "OK", {
+  name: studentRow[1], 
+  class: studentRow[2], 
+  limit: studentRow[3],
+  limittab: studentRow[4], 
+  taikhoanapp: studentRow[6], 
+  idnumber: "'" + idNumber, 
+  sbd: sbd
+});
+        const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);
+        if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
-var now = new Date();
+const now = new Date();
 
 const openTime = exRow[12] instanceof Date 
   ? exRow[12] 
@@ -708,8 +688,8 @@ if (closeTime && now > closeTime) {
         };
 
         // 2. Lấy câu hỏi - ĐOẠN ĐÃ TỐI ƯU
-        const allRowstle = sheetData.getDataRange().getValues();
-        const filteredQuestions = allRowstle.slice(1)
+        const allRows = sheetData.getDataRange().getValues();
+        const filteredQuestions = allRows.slice(1)
           .filter(r => r[0].toString().trim() === examCode)
           .map(r => {
             let raw = r[4];
@@ -1493,4 +1473,3 @@ function jsonOutput(obj) {
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
-

@@ -612,7 +612,10 @@ for (var i = 1; i < dataDS.length; i++) {
 if (!student) {
   return createResponse("error", "SBD hoặc IDGV không chính xác!");
 }
-const exRow = sheetExam.getDataRange().getValues().find(r => (r[0] || "").toString() === examCode);
+const exRow = sheetExam.getDataRange().getValues().find(r => 
+  (r[0] || "").toString() === examCode && // Khớp mã đề (Cột A)
+  (r[1] || "").toString() === idgv       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
+);
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();

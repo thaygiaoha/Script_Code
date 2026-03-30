@@ -602,7 +602,7 @@ for (var i = 1; i < dataDS.length; i++) {
   var rowIDGV = (dataDS[i][5] || "").toString().trim();
   
   // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === sbd.toString().trim() && rowIDGV === idNumber.toString().trim()) {
+  if (rowSBD === sbd.toString().trim() && rowIDGV === idgv) {
     studentRow = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }

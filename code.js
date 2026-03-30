@@ -80,7 +80,7 @@ const params = e.parameter;
 if (type === 'verifyStudent') {
   const idNumber = (params.idnumber || "").toString().trim();
   const sbd = (params.sbd || "").toString().trim();
-  const sheet = ss.getSheetByName("danhsach");
+  const sheet = ssAdmin.getSheetByName("danhsach");
   const data = sheet.getDataRange().getValues();
 
   if (data.length < 2) {
@@ -91,8 +91,8 @@ if (type === 'verifyStudent') {
   const studentMap = new Map();
   
   for (let i = 1; i < data.length; i++) {
-    const sbdRow = (data[i][0] || "").toString().trim();
-    const idgvRow = (data[i][5] || "").toString().trim();
+    const sbdRow = (data[i][0] || "").toString().trim().replace(/'/g, "");
+    const idgvRow = (data[i][5] || "").toString().trim().replace(/'/g, "");
     
     if (sbdRow) {
       // Lưu khóa kết hợp để kiểm tra chính xác cặp SBD và IDGV

@@ -584,7 +584,7 @@ const lock = LockService.getScriptLock();
           data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
-          data.idgv,                                      // Cột H
+          "'" + (data.idgv || ""),                                     // Cột H
           data.details || ""                             
         ]);
 

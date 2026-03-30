@@ -76,29 +76,48 @@ const params = e.parameter;
     return resJSON({ password: password.toString() });
   }
 
-  // 6. XÁC MINH THÍ SINH
-  if (type === 'verifyStudent') {
-    const idNumber = params.idnumber;
-    const sbd = params.sbd;
-    const sheet = ss.getSheetByName("danhsach");
-    const data = sheet.getDataRange().getValues();
-    if (data.length < 2) {
+  // 6. XÁC MINH THÍ SINH (Mỗi thí sinh 1 IDGV riêng - Tối ưu kép)
+if (type === 'verifyStudent') {
+  const idNumber = (params.idnumber || "").toString().trim();
+  const sbd = (params.sbd || "").toString().trim();
+  const sheet = ss.getSheetByName("danhsach");
+  const data = sheet.getDataRange().getValues();
+
+  if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
-      }
-    const idgvFixed = data[i][5].toString().trim()
-    if (idgvFixed !== idNumber.trim()) {
-    return createResponse("error", "Sai IDGV!");
-      }
-    for (let i = 1; i < data.length; i++) {
-      if ((data[i][0] || "").toString().trim() === sbd.trim()) {
-        return createResponse("success", "OK", {
-          name: data[i][1], class: data[i][2], limit: data[i][3],
-          limittab: data[i][4], taikhoanapp: data[i][6], idnumber: idNumber, sbd: sbd
-        });
-      }
-    }
-    return createResponse("error", "Thí sinh không tồn tại!");
   }
+
+  // Tạo Map với Key kết hợp: SBD + "|" + IDGV
+  const studentMap = new Map();
+  
+  for (let i = 1; i < data.length; i++) {
+    const sbdRow = (data[i][0] || "").toString().trim();
+    const idgvRow = (data[i][5] || "").toString().trim();
+    
+    if (sbdRow) {
+      // Lưu khóa kết hợp để kiểm tra chính xác cặp SBD và IDGV
+      studentMap.set(sbdRow + "|" + idgvRow, data[i]);
+    }
+  }
+
+  // Kiểm tra cặp (SBD + IDGV) từ params gửi lên
+  const searchKey = sbd + "|" + idNumber;
+
+  if (studentMap.has(searchKey)) {
+    const row = studentMap.get(searchKey);
+    return createResponse("success", "OK", {
+      name: row[1], 
+      class: row[2], 
+      limit: row[3],
+      limittab: row[4], 
+      taikhoanapp: row[6], 
+      idnumber: idNumber, 
+      sbd: sbd
+    });
+  }
+  // Nếu không tìm thấy cặp khớp, trả về lỗi chung
+  return createResponse("error", "SBD hoặc IDGV không chính xác!");
+}
 
 // #02 Thi theo ma trận
 // load ngân hàng đề

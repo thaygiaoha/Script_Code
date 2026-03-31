@@ -1533,17 +1533,19 @@ function resetData(type, password, mode, exams) {
 }
 // =============================================================Kết thúc Reset chung=========================================================================
 
-// xem điểm
+// xem điểm - Bản sửa lỗi trả về IDGV
 function getScore(e) {
   const idgv = (e.parameter.idgv || "").trim();
   const sbd = (e.parameter.sbd || "").trim();
   const exams = (e.parameter.exams || "").trim().toUpperCase();
+  
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
-    row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
-    row[2].toString().replace("'", "").trim() === sbd.trim() && row[7].toString().replace("'", "").trim() === idgv.trim()
+    row[1].toString().trim().toUpperCase() === exams &&
+    row[2].toString().replace("'", "").trim() === sbd && 
+    row[7].toString().replace("'", "").trim() === idgv // Kiểm tra cột H
   );
 
   if (results.length === 0) {
@@ -1554,22 +1556,22 @@ function getScore(e) {
 
   const row = results[0];
 
+  // TRẢ VỀ ĐẦY ĐỦ CÁC TRƯỜNG ĐỂ REACT HIỂN THỊ
   return ContentService
     .createTextOutput(JSON.stringify({
       status: "success",
       data: {
-        exams: row[1],
-        sbd: row[2],
-        name: row[3],
-        class: row[4],
-        tongdiem: row[5],
-        time: row[6],
-        idgv: row[7]
+        idgv: row[7],    // THÊM DÒNG NÀY: Trả về cột H để hiện "Mã giáo viên"
+        exams: row[1],   // Cột B
+        sbd: row[2],     // Cột C
+        name: row[3],    // Cột D
+        class: row[4],   // Cột E
+        tongdiem: row[5],// Cột F
+        time: row[6]     // Cột G
       }
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
-
 function createResponseW(status, message, data = null) {
   const output = { status: status, message: message };
   if (data !== null) output.data = data;

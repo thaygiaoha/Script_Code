@@ -1535,9 +1535,9 @@ function resetData(type, password, mode, exams) {
 
 // xem điểm
 function getScore(e) {
-  const idgv = e.parameter.idgv;
-  const sbd = e.parameter.sbd;
-  const exams = e.parameter.exams;
+  const idgv = (e.parameter.idgv || "").trim();
+  const sbd = (e.parameter.sbd || "").trim();
+  const exams = (e.parameter.exams || "").trim().toUpperCase();
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
@@ -1563,7 +1563,8 @@ function getScore(e) {
         name: row[3],
         class: row[4],
         tongdiem: row[5],
-        time: row[6]
+        time: row[6],
+        idgv: row[7]
       }
     }))
     .setMimeType(ContentService.MimeType.JSON);

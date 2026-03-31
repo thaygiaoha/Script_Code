@@ -1535,15 +1535,15 @@ function resetData(type, password, mode, exams) {
 
 // xem điểm
 function getScore(e) {
+  const idgv = e.parameter.idgv;
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
-
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
     row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
-    row[2].toString().trim() === sbd.trim()
+    row[2].toString().replace("'", "").trim() === sbd.trim() && row[7].toString().replace("'", "").trim() === idgv.trim()
   );
 
   if (results.length === 0) {

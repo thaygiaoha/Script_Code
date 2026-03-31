@@ -398,7 +398,7 @@ function doGet(e) {
 
   // 2. LẤY DANH SÁCH ỨNG DỤNG
   if (params.sheet === "ungdung") {
-    var sheet = ss.getSheetByName("ungdung");
+    var sheet = ssAdmin.getSheetByName("ungdung");
     var rows = sheet.getDataRange().getValues();
     var data = [];
     for (var i = 1; i < rows.length; i++) {
@@ -409,7 +409,7 @@ function doGet(e) {
 
   // 3. TOP 10
   if (type === 'top10') {
-    const sheet = ss.getSheetByName("Top10Display");
+    const sheet = ssAdmin.getSheetByName("Top10Display");
     if (!sheet) return createResponse("error", "Không tìm thấy sheet Top10Display");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "Chưa có dữ liệu Top 10", []);

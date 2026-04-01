@@ -226,7 +226,7 @@ const params = e.parameter;
       var raw = rows[i][4];
       if (!raw) continue;
       try {
-        var jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
+        var jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, "");
         var obj = JSON.parse(jsonText);
         if (!obj.classTag) obj.classTag = rows[i][1];
         obj.loigiai = rows[i][7] || "";

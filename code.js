@@ -586,7 +586,7 @@ const lock = LockService.getScriptLock();
         const examCode = data.examCode ? data.examCode.toString().trim() : "";
         const idgv = data.idgv ? data.idgv.toString().trim() : "";
 
-        const sheetDS = ssAdmin.getSheetByName("danhsach");
+        const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");
         const sheetExam = ss.getSheetByName("exams");
         const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
@@ -1155,7 +1155,7 @@ function parseQuestionFromCell(text, id) {
 }
 // tìm câu trùng=========================================================================================================================================
 function findDuplicateQuestions() {  
-  const sheet = ssAdmin.getSheetByName("nganhang"); 
+  const sheet = ss.getSheetByName("nganhang"); 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const rows = data.slice(1); // Bỏ dòng tiêu đề
@@ -1230,7 +1230,7 @@ function getRowObj(row, headers, rowIdx) {
 
 function deleteQuestionRow(rowIdx) {
   try {
-    const sheet = ssAdmin.getSheetByName("nganhang");
+    const sheet = ss.getSheetByName("nganhang");
     sheet.deleteRow(parseInt(rowIdx));
     return { status: "success" };
   } catch(e) {

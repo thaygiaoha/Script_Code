@@ -730,7 +730,7 @@ function mainDoPost(e) {
         const examCode = data.examCode ? data.examCode.toString().trim() : "";
         const idgv = data.idgv ? data.idgv.toString().trim() : "";
 
-        const sheetDS = ssAdmin.getSheetByName("danhsach");
+        const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");
         const sheetExam = ss.getSheetByName("exams");
         const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
@@ -1110,7 +1110,7 @@ function getSpreadsheetByTarget(targetId) {
 
 // Hàm lấy cấu hình chuyên đề từ sheet dangcd
 function getAppConfig() {
-  var sheetCD = ssAdmin.getSheetByName("dangcd");
+  var sheetCD = ss.getSheetByName("dangcd");
   var dataCD = sheetCD.getDataRange().getValues();
 
   var topics = [];
@@ -1145,7 +1145,7 @@ function getAppConfig() {
 function getAppConfigmt() {
   try {
     // Lưu ý: Đảm bảo ssAdmin đã được khai báo ở đầu script của bạn
-    var sheetCD = ssAdmin.getSheetByName("dangcd");
+    var sheetCD = ss.getSheetByName("dangcd");
     if (!sheetCD) return { topics: [] };
 
     var dataCD = sheetCD.getDataRange().getValues();

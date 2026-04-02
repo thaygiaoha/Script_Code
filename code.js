@@ -1465,3 +1465,8 @@ function jsonOutput(obj) {
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+function N9(id) {
+  return id.toString().replace(/'/g, "").trim().slice(-9);
+}
+

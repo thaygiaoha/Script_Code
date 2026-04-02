@@ -1758,7 +1758,7 @@ function updateTeacher(e) {
   return createResponse("error", "Không tìm thấy GV!");
 }
 // Hàm lấy 9 ký tự bên phải
-function normalizeId(id) {
+function N9(id) {
   return id.toString().replace(/'/g, "").trim().slice(-9);
 }
 

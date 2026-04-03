@@ -174,17 +174,20 @@ const params = e.parameter;
   // 7. LẤY CÂU HỎI THEO ID
   if (action === 'getQuestionById') {
     var id = params.id;
+    var sheetNH = ss.getSheetByName("nganhang");
     var dataNH = sheetNH.getDataRange().getValues();
     for (var i = 1; i < dataNH.length; i++) {
       if (dataNH[i][0].toString() === id.toString()) {
         return createResponse("success", "OK", {
-          idquestion: dataNH[i][0],
-          classTag: dataNH[i][1],
+          idquestion: dataNH[i][0], 
+          classTag: dataNH[i][1], 
+          type: dataNH[i][2],
           question: dataNH[i][4],
           options: dataNH[i][5],
           answer: dataNH[i][6],
           loigiai: dataNH[i][7],
           datetime: dataNH[i][8]
+          
         });
       }
     }
@@ -210,7 +213,7 @@ const params = e.parameter;
               numSA: JSON.parse(row[13]), scoreSA: parseFloat(row[14]), saL3: JSON.parse(row[15]), saL4: JSON.parse(row[16])
             }
           });
-        } catch (err) { }
+        } catch (err) {}
       }
     }
     return createResponse("success", "OK", results);
@@ -218,23 +221,47 @@ const params = e.parameter;
 
   // 9. LẤY TẤT CẢ CÂU HỎI (Hàm này thầy bị trùng, em gom lại bản chuẩn nhất)
   if (action === "getQuestions") {
-    var sheet = ss.getSheetByName("nganhang");
-    var lastRow = sheet.getLastRow();
-    var rows = sheet.getRange(2,1,lastRow-1,9).getValues();
-    var questions = [];
-    for (var i = 1; i < rows.length; i++) {
-      var raw = rows[i][4];
-      if (!raw) continue;
-      try {
-        var jsonText = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, "");
-        var obj = JSON.parse(jsonText);
-        if (!obj.classTag) obj.classTag = rows[i][1];
-        obj.loigiai = rows[i][7] || "";
-        questions.push(obj);
-      } catch (e) { }
+  var sheet = ss.getSheetByName("nganhang");
+  var rows = sheet.getDataRange().getValues();
+  var questions = [];
+
+  for (var i = 1; i < rows.length; i++) {
+    if (!rows[i][0]) continue;
+
+    var parsedOptions = null;
+    try {
+      parsedOptions = rows[i][5] ? JSON.parse(rows[i][5]) : null;
+    } catch(e) {
+      parsedOptions = null;
     }
-    return createResponse("success", "OK", questions);
+
+    var qObj = {
+      id: rows[i][0],
+      classTag: rows[i][1] || "",
+      type: rows[i][2] || "",
+      part: rows[i][3] || "",
+      question: rows[i][4] || "",
+      a: rows[i][6] || "",
+      loigiai: rows[i][7] || ""
+    };
+
+    if (qObj.type === "mcq") {
+      qObj.o = parsedOptions;
+    }
+
+    if (qObj.type === "true-false") {
+      qObj.s = parsedOptions;
+    }
+
+    if (qObj.type === "short-answer") {
+      // không cần options
+    }
+
+    questions.push(qObj);
   }
+
+  return createResponse("success", "OK", questions);
+}
 
 // #03 thi lẻ
 //= TÌM CÂU HỎI LẺ=======

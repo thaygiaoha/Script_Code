@@ -8,7 +8,10 @@ const params = e.parameter;
   // Xác minh bên VBA
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("A2:A" + sheet.getLastRow()).getValues().flat();
+  const data = sheet.getRange("A2:A" + sheet.getLastRow())
+                  .getValues()
+                  .flat()
+                  .map(item => String(item).slice(-9));
   
   // Lọc bỏ ô trống và chuyển về chữ thường
   const cleanData = data.filter(String).map(id => id.toString().toLowerCase().trim());

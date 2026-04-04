@@ -61,10 +61,10 @@ const params = e.parameter;
 
     for (var i = 1; i < rows.length; i++) {
       // Kiểm tra số điện thoại (cột B) và mật khẩu (cột C)
-      if (rows[i][1].toString() === phone && rows[i][2].toString() === pass) {
+      if (N9(rows[i][1]) === N9(phone) && String(rows[i][2] || "") === String(pass)) {
 
         return createResponse("success", "OK", {
-          phoneNumber: rows[i][1].toString(),
+          phoneNumber: "0" + N9(rows[i][1]),
           vip: rows[i][3] ? rows[i][3].toString() : "VIP0",
           name: rows[i][4] ? rows[i][4].toString() : "" // Lấy thêm cột E (tên người dùng)
         });
@@ -428,7 +428,7 @@ const lock = LockService.getScriptLock();
       var sheetGV = ssAdmin.getSheetByName("idgv");
       var rows = sheetGV.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
-        if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
+        if (N9(rows[i][0]) === N9(data.idnumber) && (rows[i][1] || "").toString().trim() === data.password.toString().trim()) {
           return resJSON({ status: "success" });
         }
       }
@@ -632,7 +632,7 @@ for (var i = 1; i < dataDS.length; i++) {
   var rowIDGV = (dataDS[i][5] || "").toString().trim();
   
   // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === sbd.toString().trim() && rowIDGV === idgv) {
+  if (rowSBD === sbd.toString().trim() && N9(rowIDGV) === N9(idgv)) {
     student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
@@ -644,7 +644,7 @@ if (!student) {
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => 
   (r[0] || "").toString() === examCode && // Khớp mã đề (Cột A)
-  (r[1] || "").toString() === idgv       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
+  N9((r[1] || "")) === N9(idgv)       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
 );
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====

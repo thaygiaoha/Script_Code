@@ -326,7 +326,7 @@ const params = e.parameter;
 // #04 chung
 // ===== LẤY LIST EXAMS =====
   if (action === "getExamsList") {
-    return getExamsList(e.parameter.type);
+    return getExamsList(e.parameter.type, e.parameter.idgv );
   }
 
   // ===== RESET DATA =====
@@ -335,7 +335,8 @@ const params = e.parameter;
       e.parameter.type,
       e.parameter.password,
       e.parameter.mode,
-      e.parameter.exams
+      e.parameter.exams,
+      e.parameter.idgv
     );
   }
 
@@ -498,10 +499,24 @@ const lock = LockService.getScriptLock();
       };
       sheetMatran.getRange("A:A").setNumberFormat("@");
       const rowData = [
-        "'" + toStr(data.gvId), toStr(data.makiemtra), toStr(data.name), toJson(data.topics),
-        toNum(data.duration), toJson(data.numMC), toNum(data.scoreMC), toJson(data.mcL3),
-        toJson(data.mcL4), toJson(data.numTF), toNum(data.scoreTF), toJson(data.tfL3),
-        toJson(data.tfL4), toJson(data.numSA), toNum(data.scoreSA), toJson(data.saL3), toJson(data.saL4)
+        "'" + toStr(data.gvId), 
+        toStr(data.makiemtra), 
+        toStr(data.name), 
+        toJson(data.topics),
+        toNum(data.duration), 
+        toJson(data.numMC), 
+        toNum(data.scoreMC), 
+        toJson(data.mcL3),
+        toJson(data.mcL4), 
+        toJson(data.numTF), 
+        toNum(data.scoreTF), 
+        toJson(data.tfL3),
+        toJson(data.tfL4), 
+        toJson(data.numSA), 
+        toNum(data.scoreSA), 
+        toJson(data.saL3), 
+        toJson(data.saL4),
+        toStr(data.makiemtra) + "." + toStr(data.gvId)
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
@@ -584,10 +599,14 @@ const lock = LockService.getScriptLock();
       try {
 
         const sheetExams = ss.getSheetByName("exams");
+        
 
         // Tìm dòng chứa mã đề để biết hàng cần ghi hoặc ghi mới vào sheet kết quả
         // Ở đây mình ví dụ ghi vào cuối sheet "exams" hoặc bạn nên tạo sheet "ketqua" riêng
         const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
+        const maDe = data.exams || data.examCode || "";
+        const maGV = data.idgv || "";
+        const modeKqTuDong = maDe.toString() + "." + maGV.toString();
 
         sheetKq.appendRow([
           data.timestamp,                                // Cột A         
@@ -598,7 +617,7 @@ const lock = LockService.getScriptLock();
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
           "'" + data.idgv || "",                                      // Cột H
-          data.details || ""                             
+          modeKqTuDong                            
         ]);
 
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
@@ -1311,22 +1330,22 @@ function getExamsList(type) {
 
   if (type === "ketqua") {
     sheetName = "ketqua";
-    columnIndex = 1; // cột B
+    columnIndex = 8; // cột B
   }
 
   else if (type === "matran") {
     sheetName = "matran";
-    columnIndex = 1; // cột B
+    columnIndex = 17; // cột B
   }
 
   else if (type === "exams") {
     sheetName = "exams";
-    columnIndex = 0; // cột A
+    columnIndex = 14; // cột A
   }
 
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    columnIndex = 0; // cột A
+    columnIndex = 8; // cột A
   }
 
   else {
@@ -1439,15 +1458,16 @@ function resetData(type, password, mode, exams) {
 function getScore(e) {
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
+  const idgv = e.parameter.idgv;
 
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
     row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
-    row[2].toString().trim() === sbd.trim()
+    row[2].toString().trim() === sbd.trim() &&
+    row[7].toString().trim() === idgv.trim()
   );
-
   if (results.length === 0) {
     return ContentService
       .createTextOutput(JSON.stringify({ status: "not_found" }))

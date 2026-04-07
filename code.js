@@ -1172,7 +1172,7 @@ function normalizeQuestion_(q) {
   if (q.part === "TF") {
     return {
       type: "TF",
-      answer: q.answers.join(",")
+      answer: q.answers
     };
   }
 

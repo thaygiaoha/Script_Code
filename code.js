@@ -375,14 +375,17 @@ if (action === 'getAppConfigmt') {
 
   // 3. TOP 10
   if (type === 'top10') {
-    const sheet = ssAdmin.getSheetByName("Top10Display");
+    const sheet = ss.getSheetByName("Top10Display");
     if (!sheet) return createResponse("error", "Không tìm thấy sheet Top10Display");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "Chưa có dữ liệu Top 10", []);
     const values = sheet.getRange(2, 1, Math.min(10, lastRow - 1), 10).getValues();
     const top10 = values.map((row, index) => ({
-      rank: index + 1, name: row[0], phoneNumber: row[1], score: row[2],
-      time: row[3], sotk: row[4], bank: row[5], idPhone: row[9]
+      rank: index + 1, 
+      name: row[1], 
+      score: row[3],
+      time: row[4], 
+      idPhone: row[5]
     }));
     return createResponse("success", "OK", top10);
   }

@@ -81,53 +81,31 @@ const params = e.parameter;
 
   // 6. XÁC MINH THÍ SINH
   if (type === 'verifyStudent') {
-  const idNumber = params.idnumber.trim();
-  const sbd = params.sbd.trim();
-  const key = sbd + "." + idNumber;
-
-  const cache = CacheService.getScriptCache();
-  let studentMap;
-
-  const cached = cache.get("studentMap_v1");
-
-  if (cached) {
-    studentMap = JSON.parse(cached);
-  } else {
+    const idNumber = params.idnumber;
+    const sbd = params.sbd;
+    const key = sbd.toString().trim() + "." + idNumber.toString().trim();
     const sheet = ss.getSheetByName("danhsach");
-    const data = sheet.getDataRange().getValues();
-
+    const lastRow = sheet.getLastRow();
+    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();    
     if (data.length < 2) {
-      return createResponse("error", "Danh sách thí sinh trống!");
-    }
-
-    studentMap = {};
-
+    return createResponse("error", "Danh sách thí sinh trống!");
+      }    
     for (let i = 1; i < data.length; i++) {
-      const mapKey = (data[i][7] || "").toString().trim();
-      if (mapKey) {
-        studentMap[mapKey] = data[i];
+      if ((data[i][7] || "").toString().trim() === key) {
+        break;
+        return createResponse("success", "OK", {
+          name: data[i][1], 
+          class: data[i][2], 
+          limit: data[i][3],
+          limittab: data[i][4], 
+          taikhoanapp: data[i][6], 
+          idnumber: idNumber, 
+          sbd: sbd
+        });        
       }
     }
-
-    cache.put("studentMap_v1", JSON.stringify(studentMap), 21600); // 6h
+    return createResponse("error", "Thí sinh không tồn tại!");
   }
-
-  const student = studentMap[key];
-
-  if (student) {
-    return createResponse("success", "OK", {
-      name: student[1],
-      class: student[2],
-      limit: student[3],
-      limittab: student[4],
-      taikhoanapp: student[6],
-      idnumber: idNumber,
-      sbd: sbd
-    });
-  }
-
-  return createResponse("error", "Thí sinh không tồn tại!");
-}
 
 // #02 Thi theo ma trận
 // load ngân hàng đề
@@ -1545,4 +1523,3 @@ function jsonOutput(obj) {
 function N9(id) {
   return id.toString().replace(/'/g, "").trim().slice(-9);
 }
-

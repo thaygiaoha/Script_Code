@@ -81,29 +81,53 @@ const params = e.parameter;
 
   // 6. XÁC MINH THÍ SINH
   if (type === 'verifyStudent') {
-    const idNumber = params.idnumber;
-    const sbd = params.sbd;
+  const idNumber = params.idnumber.trim();
+  const sbd = params.sbd.trim();
+  const key = sbd + "." + idNumber;
+
+  const cache = CacheService.getScriptCache();
+  let studentMap;
+
+  const cached = cache.get("studentMap_v1");
+
+  if (cached) {
+    studentMap = JSON.parse(cached);
+  } else {
     const sheet = ss.getSheetByName("danhsach");
     const data = sheet.getDataRange().getValues();
+
     if (data.length < 2) {
-    return createResponse("error", "Danh sách thí sinh trống!");
-      }    
+      return createResponse("error", "Danh sách thí sinh trống!");
+    }
+
+    studentMap = {};
+
     for (let i = 1; i < data.length; i++) {
-      if ((data[i][0] || "").toString().trim() === sbd.toString().trim() && data[i][5].toString().trim() === idNumber.toString().trim()) {
-        return createResponse("success", "OK", {
-          name: data[i][1], 
-          class: data[i][2], 
-          limit: data[i][3],
-          limittab: data[i][4], 
-          taikhoanapp: data[i][6], 
-          idnumber: idNumber, 
-          sbd: sbd
-        });
-         break; 
+      const mapKey = (data[i][7] || "").toString().trim();
+      if (mapKey) {
+        studentMap[mapKey] = data[i];
       }
     }
-    return createResponse("error", "Thí sinh không tồn tại!");
+
+    cache.put("studentMap_v1", JSON.stringify(studentMap), 21600); // 6h
   }
+
+  const student = studentMap[key];
+
+  if (student) {
+    return createResponse("success", "OK", {
+      name: student[1],
+      class: student[2],
+      limit: student[3],
+      limittab: student[4],
+      taikhoanapp: student[6],
+      idnumber: idNumber,
+      sbd: sbd
+    });
+  }
+
+  return createResponse("error", "Thí sinh không tồn tại!");
+}
 
 // #02 Thi theo ma trận
 // load ngân hàng đề

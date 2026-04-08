@@ -90,7 +90,7 @@ const params = e.parameter;
     if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
       }    
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       if ((data[i][7] || "").toString().trim() === key) {       
         return createResponse("success", "OK", {
           name: data[i][1], 

@@ -91,8 +91,7 @@ const params = e.parameter;
     return createResponse("error", "Danh sách thí sinh trống!");
       }    
     for (let i = 1; i < data.length; i++) {
-      if ((data[i][7] || "").toString().trim() === key) {
-        break;
+      if ((data[i][7] || "").toString().trim() === key) {       
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 

@@ -596,7 +596,7 @@ const lock = LockService.getScriptLock();
 
 // #07 Thi lẻ
 // Ghi kết quả thi ma trận và thi lẻ
-    if (data.action === "submitExam") {
+    if (action === "submitExam") {
       try {
 
         const sheetExams = ss.getSheetByName("exams");    

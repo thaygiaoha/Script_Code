@@ -301,17 +301,19 @@ const params = e.parameter;
 
   return createResponse("error", "Không tìm thấy câu hỏi");
 } 
+  // Lấy câu hỏi đề lẻ
   if (action === 'getQuestionsByCode') {
-    const examCode = params.examCode;
+    const examCode = params.examCode.toString().trim();
+    const idgv = params.idgv.toString().trim();
+    const kethop = examCode + "." + idgv;
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
 
     const data = sheet.getDataRange().getValues();
     const results = [];
 
-    for (let i = 1; i < data.length; i++) {
-      // Cột A là mã đề
-      if (data[i][0].toString() === examCode.toString()) {
+    for (let i = 1; i < data.length; i++) {    
+      if (data[i][8].toString() === kethop) {
         try {
           // Cột C chứa JSON câu hỏi
           results.push(JSON.parse(data[i][2]));

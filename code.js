@@ -274,7 +274,6 @@ const params = e.parameter;
 
   const examCodeInput = (e.parameter.examCode || "").trim();
   const questionIdInput = (e.parameter.questionId || "").trim();
-  const idgv = (e.parameter.idgv || "").trim();
 
   const data = sheet.getDataRange().getValues();
 
@@ -282,9 +281,8 @@ const params = e.parameter;
 
     const rowExam = String(data[i][0]).trim();
     const rowId = String(data[i][1]).trim();
-    const rowIdgv = String(data[i][7]).trim();
 
-    if (rowExam === examCodeInput && rowId === questionIdInput && N9(rowIdgv) === N9(idgv)) {
+    if (rowExam === examCodeInput && rowId === questionIdInput) {
 
   return createResponse(
     "success",

@@ -516,7 +516,7 @@ const lock = LockService.getScriptLock();
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
-        toStr(data.makiemtra) + "." + toStr(data.gvId)
+        "md" + toStr(data.makiemtra) + "." + toStr(data.gvId)
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
@@ -598,15 +598,15 @@ const lock = LockService.getScriptLock();
     if (data.action === "submitExam") {
       try {
 
-        const sheetExams = ss.getSheetByName("exams");
+        // const sheetExams = ss.getSheetByName("exams");
         
 
         // Tìm dòng chứa mã đề để biết hàng cần ghi hoặc ghi mới vào sheet kết quả
         // Ở đây mình ví dụ ghi vào cuối sheet "exams" hoặc bạn nên tạo sheet "ketqua" riêng
-        const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
+        const sheetKq = ss.getSheetByName("ketqua");
         const maDe = data.exams || data.examCode || "";
         const maGV = data.idgv || "";
-        const modeKqTuDong = maDe.toString() + "." + maGV.toString();
+        const modeKqTuDong = "kq" + maDe.toString() + "." + maGV.toString();
 
         sheetKq.appendRow([
           data.timestamp,                                // Cột A         
@@ -634,6 +634,8 @@ const lock = LockService.getScriptLock();
         const sbd = data.sbd ? data.sbd.toString().trim() : "";
         const examCode = data.examCode ? data.examCode.toString().trim() : "";
         const idgv = data.idgv ? data.idgv.toString().trim() : "";
+        const kethop = sbd + "." + idgv;
+        const codegv = "md" + examCode + "." + idgv;
 
         const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");
@@ -649,9 +651,10 @@ var student = null;
 for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = (dataDS[i][0] || "").toString().trim();
   var rowIDGV = (dataDS[i][5] || "").toString().trim();
+  var kiemtra = rowSBD + "." + rowIDGV;
   
-  // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === sbd.toString().trim() && N9(rowIDGV) === N9(idgv)) {
+  // So sánh chuẩn 
+  if (kethop === kiemtra) {
     student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
@@ -662,10 +665,9 @@ if (!student) {
   return createResponse("error", "SBD hoặc IDGV không chính xác!");
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => 
-  (r[0] || "").toString() === examCode && // Khớp mã đề (Cột A)
-  N9((r[1] || "")) === N9(idgv)       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
+  (r[14] || "").toString() === codegv
 );
-        if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
+        if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode + " của mã giáo viên " + idgv);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();
 
@@ -838,6 +840,7 @@ if (closeTime && now > closeTime) {
   const sheet = ss.getSheetByName("exam_data") || ss.insertSheet("exam_data");
   const qArray = data.questions;
   const examCode = data.examCode;
+  const idgv = data.idgv;
   const force = data.force || false; 
   
   if (!Array.isArray(qArray)) return createResponse("error", "questions không phải mảng!");
@@ -862,9 +865,17 @@ if (closeTime && now > closeTime) {
       const q = qArray[0];
       let finalLG = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...";
       const rowToUpdate = [
-        examCode, q.id || "", q.classTag || "1001.a", q.type || "mcq", q.question || "", finalLG, new Date()
+        examCode, 
+        q.id || "", 
+        q.classTag || "1001.a", 
+        q.type || "mcq", 
+        q.question || "", 
+        finalLG, 
+        new Date(),
+        idgv,
+        "q" + examCode + "." + idgv        
       ];
-      sheet.getRange(rowIdx, 1, 1, 7).setValues([rowToUpdate]);
+      sheet.getRange(rowIdx, 1, 1, 9).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
     }
   }

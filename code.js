@@ -3,12 +3,12 @@
 function mainDoGet(e) {
 const params = e.parameter;
   const type = params.type;
-  const action = params.action || e.parameter.action;  
+  const action = params.action || e.parameter.action;   
 //#01
   // Xác minh bên VBA
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("A2:A" + sheet.getLastRow())
+   const data = sheet.getRange("A2:A" + sheet.getLastRow())
                   .getValues()
                   .flat()
                   .map(item => String(item).slice(-9));
@@ -61,10 +61,10 @@ const params = e.parameter;
 
     for (var i = 1; i < rows.length; i++) {
       // Kiểm tra số điện thoại (cột B) và mật khẩu (cột C)
-      if (N9(rows[i][1]) === N9(phone) && String(rows[i][2] || "") === String(pass)) {
+      if (rows[i][1].toString() === phone && rows[i][2].toString() === pass) {
 
         return createResponse("success", "OK", {
-          phoneNumber: "0" + N9(rows[i][1]),
+          phoneNumber: rows[i][1].toString(),
           vip: rows[i][3] ? rows[i][3].toString() : "VIP0",
           name: rows[i][4] ? rows[i][4].toString() : "" // Lấy thêm cột E (tên người dùng)
         });
@@ -83,15 +83,13 @@ const params = e.parameter;
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
-    const key = sbd.toString().trim() + "." + idNumber.toString().trim();
     const sheet = ss.getSheetByName("danhsach");
-    const lastRow = sheet.getLastRow();
-    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();    
+    const data = sheet.getDataRange().getValues();
     if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
       }    
-    for (let i = 0; i < data.length; i++) {
-      if ((data[i][7] || "").toString().trim() === key) {       
+    for (let i = 1; i < data.length; i++) {
+      if ((data[i][0] || "").toString().trim() === sbd.toString().trim() && data[i][5].toString().trim() === idNumber.toString().trim()) {
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 
@@ -100,7 +98,8 @@ const params = e.parameter;
           taikhoanapp: data[i][6], 
           idnumber: idNumber, 
           sbd: sbd
-        });        
+        });
+         break; 
       }
     }
     return createResponse("error", "Thí sinh không tồn tại!");
@@ -110,7 +109,8 @@ const params = e.parameter;
 // load ngân hàng đề
   if (action === "loadQuestions") {
 
-    var values = sheetNH.getDataRange().getValues();
+    const sheet = ss.getSheetByName("nganhang");
+    const values = sheet.getDataRange().getValues();
     if (values.length <= 1) {
       return createResponse("success", "Không có dữ liệu", []);
     }
@@ -275,7 +275,6 @@ const params = e.parameter;
 
   const examCodeInput = (e.parameter.examCode || "").trim();
   const questionIdInput = (e.parameter.questionId || "").trim();
-  const idgv = (e.parameter.idgv || "").trim();
 
   const data = sheet.getDataRange().getValues();
 
@@ -283,9 +282,8 @@ const params = e.parameter;
 
     const rowExam = String(data[i][0]).trim();
     const rowId = String(data[i][1]).trim();
-    const rowIdgv = String(data[i][7]).trim();
 
-    if (rowExam === examCodeInput && rowId === questionIdInput && N9(rowIdgv) === N9(idgv)) {
+    if (rowExam === examCodeInput && rowId === questionIdInput) {
 
   return createResponse(
     "success",
@@ -374,17 +372,14 @@ if (action === 'getAppConfigmt') {
 
   // 3. TOP 10
   if (type === 'top10') {
-    const sheet = ss.getSheetByName("Top10Display");
+    const sheet = ssAdmin.getSheetByName("Top10Display");
     if (!sheet) return createResponse("error", "Không tìm thấy sheet Top10Display");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "Chưa có dữ liệu Top 10", []);
     const values = sheet.getRange(2, 1, Math.min(10, lastRow - 1), 10).getValues();
     const top10 = values.map((row, index) => ({
-      rank: index + 1, 
-      name: row[1], 
-      score: row[3],
-      time: row[4], 
-      idPhone: row[5]
+      rank: index + 1, name: row[0], phoneNumber: row[1], score: row[2],
+      time: row[3], sotk: row[4], bank: row[5], idPhone: row[9]
     }));
     return createResponse("success", "OK", top10);
   }
@@ -435,7 +430,7 @@ const lock = LockService.getScriptLock();
       var sheetGV = ssAdmin.getSheetByName("idgv");
       var rows = sheetGV.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
-        if (N9(rows[i][0]) === N9(data.idnumber) && (rows[i][1] || "").toString().trim() === data.password.toString().trim()) {
+        if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
           return resJSON({ status: "success" });
         }
       }
@@ -600,18 +595,19 @@ const lock = LockService.getScriptLock();
 }
 
 // #07 Thi lẻ
-// Ghi kết quả thi lẻ
+// Ghi kết quả thi ma trận và thi lẻ
     if (data.action === "submitExam") {
       try {
 
-        const sheetExams = ss.getSheetByName("exams");
-        
+        const sheetExams = ss.getSheetByName("exams");    
 
         // Tìm dòng chứa mã đề để biết hàng cần ghi hoặc ghi mới vào sheet kết quả
         // Ở đây mình ví dụ ghi vào cuối sheet "exams" hoặc bạn nên tạo sheet "ketqua" riêng
         const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
         const maDe = data.exams || data.examCode || "";
         const maGV = data.idgv || "";
+    
+    // TỰ TẠO CHUỖI MODE_KQ NGAY TẠI ĐÂY (Thay cho lệnh gán trên Sheet)
         const modeKqTuDong = maDe.toString() + "." + maGV.toString();
 
         sheetKq.appendRow([
@@ -622,9 +618,9 @@ const lock = LockService.getScriptLock();
           data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
-          "'" + data.idgv || "",                                      // Cột H
-          modeKqTuDong                            
-        ]);
+          "'" + (data.idgv || ""),                         // Cột H  
+          modeKqTuDong || "",                             // Cột I     
+         ]);
 
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -657,7 +653,7 @@ for (var i = 1; i < dataDS.length; i++) {
   var rowIDGV = (dataDS[i][5] || "").toString().trim();
   
   // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === sbd.toString().trim() && N9(rowIDGV) === N9(idgv)) {
+  if (rowSBD === sbd.toString().trim() && rowIDGV === idgv) {
     student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
@@ -669,7 +665,7 @@ if (!student) {
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => 
   (r[0] || "").toString() === examCode && // Khớp mã đề (Cột A)
-  N9((r[1] || "")) === N9(idgv)       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
+  (r[1] || "").toString() === idgv       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
 );
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
@@ -844,6 +840,7 @@ if (closeTime && now > closeTime) {
   const sheet = ss.getSheetByName("exam_data") || ss.insertSheet("exam_data");
   const qArray = data.questions;
   const examCode = data.examCode;
+  const idgv = data.idgv;
   const force = data.force || false; 
   
   if (!Array.isArray(qArray)) return createResponse("error", "questions không phải mảng!");
@@ -868,7 +865,15 @@ if (closeTime && now > closeTime) {
       const q = qArray[0];
       let finalLG = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...";
       const rowToUpdate = [
-        examCode, q.id || "", q.classTag || "1001.a", q.type || "mcq", q.question || "", finalLG, new Date()
+        examCode, 
+        q.id || "", 
+        q.classTag || "1001.a", 
+        q.type || "mcq", 
+        q.question || "", 
+        finalLG, 
+        "'" + idgv,
+        examCode + "." + idgv,
+        new Date()
       ];
       sheet.getRange(rowIdx, 1, 1, 7).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
@@ -926,8 +931,21 @@ if (closeTime && now > closeTime) {
       }
         sheetExamsGV.getRange("B:B").setNumberFormat("@");
       const rowData = [
-        examCode, "'" + idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
-        cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.close, cfg.open, cfg.maxthi
+        examCode, 
+        "'" + idgv, 
+        cfg.numMCQ, 
+        cfg.scoreMCQ, 
+        cfg.numTF, 
+        cfg.scoreTF,
+        cfg.numSA, 
+        cfg.scoreSA, 
+        cfg.duration, 
+        cfg.mintime, 
+        cfg.tab, 
+        cfg.close, 
+        cfg.open, 
+        cfg.maxthi,
+        examCode + "." + idgv
       ];
       
       if (existingRow !== -1) {
@@ -1176,7 +1194,7 @@ function normalizeQuestion_(q) {
   if (q.part === "TF") {
     return {
       type: "TF",
-      answer: q.answers
+      answer: q.answers.join(",")
     };
   }
 
@@ -1329,7 +1347,7 @@ function updateQuestion(payload) {
   }
 }
 // lọc mã exems chung
-function getExamsList(type) {
+function getExamsList(type, idgv) {
 
   let sheetName;
   let columnIndex;
@@ -1380,14 +1398,11 @@ function getExamsList(type) {
   return createResponse("success", "OK", unique);
 }
 // Reset chung
-function resetData(type, password, mode, exams) {
-
-  if (password !== passReset) {
-    return createResponse("error", "Sai mật khẩu!");
-  }
+function resetData(type, password, mode, exams, idgv) {
+  if (password !== passReset) return createResponse("error", "Sai mật khẩu!");
+  if (!idgv) return createResponse("error", "Thiếu IDGV"); 
 
   let sheetName = "";
-
   if (type === "ketqua") sheetName = "ketqua";
   else if (type === "matran") sheetName = "matran";
   else if (type === "exams") sheetName = "exams";
@@ -1464,16 +1479,15 @@ function resetData(type, password, mode, exams) {
 function getScore(e) {
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
-  const idgv = e.parameter.idgv;
 
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
     row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
-    row[2].toString().trim() === sbd.trim() &&
-    row[7].toString().trim() === idgv.trim()
+    row[2].toString().trim() === sbd.trim()
   );
+
   if (results.length === 0) {
     return ContentService
       .createTextOutput(JSON.stringify({ status: "not_found" }))

@@ -597,7 +597,7 @@ const lock = LockService.getScriptLock();
 
 // #07 Thi lẻ
 // Ghi kết quả thi lẻ
-    if (data.action === "submitExam") {
+    if (data.action === "submitExamW") {
       try {
 
         // const sheetExams = ss.getSheetByName("exams");
@@ -608,7 +608,7 @@ const lock = LockService.getScriptLock();
         const sheetKq = ss.getSheetByName("ketqua");
         const maDe = data.exams || data.examCode || "";
         const maGV = data.idgv || "";
-        const modeKqTuDong = "kq" + maDe.toString() + "." + maGV.toString();
+        const modeKqTuDong = maDe.toString() + "." + maGV.toString();
 
         sheetKq.appendRow([
           data.timestamp,                                // Cột A         

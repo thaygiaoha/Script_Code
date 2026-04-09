@@ -1479,7 +1479,9 @@ function getScore(e) {
         name: row[3],
         class: row[4],
         tongdiem: row[5],
-        time: row[6]
+        time: row[6],
+        idgv: row[7],
+        mode: row[8]
       }
     }))
     .setMimeType(ContentService.MimeType.JSON);

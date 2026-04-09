@@ -106,6 +106,18 @@ const params = e.parameter;
   }
 
 // #02 Thi theo ma trận
+if (action === "submitMatrix") {
+  try {
+    const sheet = ss.getSheetByName("ketqua");
+
+    saveResultRow(sheet, data);
+
+    return res("success", "OK");
+  } catch (err) {
+    return res("error", err.toString());
+  }
+}
+  
 // load ngân hàng đề
   if (action === "loadQuestions") {
 
@@ -597,38 +609,17 @@ const lock = LockService.getScriptLock();
 
 // #07 Thi lẻ
 // Ghi kết quả thi lẻ
-    if (data.action === "submitExam") {
-      try {
+    if (action === "submitWord") {
+  try {
+    const sheet = ss.getSheetByName("ketqua");
 
-        const sheetExams = ss.getSheetByName("exams");
-        
+    saveResultRow(sheet, data);
 
-        // Tìm dòng chứa mã đề để biết hàng cần ghi hoặc ghi mới vào sheet kết quả
-        // Ở đây mình ví dụ ghi vào cuối sheet "exams" hoặc bạn nên tạo sheet "ketqua" riêng
-        const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
-        const maDe = data.exams || data.examCode || "";
-        const maGV = data.idgv || "";
-        const modeKqTuDong = maDe.toString() + "." + maGV.toString();
-
-        sheetKq.appendRow([
-          data.timestamp,                                // Cột A         
-          data.examCode || data.exams || "",             // Cột B: Nhận cả 2 tên biến
-          data.sbd || "",                                // Cột C
-          data.name || "",                               // Cột D
-          data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
-          data.tongdiem || 0,                            // Cột F
-          data.time || 0,                                // Cột G
-          "'" + data.idgv || "",                                      // Cột H
-          modeKqTuDong                            
-        ]);
-
-        return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-          .setMimeType(ContentService.MimeType.JSON);
-      } catch (err) {
-        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-    }
+    return res("success", "OK");
+  } catch (err) {
+    return res("error", err.toString());
+  }
+}
     // =================================================================== TRỘN ĐỀ ===========================================
 
     if (action === "studentGetExam") {
@@ -1520,4 +1511,20 @@ function jsonOutput(obj) {
 
 function N9(id) {
   return id.toString().replace(/'/g, "").trim().slice(-9);
+}
+
+function saveResultRow(sheet, data) {
+  const mode = (data.examCode || data.exams || "") + "." + (data.idgv || "");
+
+  sheet.appendRow([
+    new Date(),                                // Timestamp
+    data.examCode || data.exams || "",        // exams
+    data.sbd || "",
+    data.name || "",
+    data.className || data.class || "",
+    Number(data.tongdiem) || 0,
+    Number(data.time) || 0,
+    "'" + (data.idgv || ""),
+    mode
+  ]);
 }

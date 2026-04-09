@@ -106,17 +106,7 @@ const params = e.parameter;
   }
 
 // #02 Thi theo ma trận
-if (action === "submitMatrix") {
-  try {
-    const sheet = ss.getSheetByName("ketqua");
 
-    saveResultRow(sheet, data);
-
-    return res("success", "OK");
-  } catch (err) {
-    return res("error", err.toString());
-  }
-}
   
 // load ngân hàng đề
   if (action === "loadQuestions") {
@@ -455,6 +445,17 @@ const lock = LockService.getScriptLock();
       return resJSON({ status: "error", message: "Sai mật khẩu!" });
     }
 // #06 Ma trận
+    if (action === "submitMatrix") {
+  try {
+    const sheet = ss.getSheetByName("ketqua");
+
+    saveResultRow(sheet, data);
+
+    return res("success", "OK");
+  } catch (err) {
+    return res("error", err.toString());
+  }
+}
 // 1. NHÁNH LỜI GIẢI (saveLG)
     if (action === 'saveLG') {
       var lastRow = sheetNH.getLastRow();

@@ -83,15 +83,13 @@ const params = e.parameter;
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
-    const key = sbd.toString().trim() + "." + idNumber.toString().trim();
     const sheet = ss.getSheetByName("danhsach");
-    const lastRow = sheet.getLastRow();
-    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();    
+    const data = sheet.getDataRange().getValues();
     if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
       }    
-    for (let i = 0; i < data.length; i++) {
-      if ((data[i][7] || "").toString().trim() === key) {       
+    for (let i = 1; i < data.length; i++) {
+      if ((data[i][0] || "").toString().trim() === sbd.toString().trim() && data[i][5].toString().trim() === idNumber.toString().trim()) {
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 
@@ -100,7 +98,8 @@ const params = e.parameter;
           taikhoanapp: data[i][6], 
           idnumber: idNumber, 
           sbd: sbd
-        });        
+        });
+         break; 
       }
     }
     return createResponse("error", "Thí sinh không tồn tại!");
@@ -374,17 +373,14 @@ if (action === 'getAppConfigmt') {
 
   // 3. TOP 10
   if (type === 'top10') {
-    const sheet = ss.getSheetByName("Top10Display");
+    const sheet = ssAdmin.getSheetByName("Top10Display");
     if (!sheet) return createResponse("error", "Không tìm thấy sheet Top10Display");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "Chưa có dữ liệu Top 10", []);
     const values = sheet.getRange(2, 1, Math.min(10, lastRow - 1), 10).getValues();
     const top10 = values.map((row, index) => ({
-      rank: index + 1, 
-      name: row[1], 
-      score: row[3],
-      time: row[4], 
-      idPhone: row[5]
+      rank: index + 1, name: row[0], phoneNumber: row[1], score: row[2],
+      time: row[3], sotk: row[4], bank: row[5], idPhone: row[9]
     }));
     return createResponse("success", "OK", top10);
   }
@@ -1176,7 +1172,7 @@ function normalizeQuestion_(q) {
   if (q.part === "TF") {
     return {
       type: "TF",
-      answer: q.answers
+      answer: q.answers.join(",")
     };
   }
 

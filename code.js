@@ -596,39 +596,46 @@ const lock = LockService.getScriptLock();
 
 // #07 Thi lẻ
 // Ghi kết quả thi ma trận và thi lẻ
-    if (action === "submitExam") {
-      try {
-
-        const sheetExams = ss.getSheetByName("exams");    
-
-        // Tìm dòng chứa mã đề để biết hàng cần ghi hoặc ghi mới vào sheet kết quả
-        // Ở đây mình ví dụ ghi vào cuối sheet "exams" hoặc bạn nên tạo sheet "ketqua" riêng
-        const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
-        const maDe = data.exams || data.examCode || "";
-        const maGV = data.idgv || "";
-    
-    // TỰ TẠO CHUỖI MODE_KQ NGAY TẠI ĐÂY (Thay cho lệnh gán trên Sheet)
-        const modeKqTuDong = "kq" + maDe.toString() + "." + maGV.toString();
-
-        sheetKq.appendRow([
-          data.timestamp,                                // Cột A         
-          data.examCode || data.exams || "",             // Cột B: Nhận cả 2 tên biến
-          data.sbd || "",                                // Cột C
-          data.name || "",                               // Cột D
-          data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
-          data.tongdiem || 0,                            // Cột F
-          data.time || 0,                                // Cột G
-          "'" + (data.idgv || ""),                         // Cột H  
-          modeKqTuDong || "",                             // Cột I     
-         ]);
-
-        return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-          .setMimeType(ContentService.MimeType.JSON);
-      } catch (err) {
-        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
+    // --- ĐOẠN FIX LẠI TRONG FILE CODE.JS (GAS) ---
+if (data.action === "submitExam" || action === "submitExam") {
+  try {
+    const sheetKq = ss.getSheetByName("ketqua");
+    if (!sheetKq) {
+      return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Không tìm thấy sheet ketqua" })).setMimeType(ContentService.MimeType.JSON);
     }
+
+    // Lấy dữ liệu (Dùng toán tử || để bắt cả 2 trường hợp tên biến)
+    const maDe = (data.exams || data.examCode || "").toString().trim();
+    const sbd = (data.sbd || "").toString().trim();
+    const hoTen = (data.name || "").toString().trim();
+    const lop = (data.class || data.className || "").toString().trim();
+    const diem = data.tongdiem || data.score || 0;
+    const thoiGian = data.time || "";
+    const maGV = (data.idgv || "").toString().trim();
+
+    // Tạo mã định danh kết hợp (Cột I trong file của bạn)
+    const modeKqTuDong = "kq" + maDe && maGV ? (maDe + "." + maGV) : "";
+
+    // Ghi vào Sheet theo đúng thứ tự cột: A(Time), B(MaDe), C(SBD), D(Ten), E(Lop), F(Diem), G(TimeLam), H(IDGV), I(MaGhep)
+    sheetKq.appendRow([
+      new Date(),      // Cột A
+      maDe,            // Cột B
+      sbd,             // Cột C
+      hoTen,           // D
+      lop,             // E
+      diem,            // F
+      thoiGian,        // G
+      "'" + maGV,      // H (Thêm dấu nháy đơn để tránh mất số 0 ở đầu)
+      modeKqTuDong     // I
+    ]);
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+          .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+          .setMimeType(ContentService.MimeType.JSON);
+  }
+}
     // =================================================================== TRỘN ĐỀ ===========================================
 
     if (action === "studentGetExam") {

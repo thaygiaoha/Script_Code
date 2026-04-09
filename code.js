@@ -517,7 +517,7 @@ const lock = LockService.getScriptLock();
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
-        toStr(data.makiemtra) + "." + toStr(data.gvId)
+        "md" + toStr(data.makiemtra) + "." + toStr(data.gvId)
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
@@ -608,7 +608,7 @@ const lock = LockService.getScriptLock();
         const maGV = data.idgv || "";
     
     // TỰ TẠO CHUỖI MODE_KQ NGAY TẠI ĐÂY (Thay cho lệnh gán trên Sheet)
-        const modeKqTuDong = maDe.toString() + "." + maGV.toString();
+        const modeKqTuDong = "kq" + maDe.toString() + "." + maGV.toString();
 
         sheetKq.appendRow([
           data.timestamp,                                // Cột A         
@@ -872,7 +872,7 @@ if (closeTime && now > closeTime) {
         q.question || "", 
         finalLG, 
         "'" + idgv,
-        examCode + "." + idgv,
+        "q" + examCode + "." + idgv,
         new Date()
       ];
       sheet.getRange(rowIdx, 1, 1, 7).setValues([rowToUpdate]);
@@ -945,7 +945,7 @@ if (closeTime && now > closeTime) {
         cfg.close, 
         cfg.open, 
         cfg.maxthi,
-        examCode + "." + idgv
+        "md" + examCode + "." + idgv
       ];
       
       if (existingRow !== -1) {
@@ -991,8 +991,9 @@ if (closeTime && now > closeTime) {
         data.className, 
         data.score, 
         data.totalTime, 
-        data.idgv, 
-        JSON.stringify(data.details)]);
+        "'" + data.idgv, 
+        "md" + data.examCode + data.idgv
+      ]);
       return createResponse("success", "Đã lưu kết quả thi");
     }
 // Kết thúc Dopost

@@ -518,7 +518,7 @@ const lock = LockService.getScriptLock();
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
-        "md" + toStr(data.makiemtra) + "." + toStr(data.gvId)
+        toStr(data.makiemtra) + "." + toStr(data.gvId)
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
@@ -791,10 +791,12 @@ if (closeTime && now > closeTime) {
 
       const lastRow = sheet.getLastRow();
       const solutions = data.solutions; // Mảng các chuỗi {...}
-      const examCode = data.examCode;
+      const examCode = data.examCode.toString().trim();
+      const idgv = data.idgv.examCode.toString().trim();
+      const kethop = examCode + "." + idgv;
 
       // Đọc dữ liệu để làm bản đồ
-      const range = sheet.getRange(1, 1, lastRow, 6).getValues();
+      const range = sheet.getRange(1, 1, lastRow, 9).getValues();
       let updatedCount = 0;
 
       solutions.forEach(solText => {
@@ -806,8 +808,8 @@ if (closeTime && now > closeTime) {
           const solId = idMatch[1].toString();
           // Dò đúng dòng có Mã đề + ID
           for (let i = 1; i < range.length; i++) {
-            if (range[i][0].toString() === examCode.toString() && range[i][1].toString() === solId) {
-              sheet.getRange(i + 1, 6).setValue(solText);
+            if (range[i][8].toString() === kethop && range[i][1].toString() === solId) {
+              sheet.getRange(i + 1, 9).setValue(solText);
               range[i][5] = solText; // Cập nhật vào mảng tạm để tránh ghi đè
               updatedCount++;
               found = true;
@@ -819,8 +821,8 @@ if (closeTime && now > closeTime) {
         // 2. Nếu không có ID hoặc không tìm thấy dòng khớp ID -> Tìm dòng trống đầu tiên của mã đề đó
         if (!found) {
           for (let i = 1; i < range.length; i++) {
-            if (range[i][0].toString() === examCode.toString() && (!range[i][5] || range[i][5].toString().trim() === "")) {
-              sheet.getRange(i + 1, 6).setValue(solText);
+            if (range[i][8].toString() === kethop && (!range[i][5] || range[i][5].toString().trim() === "")) {
+              sheet.getRange(i + 1, 9).setValue(solText);
               range[i][5] = solText; // Đánh dấu là đã điền
               updatedCount++;
               found = true;
@@ -829,7 +831,7 @@ if (closeTime && now > closeTime) {
           }
         }
       });
-            sheet.getRange("D:H").setWrap(true);
+            sheet.getRange("D:I").setWrap(true);
       // Tự chỉnh chiều cao từ dòng 2 trở xuống   
 
       return createResponse("success", `Đã nạp xong ${updatedCount} lời giải cho mã ${examCode}!`);

@@ -303,8 +303,8 @@ const params = e.parameter;
 } 
   // Lấy câu hỏi đề lẻ
   if (action === 'getQuestionsByCode') {
-    const examCode = params.examCode.toString().trim();
-    const idgv = params.idgv.toString().trim();
+    const examCode = e.parameter.examCode.toString().trim();
+    const idgv = e.parameter.idgv.toString().trim();
     const kethop = examCode + "." + idgv;
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");

@@ -597,29 +597,25 @@ const lock = LockService.getScriptLock();
 
 // #07 Thi lẻ
 // Ghi kết quả thi lẻ
-    if (data.action === "submitExamW") {
+    if (data.action === "submitExam") {
       try {
 
-        // const sheetExams = ss.getSheetByName("exams");
-        
+        const sheetExams = ss.getSheetByName("exams");
 
         // Tìm dòng chứa mã đề để biết hàng cần ghi hoặc ghi mới vào sheet kết quả
         // Ở đây mình ví dụ ghi vào cuối sheet "exams" hoặc bạn nên tạo sheet "ketqua" riêng
-        const sheetKq = ss.getSheetByName("ketqua");
-        const maDe = data.exams || data.examCode || "";
-        const maGV = data.idgv || "";
-        const modeKqTuDong = maDe.toString() + "." + maGV.toString();
+        const sheetKq = ss.getSheetByName("ketqua") || sheetExams;
 
         sheetKq.appendRow([
           data.timestamp,                                // Cột A         
-          maDe || "",             // Cột B: Nhận cả 2 tên biến
+          data.examCode || data.exams || "",             // Cột B: Nhận cả 2 tên biến
           data.sbd || "",                                // Cột C
           data.name || "",                               // Cột D
           data.className || data.class || "",            // Cột E: Nhận cả 2 tên biến
           data.tongdiem || 0,                            // Cột F
           data.time || 0,                                // Cột G
           "'" + data.idgv || "",                                      // Cột H
-          modeKqTuDong                            
+          data.details || ""                             
         ]);
 
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))

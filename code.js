@@ -843,6 +843,7 @@ if (closeTime && now > closeTime) {
   const qArray = data.questions;
   const examCode = data.examCode;
   const idgv = data.idgv;
+  const kethop = examCode + "." + idgv;
   const force = data.force || false; 
   
   if (!Array.isArray(qArray)) return createResponse("error", "questions không phải mảng!");
@@ -875,7 +876,7 @@ if (closeTime && now > closeTime) {
         finalLG, 
         new Date(),
         idgv,
-        "q" + examCode + "." + idgv        
+        kethop        
       ];
       sheet.getRange(rowIdx, 1, 1, 9).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
@@ -883,23 +884,29 @@ if (closeTime && now > closeTime) {
   }
 
   // --- LOGIC CŨ CỦA THẦY: LƯU CẢ BỘ ---
-  const exists = fullData.some(row => row[0].toString() === examCode.toString());
+  const exists = fullData.some(row => row[8].toString() === kethop.toString());
   if (exists && !force) return createResponse("exists", `Mã đề đã có dữ liệu!`);
 
   if (exists && force) {
     for (let i = fullData.length - 1; i >= 0; i--) {
-      if (fullData[i][0].toString() === examCode.toString()) sheet.deleteRow(i + 1);
+      if (fullData[i][8].toString() === kethop.toString()) sheet.deleteRow(i + 1);
     }
   }
 
   const rows = qArray.map(q => [
-    examCode, q.id || "", q.classTag || "1001.a", q.type || "mcq", q.question || "", 
-    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", new Date()
+    examCode, 
+    q.id || "", 
+    q.classTag || "1001.a", 
+    q.type || "mcq", q.question || "", 
+    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
+    new Date(),
+    idgv,
+    kethop    
   ]);
 
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
   var lastRow = sheet.getLastRow();
-      sheet.getRange("E:H").setWrap(true);
+      sheet.getRange("E:I").setWrap(true);
 
       // Tự chỉnh chiều cao từ dòng 2 trở xuống
       

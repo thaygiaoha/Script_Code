@@ -919,6 +919,7 @@ if (closeTime && now > closeTime) {
       const sheetExamsGV = ss.getSheetByName("exams") || ss.insertSheet("exams");
       const examCode = (data.examCode || "").toString().trim();
       const idgv = (data.idgv || "").toString().trim();
+      const kethop = examCode + "." + idgv;
       const cfg = data.config;
 
       // Lấy force từ data (Body JSON)
@@ -928,7 +929,7 @@ if (closeTime && now > closeTime) {
       let existingRow = -1;
       // Dò tìm mã đề
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][0] && vals[i][0].toString().trim() === examCode) {
+        if (vals[i][14] && vals[i][14].toString().trim() === kethop) {
           existingRow = i + 1;
           break;
         }
@@ -940,8 +941,21 @@ if (closeTime && now > closeTime) {
       }
         sheetExamsGV.getRange("B:B").setNumberFormat("@");
       const rowData = [
-        examCode, "'" + idgv, cfg.numMCQ, cfg.scoreMCQ, cfg.numTF, cfg.scoreTF,
-        cfg.numSA, cfg.scoreSA, cfg.duration, cfg.mintime, cfg.tab, cfg.close, cfg.open, cfg.maxthi
+        examCode, 
+        "'" + idgv, 
+        cfg.numMCQ, 
+        cfg.scoreMCQ, 
+        cfg.numTF, 
+        cfg.scoreTF,
+        cfg.numSA, 
+        cfg.scoreSA, 
+        cfg.duration, 
+        cfg.mintime, 
+        cfg.tab, 
+        cfg.close, 
+        cfg.open, 
+        cfg.maxthi,
+        kethop
       ];
       
       if (existingRow !== -1) {
@@ -951,7 +965,7 @@ if (closeTime && now > closeTime) {
       } else {
         // THÊM MỚI
         sheetExamsGV.appendRow(rowData);
-        return createResponse("success", "✅ Đã lưu cấu hình mới cho đề " + examCode);
+        return createResponse("success", "✅ Đã lưu cấu hình mới cho đề " + examCode + " của mã giáo viên " + idgv);
       }
     }
 // 7. LƯU TỪ WORD (uploadWord)

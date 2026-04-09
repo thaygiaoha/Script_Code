@@ -904,7 +904,7 @@ if (closeTime && now > closeTime) {
     kethop    
   ]);
 
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 9).setValues(rows);
   var lastRow = sheet.getLastRow();
       sheet.getRange("E:I").setWrap(true);
 

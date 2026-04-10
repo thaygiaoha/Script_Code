@@ -31,78 +31,37 @@ const params = e.parameter;
       status: "success",
       verified: isCorrect
     })).setMimeType(ContentService.MimeType.JSON);
-  }
-  if (action === "getRouting") {
-    const sheet = ssAdmin.getSheetByName("idgv");
-    const rows = sheet.getDataRange().getValues();
-    const data = [];
-    for (var i = 1; i < rows.length; i++) {
-      data.push({
-        idNumber: rows[i][0], // Cột A
-        link: rows[i][2]      // Cột C
-      });
-    }
-    return createResponse("success", "OK", data);
-  }
-  // 1. ĐĂNG KÝ / ĐĂNG NHẬP
-  var sheetAcc = ssAdmin.getSheetByName("account");
-  if (action === "register") {
-    var phone = params.phone;
-    var pass = params.pass;
-    var rows = sheetAcc.getDataRange().getValues();
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][1].toString() === phone) return ContentService.createTextOutput("exists");
-    }
-    sheetAcc.appendRow([new Date(), "'" + phone, pass, "VIP0"]);
-    return ContentService.createTextOutput("success");
-  }
+  } 
 
-  if (action === "login") {
-    var phone = params.phone;
-    var pass = params.pass;
-    var rows = sheetAcc.getDataRange().getValues();
-
-    for (var i = 1; i < rows.length; i++) {
-      // Kiểm tra số điện thoại (cột B) và mật khẩu (cột C)
-      if (rows[i][1].toString() === phone && rows[i][2].toString() === pass) {
-
-        return createResponse("success", "OK", {
-          phoneNumber: rows[i][1].toString(),
-          vip: rows[i][3] ? rows[i][3].toString() : "VIP0",
-          name: rows[i][4] ? rows[i][4].toString() : "" // Lấy thêm cột E (tên người dùng)
-        });
-      }
-    }
-    return ContentService.createTextOutput("fail");
-  }
-
-  // 6. XÁC MINH THÍ SINH
+  // 6. XÁC MINH THÍ SINH #
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
     const sheet = ss.getSheetByName("danhsach");
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getDataRange().getValues();    
     if (data.length < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
       }    
-    for (let i = 1; i < data.length; i++) {
-      if ((data[i][0] || "").toString().trim() === sbd.toString().trim() && data[i][5].toString().trim() === idNumber.toString().trim()) {
-        return createResponse("success", "OK", {
-          name: data[i][1], 
-          class: data[i][2], 
-          limit: data[i][3],
-          limittab: data[i][4], 
-          taikhoanapp: data[i][6], 
-          idnumber: idNumber, 
-          sbd: sbd
-        });
-         break; 
-      }
-    }
-    return createResponse("error", "Thí sinh không tồn tại!");
+    const targetKey = supper(sbd + "." + idNumber);
+
+// Tìm dòng đầu tiên khớp với khóa
+   const foundRow = data.slice(1).find(row => supper(row[7]) === targetKey);
+
+   if (foundRow) {
+  return createResponse("success", "OK", {
+    name: foundRow[1],
+    class: foundRow[2],
+    limit: foundRow[3],
+    limittab: foundRow[4],
+    taikhoanapp: foundRow[6],
+    idnumber: idNumber,
+    sbd: sbd
+  });
+}   
+    return createResponse("error", "Số báo anh " + sbd + " của giáo viên " + idNumber + " không tồn tại!");
   }
 
-// #02 Thi theo ma trận
+// #02 Thi theo ma trận #
 // load ngân hàng đề
   if (action === "loadQuestions") {
 
@@ -143,25 +102,19 @@ const params = e.parameter;
 
     return createResponse("success", "Load thành công", result);
   }
-  //=========== Tìm lời giải ========================
+  //=========== Tìm lời giải ======================== #
   if (action === 'getLG') {
-    var idTraCuu = params.id;
-    if (!idTraCuu) return ContentService.createTextOutput("Thiếu ID rồi!").setMimeType(ContentService.MimeType.TEXT);
-   
+    var idTraCuu = params.id;  
     var data = sheetNH.getDataRange().getValues();
-
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][0].toString().trim() === idTraCuu.toString().trim()) {
-        var loigiai = data[i][7] || "";
-
-        // Ép kiểu về String để đảm bảo không bị lỗi tệp
-        return ContentService.createTextOutput(String(loigiai))
+    const foundRow = data.slice(1).find(row => supper(row[0]) === idTraCuu);
+    if (foundRow) {
+    var loigiai = data[i][7] || "";
+     return ContentService.createTextOutput(String(loigiai))
           .setMimeType(ContentService.MimeType.TEXT);
-      }
-    }
+    }   
     return ContentService.createTextOutput("Không tìm thấy ID này!").setMimeType(ContentService.MimeType.TEXT);
   }
-  // SỬ LÝ CÂU TRÙNG
+  // SỬ LÝ CÂU TRÙNG #
   if (action == 'findDuplicateQuestions') {
     return ContentService.createTextOutput(JSON.stringify(findDuplicateQuestions()))
       .setMimeType(ContentService.MimeType.JSON);
@@ -172,7 +125,7 @@ const params = e.parameter;
     return ContentService.createTextOutput(JSON.stringify(deleteQuestionRow(rowIdx)))
       .setMimeType(ContentService.MimeType.JSON);
   }
-  // 7. LẤY CÂU HỎI THEO ID
+  // 7. LẤY CÂU HỎI THEO ID 
   if (action === 'getQuestionById') {
     var id = params.id;    
     var dataNH = sheetNH.getDataRange().getValues();
@@ -1542,9 +1495,15 @@ function jsonOutput(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function N9(id) {
-  return id.toString().replace(/'/g, "").trim().slice(-9);
+function N9(text) {
+  if (text === null || text === undefined) return "";
+  return text.toString().replace(/'/g, "").trim().slice(-9);
 }
+function supper(text) {
+  if (text === null || text === undefined) return "";
+   return text.toString().replace(/'/g, "").toUpperCase().trim()
+}
+  
 
 // Hàm xóa nhiều dòng
 /**

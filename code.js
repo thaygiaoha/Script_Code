@@ -108,8 +108,8 @@ const params = e.parameter;
     var data = sheetNH.getDataRange().getValues();
     const foundRow = data.slice(1).find(row => supper(row[0]) === idTraCuu);
     if (foundRow) {
-    var loigiai = data[i][7] || "";
-     return ContentService.createTextOutput(String(loigiai))
+    var loigiai = foundRow[7] || "";
+    return ContentService.createTextOutput(String(loigiai))
           .setMimeType(ContentService.MimeType.TEXT);
     }   
     return ContentService.createTextOutput("Không tìm thấy ID này!").setMimeType(ContentService.MimeType.TEXT);
@@ -419,7 +419,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
-    sheetKq.getRange(nextRow, 1, 1, 9).setValues([rowData]);
+    sheetKq.getRange(nextRow, 1, 1, 19).setValues([rowData]);
 
     // 4. FORMAT NHANH CHO ĐẸP
     sheetKq.autoResizeColumns(1, 9);
@@ -630,7 +630,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         const sheetKQ = ss.getSheetByName("ketqua"); // Bảng lưu kết quả thi
         const dataDS = sheetDS.getDataRange().getValues();        
         if (dataDS.length < 2) {
-          return createResponse("error", "Danh sách thí sinh trống!");
+          return createResponseW("error", "Danh sách thí sinh trống!");
       }    
 
        // 1. Tìm học sinh bằng vòng lặp (An toàn và nhanh nhất)
@@ -648,7 +648,7 @@ for (var i = 1; i < dataDS.length; i++) {
 
 // 2. Kiểm tra nếu không tìm thấy
 if (!student) {
-  return createResponse("error", "SBD hoặc IDGV không chính xác!");
+  return createResponseW("error", "SBD hoặc IDGV không chính xác!");
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => 
   (r[0] || "").toString() === examCode && // Khớp mã đề (Cột A)

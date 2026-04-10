@@ -75,12 +75,6 @@ const params = e.parameter;
     }
     return ContentService.createTextOutput("fail");
   }
-  // 5. LẤY MẬT KHẨU QUIZ
-  if (type === 'getPass') {
-    
-    const password = passAdmin;
-    return resJSON({ password: password.toString() });
-  }
 
   // 6. XÁC MINH THÍ SINH
   if (type === 'verifyStudent') {
@@ -275,17 +269,15 @@ const params = e.parameter;
 
   const sheet = ss.getSheetByName("exam_data");
 
-  const examCodeInput = (e.parameter.examCode || "").trim();
-  const questionIdInput = (e.parameter.questionId || "").trim();
-
+  const exams = String((e.parameter.examCode || "")).trim();
+  const idQ = String((e.parameter.questionId || "")).trim();
+  const kethop = exams + "." + idQ;
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
+    const kiemtra = String(data[i][18]).trim();
 
-    const rowExam = String(data[i][0]).trim();
-    const rowId = String(data[i][1]).trim();
-
-    if (rowExam === examCodeInput && rowId === questionIdInput) {
+    if (kethop === kiemtra) {
 
   return createResponse(
     "success",
@@ -298,14 +290,15 @@ const params = e.parameter;
       loigiai: data[i][5]
     }
   );
-
 }
   }
 
   return createResponse("error", "Không tìm thấy câu hỏi");
 } 
   if (action === 'getQuestionsByCode') {
-    const examCode = params.examCode;
+    const examCode = String(params.examCode).trim();
+    const idgv = String(params.idgv).trim();
+    const kethop = examCode + "." + idgv;
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
 
@@ -313,13 +306,13 @@ const params = e.parameter;
     const results = [];
 
     for (let i = 1; i < data.length; i++) {
-      // Cột A là mã đề
-      if (data[i][0].toString() === examCode.toString()) {
+      // theo mã đề và idgv
+      if (data[i][18].toString() === kethop) {
         try {
-          // Cột C chứa JSON câu hỏi
-          results.push(JSON.parse(data[i][2]));
+          // Cột E chứa JSON câu hỏi
+          results.push(JSON.parse(data[i][4]));
         } catch (err) {
-          results.push(data[i][2]);
+          results.push(data[i][4]);
         }
       }
     }
@@ -343,7 +336,7 @@ const params = e.parameter;
     );
   }
 
-  // xem điểm
+  // xem điểm #xong
   if (action === "getScore") {
     return getScore(e);
   }
@@ -439,12 +432,13 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     }
 
     // 2. CHUẨN HÓA DỮ LIỆU
-    const maDe = (data.exams || data.examCode || "").toString().toUpperCase();
-    const maGV = (data.idgv || "").toString();
+    const exams = (data.exams || data.examCode || "").toString().toUpperCase();
+    const idgv = (data.idgv || "").toString();
     const diem = data.tongdiem !== undefined ? data.tongdiem : (data.score || 0);
-    const lop  = (data.class || data.className || "Tự do").toString();
+    const className  = (data.class || data.className || "Tự do").toString();
     const thoiGian = data.time || 0;
-    const sbdHienTai = data.sbd || "";
+    const sbd = data.sbd || "";
+    const kethop = (exams + "." + sbd + "." + idgv).toUpperCase();
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
@@ -452,7 +446,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
      const vals = sheetKq.getDataRange().getValues();
       let nextRow = -1;
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][1].trim() === "") {
+        if (vals[i][1] === "") {
           nextRow = i + 1; break;
         }
       }
@@ -460,14 +454,15 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
-      maDe,                                                // B
-      sbdHienTai,                                          // C
+      exams,                                                // B
+      sbd,                                          // C
       data.name || "Thí sinh",                             // D
-      lop,                                                 // E
+      className,                                                 // E
       diem,                                                // F
       thoiGian,                                            // G
-      "'" + maGV,                                          // H
-      maDe + "." + maGV                                    // I
+      kethop, "", "", "", "", "", "", "",                 // H,..., Q
+      "'" + idgv,                                              // R
+      (exams + "." + idgv).toUpperCase()                      //S
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
@@ -480,7 +475,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 
-      message: "Ghi điểm thành công vào file TOÁN!",
+      message: "Ghi điểm thành công nhé!",
       rowRecorded: nextRow // Trả về số hàng đã ghi để thầy check bên Console React
     })).setMimeType(ContentService.MimeType.JSON);
 
@@ -493,15 +488,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 }
 
     // 2. Nếu sau này thầy gửi dữ liệu đăng ký (có pass, phone...)
-    if (data.type === 'register') {
-      var sheetUser = ss.getSheetByName("users");
-      sheetUser.appendRow([new Date(), data.phone, data.pass]);
-      return ContentService.createTextOutput("Đã đăng ký thành công");
-    }
+   
 // 4. XÁC MINH GIÁO VIÊN (verifyGV)
     if (action === "verifyGV") {
       var sheetGV = ssAdmin.getSheetByName("idgv");
       var rows = sheetGV.getDataRange().getValues();
+      var kethop = (data.password + "." + data.idnumber).toString().toUpperCase()
       for (var i = 1; i < rows.length; i++) {
         if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
           return resJSON({ status: "success" });
@@ -560,7 +552,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
       return ContentService.createTextOutput("🚀 Đã xong! Điền tiếp " + count + " lời giải. ID trong LG đã được đồng bộ theo ID câu hỏi.").setMimeType(ContentService.MimeType.TEXT);
     }
-    // 2. NHÁNH MA TRẬN (saveMatrix)
+    // 2. NHÁNH MA TRẬN (saveMatrix) #xong
     if (action === "saveMatrix") {
       const sheetMatran = ss.getSheetByName("matran") || ss.insertSheet("matran");
       const toStr = (v) => (v != null) ? String(v).trim() : "";
@@ -572,6 +564,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         return s.startsWith("[") ? s : "[" + s + "]";
       };
       sheetMatran.getRange("A:A").setNumberFormat("@");
+      const kethop = toStr(data.makiemtra) + "." + toStr(data.gvId)
       const rowData = [
         "'" + toStr(data.gvId), 
         toStr(data.makiemtra), 
@@ -590,7 +583,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
-        toStr(data.makiemtra) + "." + toStr(data.gvId)
+        "'" + toStr(data.gvId), 
+        (toStr(data.makiemtra) + "." + toStr(data.gvId)).toString().toUpperCase()
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
@@ -1411,9 +1405,7 @@ function getExamsList(type, idgv) {
 }
 // Reset chung
 function resetData(type, password, mode, exams, idgv) {
-  if (password !== passReset) return createResponse("error", "Sai mật khẩu!");
-  if (!idgv) return createResponse("error", "Thiếu IDGV"); 
-
+  if (password !== passReset) return createResponse("error", "Sai mật khẩu!");  
   let sheetName = "";
   if (type === "ketqua") sheetName = "ketqua";
   else if (type === "matran") sheetName = "matran";
@@ -1426,7 +1418,8 @@ function resetData(type, password, mode, exams, idgv) {
     return createResponse("error", "Không tìm thấy sheet " + sheetName);
   }
 
-  const lastRow = sheet.getLastRow();
+  const lastRow = sheet.getLastRow(); 
+  var kethop = exams.toString().trim() + "." + idgv.toString().trim();
   if (lastRow <= 1) {
     return createResponse("success", "Không có dữ liệu để xóa");
   }
@@ -1435,7 +1428,7 @@ function resetData(type, password, mode, exams, idgv) {
   // MODE 1 — XÓA ALL
   // ======================
   if (mode === "all") {
-    sheet.deleteRows(2, lastRow - 1);
+    deleteFast(idgv, number, name);
     return createResponse("success", "Đã xóa toàn bộ dữ liệu trong sheet(" + sheetName + ")");
   }
 
@@ -1489,15 +1482,16 @@ function resetData(type, password, mode, exams, idgv) {
 
 // xem điểm
 function getScore(e) {
-  const sbd = e.parameter.sbd;
-  const exams = e.parameter.exams;
+  const sbd = e.parameter.sbd.trim();
+  const exams = e.parameter.exams.trim();
+  const idgv = e.parameter.idgv.trim();
+  const kethop = (exams + "." + sbd + "." + idgv).toString().toUpperCase();
 
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
-    row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
-    row[2].toString().trim() === sbd.trim()
+    row[7] === kethop
   );
 
   if (results.length === 0) {
@@ -1550,4 +1544,34 @@ function jsonOutput(obj) {
 
 function N9(id) {
   return id.toString().replace(/'/g, "").trim().slice(-9);
+}
+
+// Hàm xóa nhiều dòng
+/**
+ * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
+ */
+function deleteFast(text, number, name) {  
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return;
+
+  var range = sheet.getDataRange();
+  var data = range.getValues();
+  
+  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
+
+  // 1. Tách dòng đầu tiên (Header) ra
+  var header = data.shift(); 
+  
+  // 2. Lọc các dòng còn lại (Data)
+  var filteredData = data.filter(function(row) {
+    // Chỉ giữ lại những dòng có giá trị khác với 'text'
+    return row[number - 1] != text;
+  });
+
+  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
+  filteredData.unshift(header);
+
+  // 4. Cập nhật lại Sheet
+  sheet.clearContents();
+  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
 }

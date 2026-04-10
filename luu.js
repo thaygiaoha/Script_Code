@@ -1,3 +1,9 @@
+
+
+Hàm,Mục đích,Kết quả trả về,Khi nào dùng?
+find(),Tìm dòng đầu tiên thỏa mãn điều kiện.,1 phần tử (dòng) duy nhất hoặc undefined.,"Khi bạn tìm thí sinh theo SBD, tìm mã đề, hoặc check ID duy nhất. +1"
+filter(),Lọc ra tất cả các dòng thỏa mãn điều kiện.,Một mảng mới chứa các phần tử khớp.,"Khi bạn muốn lấy danh sách tất cả câu hỏi của một mã đề, hoặc tìm tất cả lịch sử thi của 1 em. "
+map(),Biến đổi từng phần tử trong mảng sang một định dạng khác.,Một mảng mới có cùng độ dài với mảng gốc.,Khi bạn muốn chuyển mảng 2 chiều thành mảng các Object (có tên cột rõ ràng) để gửi về App. +2
 21h10 09/04
 // --- FILE TỔNG TRÊN GITHUB ---
 

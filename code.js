@@ -4,10 +4,28 @@ function mainDoGet(e) {
 const params = e.parameter;
   const type = params.type;
   const action = params.action || e.parameter.action;  
-  //const ssAdmin = SpreadsheetApp.openById("1ApgSUHrw_vzlkX8x2GKr3YMgsD9S8fcjl0ITleKZhTk");
-  //const ss = SpreadsheetApp.openById("1-pi3PpXb_hBNBG5CKT72yPxOsi4gKqa4AukmqWwr6YA");
+  
   
 //#01
+  // Xác minh và đăng nhập Game Show
+  if (action === "registershow") {
+    return register(e);
+  }
+  if (action === "loginshow") {
+    return login(e);
+  }
+  if (action === "adminLoginshow") {
+  return adminLogin(e);
+  }
+  if (action === "getUsersshow") {
+    return getUsers(e);
+  }
+  if (action === "updatePassword") {
+  return updatePassword(e);
+}
+  if (action === "getTeachers") {
+  return getTeachers();
+}
   // Xác minh bên VBA
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
@@ -346,7 +364,7 @@ if (action === 'getAppConfigmt') {
     return createResponse("success", "OK", stats);
   }
 
-// Kết thúc Doget
+// Kết thúc Doget ###
   return createResponse("error", "Yêu cầu không hợp lệ");
 } 
 
@@ -376,7 +394,7 @@ const lock = LockService.getScriptLock();
 if (action === "submitExam" || action === "submitExamMatrix") {
   try {
     // 1. Phải đảm bảo ssTarget đã được khai báo bằng openById ở trên
-    // const ssTarget = SpreadsheetApp.openById("1-pi3PpXb_hBNBG5CKT72yPxOsi4gKqa4AukmqWwr6YA");
+   
     
     let sheetKq = ss.getSheetByName("ketqua");    
     if (!sheetKq) {
@@ -419,12 +437,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
-    sheetKq.getRange(nextRow, 1, 1, 19).setValues([rowData]);
+    sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
 
     // 4. FORMAT NHANH CHO ĐẸP
-    sheetKq.autoResizeColumns(1, 9);
+    sheetKq.autoResizeColumns(1, rowData.length);
     // Kẻ khung cho hàng vừa ghi (tùy chọn)
-    sheetKq.getRange(nextRow, 1, 1, 9).setBorder(true, true, true, true, true, true);
+    sheetKq.getRange(nextRow, 1, 1, rowData.length).setBorder(true, true, true, true, true, true);
 
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 
@@ -992,6 +1010,7 @@ if (closeTime && now > closeTime) {
     lock.releaseLock();
   }
 }
+// Hết ###
 // #09 CÁC HÀM PHỤ TRỢ (Để hết vào đây)
 function getLinkFromRouting(idNumber) {
   const sheet = ssAdmin.getSheetByName("idgv");
@@ -1533,4 +1552,164 @@ function deleteFast(text, number, name) {
   // 4. Cập nhật lại Sheet
   sheet.clearContents();
   sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
+}
+// Đăng ký GameShow
+  function register(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+
+  if (!phone || !pass) {
+    return createResponse("error", "Thiếu dữ liệu!");
+  }
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  // kiểm tra trùng
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] == phone) {
+      return createResponse("exists", "Số điện thoại đã tồn tại!");
+    }
+  }
+
+  sheet.appendRow([
+    new Date(),
+    "'" + phone,
+    pass,
+    "VIP0",
+    ""
+  ]);
+
+  return createResponse("success", "Đăng ký thành công!");
+}
+
+function login(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+
+    // 🔥 FIX QUAN TRỌNG: bỏ dấu '
+    const phoneSheet = data[i][1].toString().replace("'", "").trim();
+    const passSheet = data[i][2].toString().trim();
+
+    if (phoneSheet === phone && passSheet === pass) {
+      return createResponse("success", "OK", {
+        phone: phoneSheet,
+        vip: data[i][3] || "VIP0",
+        name: data[i][4] || ""
+      });
+    }
+  }
+
+  return createResponse("fail", "Sai tài khoản hoặc mật khẩu!");
+}
+
+function adminLogin(e) {
+  const id = (e.parameter.id || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+
+  if (!id || !pass) {
+    return createResponse("error", "Thiếu dữ liệu!");
+  }
+
+  if (id === idadmin && pass === passAdmin) {
+    return createResponse("success", "OK");
+  }
+
+  return createResponse("error", "Sai tài khoản!");
+}
+
+
+function getUsers(e) {
+  const id = e.parameter.id;
+  const pass = e.parameter.pass;
+
+  if (id !== idadmin || pass !== passAdmin) {
+    return jsonOut({ status: "error", message: "Unauthorized" });
+  }
+  const sheet = ssAdmin.getSheetByName("gameshow");
+
+  const data = sheet.getDataRange().getValues();
+  const users = [];
+
+  for (let i = 1; i < data.length; i++) {
+    users.push({
+      phone: data[i][1],
+      vip: data[i][3],
+      name: data[i][4]
+    });
+  }
+
+  return jsonOut({ status: "success", data: users });
+}
+
+function updatePassword(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const newPass = (e.parameter.pass || "").trim();
+
+  if (!phone || !newPass) {
+    return createResponse("error", "Thiếu dữ liệu!");
+  }
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+
+    // 🔥 xử lý dấu ' ở số điện thoại
+    const phoneSheet = data[i][1].toString().replace("'", "").trim();
+
+    if (phoneSheet === phone) {
+      sheet.getRange(i + 1, 3).setValue(newPass); // cột C = password
+
+      return createResponse("success", "Đổi mật khẩu thành công!");
+    }
+  }
+
+  return createResponse("error", "Không tìm thấy tài khoản!");
+}
+
+function getTeachers() {
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  const result = [];
+
+  for (let i = 1; i < data.length; i++) {
+    result.push({
+      phone: data[i][1].toString().replace("'", ""),
+      password: data[i][2],
+      vip: data[i][3] || "VIP0",
+      createdAt: data[i][0]
+    });
+  }
+
+  return createResponse("success", "OK", result);
+}
+
+function updateTeacher(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+  const vip = (e.parameter.vip || "").trim();
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const phoneSheet = data[i][1].toString().replace("'", "").trim();
+
+    if (phoneSheet === phone) {
+
+      if (pass) sheet.getRange(i + 1, 3).setValue(pass);
+      if (vip) sheet.getRange(i + 1, 4).setValue(vip);
+
+      return createResponse("success", "Đã cập nhật!");
+    }
+  }
+
+  return createResponse("error", "Không tìm thấy GV!");
 }

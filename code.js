@@ -7,6 +7,25 @@ const params = e.parameter;
   
   
 //#01
+  // Xác minh và đăng nhập Game Show
+  if (action === "registershow") {
+    return register(e);
+  }
+  if (action === "loginshow") {
+    return login(e);
+  }
+  if (action === "adminLoginshow") {
+  return adminLogin(e);
+  }
+  if (action === "getUsersshow") {
+    return getUsers(e);
+  }
+  if (action === "updatePassword") {
+  return updatePassword(e);
+}
+  if (action === "getTeachers") {
+  return getTeachers();
+}
   // Xác minh bên VBA
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
@@ -404,6 +423,9 @@ if (action === 'getAppConfigmt') {
 } 
 
 
+// Hết Doget ###
+
+
   
 function mainDoPost(e) {
 // #05 Xác minh
@@ -448,27 +470,14 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
     // const nextRow = lastRow + 1;
-     const lastRow = sheetKq.getLastRow();
-     let nextRow = -1;
+     const vals = sheetKq.getDataRange().getValues();
+      let nextRow = -1;
+      for (let i = 1; i < vals.length; i++) {
+        if (vals[i][1].trim() === "") {
+          nextRow = i + 1; break;
+        }
+      }
 
-// 🔥 Nếu sheet đã có dữ liệu (từ dòng 2 trở đi)
-if (lastRow >= 2) {
-  const colB = sheetKq.getRange(2, 2, lastRow - 1, 1).getValues();
-
-  for (let i = 0; i < colB.length; i++) {
-    const cell = colB[i][0];
-
-    if (!cell || cell.toString().trim() === "") {
-      nextRow = i + 2;
-      break;
-    }
-  }
-}
-
-// 🔥 Nếu chưa có dòng trống → ghi xuống cuối
-if (nextRow === -1) {
-  nextRow = lastRow + 1;
-}
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
@@ -481,13 +490,14 @@ if (nextRow === -1) {
       "'" + maGV,                                          // H
       maDe + "." + maGV                                    // I
     ];
+
     // GHI ĐÈ VÀO RANGE CỤ THỂ
-    sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
+    sheetKq.getRange(nextRow, 1, 1, 9).setValues([rowData]);
 
     // 4. FORMAT NHANH CHO ĐẸP
-    // sheetKq.autoResizeColumns(1, 9);
+    sheetKq.autoResizeColumns(1, 9);
     // Kẻ khung cho hàng vừa ghi (tùy chọn)
-    // sheetKq.getRange(nextRow, 1, 1, 9).setBorder(true, true, true, true, true, true);
+    sheetKq.getRange(nextRow, 1, 1, 9).setBorder(true, true, true, true, true, true);
 
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 
@@ -1056,6 +1066,8 @@ if (closeTime && now > closeTime) {
     lock.releaseLock();
   }
 }
+
+// Hết dopost ###
 // #09 CÁC HÀM PHỤ TRỢ (Để hết vào đây)
 function getLinkFromRouting(idNumber) {
   const sheet = ssAdmin.getSheetByName("idgv");
@@ -1561,4 +1573,199 @@ function jsonOutput(obj) {
 
 function N9(id) {
   return id.toString().replace(/'/g, "").trim().slice(-9);
+}
+function supper(text) {
+  if (text === null || text === undefined) return "";
+   return text.toString().replace(/'/g, "").toUpperCase().trim()
+}
+  
+
+// Hàm xóa nhiều dòng
+/**
+ * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
+ */
+function deleteFast(text, number, name) {  
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return;
+
+  var range = sheet.getDataRange();
+  var data = range.getValues();
+  
+  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
+
+  // 1. Tách dòng đầu tiên (Header) ra
+  var header = data.shift(); 
+  
+  // 2. Lọc các dòng còn lại (Data)
+  var filteredData = data.filter(function(row) {
+    // Chỉ giữ lại những dòng có giá trị khác với 'text'
+    return row[number - 1] != text;
+  });
+
+  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
+  filteredData.unshift(header);
+
+  // 4. Cập nhật lại Sheet
+  sheet.clearContents();
+  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
+}
+// Đăng ký GameShow
+  function register(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+
+  if (!phone || !pass) {
+    return createResponse("error", "Thiếu dữ liệu!");
+  }
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  // kiểm tra trùng
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][1] == phone) {
+      return createResponse("exists", "Số điện thoại đã tồn tại!");
+    }
+  }
+
+  sheet.appendRow([
+    new Date(),
+    "'" + phone,
+    pass,
+    "VIP0",
+    ""
+  ]);
+
+  return createResponse("success", "Đăng ký thành công!");
+}
+
+function login(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+
+    // 🔥 FIX QUAN TRỌNG: bỏ dấu '
+    const phoneSheet = data[i][1].toString().replace("'", "").trim();
+    const passSheet = data[i][2].toString().trim();
+
+    if (phoneSheet === phone && passSheet === pass) {
+      return createResponse("success", "OK", {
+        phone: phoneSheet,
+        vip: data[i][3] || "VIP0",
+        name: data[i][4] || ""
+      });
+    }
+  }
+
+  return createResponse("fail", "Sai tài khoản hoặc mật khẩu!");
+}
+
+function adminLogin(e) {
+  const id = (e.parameter.id || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+
+  if (!id || !pass) {
+    return createResponse("error", "Thiếu dữ liệu!");
+  }
+
+  if (id === idadmin && pass === passAdmin) {
+    return createResponse("success", "OK");
+  }
+
+  return createResponse("error", "Sai tài khoản!");
+}
+
+
+function getUsers(e) {
+  const id = e.parameter.id;
+  const pass = e.parameter.pass;
+
+  if (id !== idadmin || pass !== passAdmin) {
+    return jsonOut({ status: "error", message: "Unauthorized" });
+  }
+  const sheet = ssAdmin.getSheetByName("gameshow");
+
+  const data = sheet.getDataRange().getValues();
+  const users = [];
+
+  for (let i = 1; i < data.length; i++) {
+    users.push({
+      phone: data[i][1],
+      vip: data[i][3],
+      name: data[i][4]
+    });
+  }
+
+  return jsonOut({ status: "success", data: users });
+}
+
+function updatePassword(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const newPass = (e.parameter.pass || "").trim();
+
+  if (!phone || !newPass) {
+    return createResponse("error", "Thiếu dữ liệu!");
+  }
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+
+    // 🔥 xử lý dấu ' ở số điện thoại
+    const phoneSheet = data[i][1].toString().replace("'", "").trim();
+
+    if (phoneSheet === phone) {
+      sheet.getRange(i + 1, 3).setValue(newPass); // cột C = password
+
+      return createResponse("success", "Đổi mật khẩu thành công!");
+    }
+  }
+
+  return createResponse("error", "Không tìm thấy tài khoản!");
+}
+
+function getTeachers() {
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  const result = [];
+
+  for (let i = 1; i < data.length; i++) {
+    result.push({
+      phone: data[i][1].toString().replace("'", ""),
+      password: data[i][2],
+      vip: data[i][3] || "VIP0",
+      createdAt: data[i][0]
+    });
+  }
+
+  return createResponse("success", "OK", result);
+}
+
+function updateTeacher(e) {
+  const phone = (e.parameter.phone || "").trim();
+  const pass = (e.parameter.pass || "").trim();
+  const vip = (e.parameter.vip || "").trim();
+
+  const sheet = ssAdmin.getSheetByName("gameshow");
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const phoneSheet = data[i][1].toString().replace("'", "").trim();
+
+    if (phoneSheet === phone) {
+
+      if (pass) sheet.getRange(i + 1, 3).setValue(pass);
+      if (vip) sheet.getRange(i + 1, 4).setValue(vip);
+
+      return createResponse("success", "Đã cập nhật!");
+    }
+  }
+
+  return createResponse("error", "Không tìm thấy GV!");
 }

@@ -500,12 +500,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
     sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
-
-    // 4. FORMAT NHANH CHO ĐẸP
-    sheetKq.autoResizeColumns(1, 9);
-    // Kẻ khung cho hàng vừa ghi (tùy chọn)
-    //sheetKq.getRange(nextRow, 1, 1, rowData.length).setBorder(true, true, true, true, true, true);
-
+   
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 
       message: "Ghi điểm thành công vào file TOÁN!",

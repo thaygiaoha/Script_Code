@@ -448,14 +448,27 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
     // const nextRow = lastRow + 1;
-     const vals = sheetKq.getDataRange().getValues();
-      let nextRow = -1;
-      for (let i = 1; i < vals.length; i++) {
-        if (vals[i][1].trim() === "") {
-          nextRow = i + 1; break;
-        }
-      }
+     const lastRow = sheetKq.getLastRow();
+     let nextRow = -1;
 
+// 🔥 Nếu sheet đã có dữ liệu (từ dòng 2 trở đi)
+if (lastRow >= 2) {
+  const colB = sheetKq.getRange(2, 2, lastRow - 1, 1).getValues();
+
+  for (let i = 0; i < colB.length; i++) {
+    const cell = colB[i][0];
+
+    if (!cell || cell.toString().trim() === "") {
+      nextRow = i + 2;
+      break;
+    }
+  }
+}
+
+// 🔥 Nếu chưa có dòng trống → ghi xuống cuối
+if (nextRow === -1) {
+  nextRow = lastRow + 1;
+}
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
@@ -468,14 +481,13 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       "'" + maGV,                                          // H
       maDe + "." + maGV                                    // I
     ];
-
     // GHI ĐÈ VÀO RANGE CỤ THỂ
-    sheetKq.getRange(nextRow, 1, 1, 9).setValues([rowData]);
+    sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
 
     // 4. FORMAT NHANH CHO ĐẸP
-    sheetKq.autoResizeColumns(1, 9);
+    // sheetKq.autoResizeColumns(1, 9);
     // Kẻ khung cho hàng vừa ghi (tùy chọn)
-    sheetKq.getRange(nextRow, 1, 1, 9).setBorder(true, true, true, true, true, true);
+    // sheetKq.getRange(nextRow, 1, 1, 9).setBorder(true, true, true, true, true, true);
 
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 

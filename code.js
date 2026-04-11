@@ -477,7 +477,13 @@ if (action === "submitExam" || action === "submitExamMatrix") {
           nextRow = i + 1; break;
         }
       }
+    // NẾU KHÔNG TÌM THẤY HÀNG TRỐNG THÌ GHI VÀO DÒNG CUỐI CÙNG TIẾP THEO
+    if (nextRow === -1) {
+      nextRow = sheetKq.getLastRow() + 1;
+    }
 
+    // Đảm bảo nextRow không bao giờ nhỏ hơn 2 (tránh ghi đè tiêu đề hàng 1)
+    if (nextRow < 2) nextRow = 2;
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A

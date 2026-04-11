@@ -65,7 +65,7 @@ const params = e.parameter;
     const data = sheet.getDataRange().getValues();
     const key = supper(sbd + "." + idNumber);      
     for (let i = 1; i < columH.length; i++) {
-      if ((columH[i][7] || "").toString().trim() === key) {
+      if ((columH[i][0] || "").toString().trim() === key) {
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 

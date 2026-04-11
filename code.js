@@ -43,74 +43,29 @@ const params = e.parameter;
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   
-    var isCorrect = (userOTP === passAdmin);
+    var isCorrect = (supper(userOTP) === supper(passAdmin));
     
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
       verified: isCorrect
     })).setMimeType(ContentService.MimeType.JSON);
-  }
-  if (action === "getRouting") {
-    const sheet = ssAdmin.getSheetByName("idgv");
-    const rows = sheet.getDataRange().getValues();
-    const data = [];
-    for (var i = 1; i < rows.length; i++) {
-      data.push({
-        idNumber: rows[i][0], // Cột A
-        link: rows[i][2]      // Cột C
-      });
-    }
-    return createResponse("success", "OK", data);
-  }
-  // 1. ĐĂNG KÝ / ĐĂNG NHẬP
-  var sheetAcc = ssAdmin.getSheetByName("account");
-  if (action === "register") {
-    var phone = params.phone;
-    var pass = params.pass;
-    var rows = sheetAcc.getDataRange().getValues();
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][1].toString() === phone) return ContentService.createTextOutput("exists");
-    }
-    sheetAcc.appendRow([new Date(), "'" + phone, pass, "VIP0"]);
-    return ContentService.createTextOutput("success");
-  }
-
-  if (action === "login") {
-    var phone = params.phone;
-    var pass = params.pass;
-    var rows = sheetAcc.getDataRange().getValues();
-
-    for (var i = 1; i < rows.length; i++) {
-      // Kiểm tra số điện thoại (cột B) và mật khẩu (cột C)
-      if (rows[i][1].toString() === phone && rows[i][2].toString() === pass) {
-
-        return createResponse("success", "OK", {
-          phoneNumber: rows[i][1].toString(),
-          vip: rows[i][3] ? rows[i][3].toString() : "VIP0",
-          name: rows[i][4] ? rows[i][4].toString() : "" // Lấy thêm cột E (tên người dùng)
-        });
-      }
-    }
-    return ContentService.createTextOutput("fail");
-  }
-  // 5. LẤY MẬT KHẨU QUIZ
-  if (type === 'getPass') {
-    
-    const password = passAdmin;
-    return resJSON({ password: password.toString() });
-  }
-
+  } 
   // 6. XÁC MINH THÍ SINH
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
     const sheet = ss.getSheetByName("danhsach");
-    const data = sheet.getDataRange().getValues();
-    if (data.length < 2) {
+    const lastRow = sheet.getLastRow();
+    // #vip
+    if (lastRow < 1) {
     return createResponse("error", "Danh sách thí sinh trống!");
-      }    
-    for (let i = 1; i < data.length; i++) {
-      if ((data[i][0] || "").toString().trim() === sbd.toString().trim() && data[i][5].toString().trim() === idNumber.toString().trim()) {
+      }  
+    const columH = sheet.getRange(1, 8, lastRow, 1).getValues();
+    // #vip
+    const data = sheet.getDataRange().getValues();
+    const key = supper(sbd + "." + idNumber);      
+    for (let i = 1; i < columH.length; i++) {
+      if ((columH[i][7] || "").toString().trim() === key) {
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 
@@ -119,11 +74,10 @@ const params = e.parameter;
           taikhoanapp: data[i][6], 
           idnumber: idNumber, 
           sbd: sbd
-        });
-         break; 
+        });         
       }
     }
-    return createResponse("error", "Thí sinh không tồn tại!");
+    return createResponse("error", sbd + " không tồn tại!");
   }
 
 // #02 Thi theo ma trận
@@ -220,13 +174,13 @@ const params = e.parameter;
 
   // 8. LẤY MA TRẬN ĐỀ
   if (type === 'getExamCodes') {
-    const teacherId = params.idnumber;
+    const teacherId = supper(params.idnumber);
     const sheet = ss.getSheetByName("matran");
     const data = sheet.getDataRange().getValues();
     const results = [];
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
-      if (row[0].toString().trim() === teacherId.trim() || row[0].toString() === "SYSTEM") {
+      if (supper(row[0]) === teacherId || row[0].toString() === "SYSTEM") {
         try {
           results.push({
             code: row[1].toString(), name: row[2].toString(), topics: JSON.parse(row[3]),
@@ -293,8 +247,10 @@ const params = e.parameter;
 
   const sheet = ss.getSheetByName("exam_data");
 
-  const examCodeInput = (e.parameter.examCode || "").trim();
-  const questionIdInput = (e.parameter.questionId || "").trim();
+  const examCodeInput = supper(e.parameter.examCode || "");
+  const questionIdInput = supper(e.parameter.questionId || "");
+  const idgv = supper(e.parameter.idgv || "");
+  const key = examCodeInput + "." + questionIdInput + "." + idgv;
 
   const data = sheet.getDataRange().getValues();
 
@@ -487,14 +443,14 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
-      exams,                                                // B
-      sbd,                                          // C
-      data.name || "Thí sinh",                             // D
-      className,                                                 // E
+      supper(exams),                                                // B
+      supper(sbd),                                          // C
+      supper(data.name || ""),                             // D
+      supper(className),                                                 // E
       diem,                                                // F
       thoiGian,                                            // G
       "", "", "", "", "", "", "", "", "", "",              // H đến Q
-      "'" + idgv,
+      "'" + supper(idgv),
       supper(exams + "." + idgv),                                    // S
       supper(exams + "." + sbd + "." + idgv)
     ];

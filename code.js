@@ -127,7 +127,7 @@ const params = e.parameter;
       }  
     var data = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();   
     for (var i = 0; i < data.length; i++) {
-      if (data[i][0].toString().trim() === idTraCuu) {
+      if (supper(data[i][0]) === idTraCuu) {
         var loigiai = data[i][7] || "";
 
         // Ép kiểu về String để đảm bảo không bị lỗi tệp
@@ -158,7 +158,7 @@ const params = e.parameter;
 
     var dataNH = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
     for (var i = 0; i < dataNH.length; i++) {
-      if (dataNH[i][0].toString().trim() === id) {
+      if (supper(dataNH[i][0]) === id) {
         return createResponse("success", "OK", {
           idquestion: dataNH[i][0], 
           classTag: dataNH[i][1], 
@@ -188,7 +188,7 @@ const params = e.parameter;
     const results = [];
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      if (row[0].toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
+      if (supper(row[0]) === teacherId || row[0].toString() === "SYSTEM") {
         try {
           results.push({
             code: row[1].toString(), name: row[2].toString(), topics: JSON.parse(row[3]),
@@ -257,15 +257,17 @@ const params = e.parameter;
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng câu hỏi trống!");
       }  
-  const examCodeInput = e.parameter.examCode || "";
-  const questionIdInput = e.parameter.questionId || "";
-  const idgv = e.parameter.idgv || "";
-  const key = supper(examCodeInput + "." + questionIdInput + "." + idgv);
+  const examCodeInput = supper(e.parameter.examCode || "");
+  const questionIdInput = supper(e.parameter.questionId || "");
+  const idgv = supper(e.parameter.idgv || "");
+  const key = examCodeInput + "." + questionIdInput + "." + idgv;
 
-  const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  const data = sheet.getDataRange().getValues();
 
-  for (let i = 0; i < data.length; i++) {    
-    if (data[i][9].toString().trim() === key) {
+  for (let i = 1; i < data.length; i++) {
+    const cellKey = supper(data[i][9]);
+    if (cellKey === key) {
+
   return createResponse(
     "success",
     "OK",
@@ -286,8 +288,6 @@ const params = e.parameter;
   // lấy ngân hàng theo idgv
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
-    const idgv = params.idgv;
-    const key = supper(examCode + "." + idgv);
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
@@ -297,17 +297,17 @@ const params = e.parameter;
 
   
 
-    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    const data = sheet.getDataRange().getValues();
     const results = [];
 
-    for (let i = 0; i < data.length; i++) {
+    for (let i = 1; i < data.length; i++) {
       // Cột A là mã đề
-      if (data[i][8].toString().trim() === key) {
+      if (data[i][0].toString() === examCode.toString()) {
         try {
-          // Cột E chứa JSON câu hỏi
-          results.push(JSON.parse(data[i][4]));
+          // Cột C chứa JSON câu hỏi
+          results.push(JSON.parse(data[i][2]));
         } catch (err) {
-          results.push(data[i][4]);
+          results.push(data[i][2]);
         }
       }
     }
@@ -412,7 +412,7 @@ const lock = LockService.getScriptLock();
 
   // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
   if (sheetKq.getLastRow() === 0) {
-    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv", "key1", "key2");
+    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv"]);
   }
 
   // LOGIC CHUNG CHO CẢ 2 LOẠI (Vì cấu trúc cột ghi là giống nhau)
@@ -426,21 +426,21 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     let sheetKq = ss.getSheetByName("ketqua");    
     if (!sheetKq) {
       sheetKq = ss.insertSheet("ketqua");
-      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Mã KQ", "key1", "key2"]);
+      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Mã KQ"]);
     }
 
     // 2. CHUẨN HÓA DỮ LIỆU
-    const exams = supper(data.exams || data.examCode || "");
-    const idgv = supper(data.idgv || "");
+    const exams = (data.exams || data.examCode || "").toString().toUpperCase();
+    const idgv = (data.idgv || "").toString();
     const diem = data.tongdiem !== undefined ? data.tongdiem : (data.score || 0);
     const className  = (data.class || data.className || "Tự do").toString();
     const thoiGian = data.time || 0;
-    const sbd = supper(data.sbd || "");
+    const sbd = data.sbd || "";
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
     // const nextRow = lastRow + 1;
-     const vals = sheetKq.getRange().getValues();
+     const vals = sheetKq.getDataRange().getValues();
       let nextRow = -1;
       for (let i = 1; i < vals.length; i++) {
         if (vals[i][1].trim() === "") {
@@ -457,15 +457,16 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
-      exams,                                                // B
-      sbd,                                          // C
+      supper(exams),                                                // B
+      supper(sbd),                                          // C
       supper(data.name || ""),                             // D
       supper(className),                                                 // E
       diem,                                                // F
-      thoiGian,                                         // G          
-      "'" + idgv,
-      exams + "." + idgv,                                    // S
-      exams + "." + sbd + "." + idgv
+      thoiGian,                                            // G
+      "", "", "", "", "", "", "", "", "", "",              // H đến Q
+      "'" + supper(idgv),
+      supper(exams + "." + idgv),                                    // S
+      supper(exams + "." + sbd + "." + idgv)
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
@@ -473,7 +474,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
    
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 
-      message: "Ghi điểm thành công!",
+      message: "Ghi điểm thành công vào file TOÁN!",
       rowRecorded: nextRow // Trả về số hàng đã ghi để thầy check bên Console React
     })).setMimeType(ContentService.MimeType.JSON);
 
@@ -490,6 +491,17 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       var sheetUser = ss.getSheetByName("users");
       sheetUser.appendRow([new Date(), data.phone, data.pass]);
       return ContentService.createTextOutput("Đã đăng ký thành công");
+    }
+// 4. XÁC MINH GIÁO VIÊN (verifyGV)
+    if (action === "verifyGV") {
+      var sheetGV = ssAdmin.getSheetByName("idgv");
+      var rows = sheetGV.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
+          return resJSON({ status: "success" });
+        }
+      }
+      return resJSON({ status: "error", message: "ID hoặc Mật khẩu GV không đúng!" });
     }
 // 6. XÁC MINH ADMIN (verifyAdmin)
     if (action === "verifyAdmin") {      
@@ -530,7 +542,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
           // Đoạn này xử lý cả trường hợp có ngoặc kép hoặc không
           var fixedLG = rawLG.replace(/id\s*:\s*["']?[^"'\s]+["']?/g, 'id: "' + realId + '"');
 
-          // Ghi vào cột H
+          // Ghi vào cột E
           sheetNH.getRange(targetRow, 8).setValue(fixedLG);
           count++;
         }
@@ -1472,20 +1484,16 @@ function resetData(type, password, mode, exams, idgv) {
 // =============================================================Kết thúc Reset chung=========================================================================
 
 // xem điểm
-function getScore(e) { 
-  const sheet = ss.getSheetByName("ketqua");
-  const lastRow = sheet.getLastRow();
-    if (lastRow < 2) {
-    return createResponse("error", "Danh sách kết quả trống!");
-      }    
-  const data = sheet.getRange(2, 1 lastRow - 1, 10).getValues();
+function getScore(e) {
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
-  const idgv = e.parameter.idgv;
-  const key = supper(exams + "." + sbd + "." + idgv);
+
+  const sheet = ss.getSheetByName("ketqua");
+  const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
-    row[9].toString().trim() === key
+    row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
+    row[2].toString().trim() === sbd.trim()
   );
 
   if (results.length === 0) {

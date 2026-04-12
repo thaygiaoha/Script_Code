@@ -412,7 +412,7 @@ const lock = LockService.getScriptLock();
 
   // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
   if (sheetKq.getLastRow() === 0) {
-    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv", "key1", "key2");
+    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv", "key1", "key2"]);
   }
 
   // LOGIC CHUNG CHO CẢ 2 LOẠI (Vì cấu trúc cột ghi là giống nhau)

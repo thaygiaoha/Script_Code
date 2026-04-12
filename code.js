@@ -596,7 +596,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
           kiemtra = 1; break;
         }
       }
-      if (kiemtra === 0) return createResponse("error", "Sai mật khẩu rồi thầy/cô ơi!");
+      if (kiemtra === 0) {
+  return createResponse("error", "⚠️ Sai mật khẩu hoặc ID rồi thầy/cô ơi!");
+}
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
       for (let i = 1; i < vals.length; i++) {

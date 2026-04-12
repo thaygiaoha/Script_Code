@@ -556,6 +556,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     }
     // 2. NHÁNH MA TRẬN (saveMatrix)
     if (action === "saveMatrix") {
+      
       const sheetMatran = ss.getSheetByName("matran") || ss.insertSheet("matran");
       const toStr = (v) => (v != null) ? String(v).trim() : "";
       const toNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
@@ -586,6 +587,16 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toJson(data.saL4),
         supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
       ];
+      const key = supper(data.gvPass + "." + data.gvId);
+      const sheetId = ssAdmin.getSheetByName("idgv");
+      const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
+      let kiemtra = 0;
+      for (let i = 0; i < datapass.length; i++) {
+        if (datapass[i][0].toString().trim() === key) {
+          kiemtra = 1; break;
+        }
+      }
+      if (kiemtra === 0) return createResponse("error", "Sai mật khẩu rồi thầy/cô ơi!");
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
       for (let i = 1; i < vals.length; i++) {

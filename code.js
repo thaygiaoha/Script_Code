@@ -554,7 +554,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         return s.startsWith("[") ? s : "[" + s + "]";
       };
       const exams = supper(data.makiemtra);
-      const idgv = supper(data.idgv);
+      const idgv = supper(data.gvId);
       const key = exams + "." + idgv;
       sheetMatran.getRange("A:A").setNumberFormat("@");
       const rowData = [

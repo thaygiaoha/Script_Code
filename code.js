@@ -288,6 +288,8 @@ const params = e.parameter;
   // lấy ngân hàng theo idgv
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
+    const idgv = params.idgv;
+    const key = supper(examCode + "." + idgv);
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
@@ -297,17 +299,17 @@ const params = e.parameter;
 
   
 
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
     const results = [];
 
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       // Cột A là mã đề
-      if (data[i][0].toString() === examCode.toString()) {
+      if (data[i][8].toString() === key) {
         try {
-          // Cột C chứa JSON câu hỏi
-          results.push(JSON.parse(data[i][2]));
+          // Cột E chứa JSON câu hỏi
+          results.push(JSON.parse(data[i][4]));
         } catch (err) {
-          results.push(data[i][2]);
+          results.push(data[i][4]);
         }
       }
     }

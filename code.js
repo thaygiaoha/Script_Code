@@ -592,8 +592,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
       let kiemtra = 0;
       for (let i = 0; i < datapass.length; i++) {
-        if (datapass[i][0].toString().trim() === key) {
-          kiemtra = 1; break;
+
+        if (datapass[i][0] && datapass[i][0].toString().trim() === key) {
+
+        kiemtra = 1;
+
+      break;
         }
       }
       if (kiemtra === 0) {

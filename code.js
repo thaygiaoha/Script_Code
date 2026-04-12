@@ -264,9 +264,9 @@ const params = e.parameter;
 
   const data = sheet.getDataRange().getValues();
 
-  for (let i = 1; i < data.length; i++) {   
-
-    if (data[i][9] === key) {
+  for (let i = 1; i < data.length; i++) {
+    const cellKey = supper(data[i][9]);
+    if (cellKey === key) {
 
   return createResponse(
     "success",
@@ -1549,7 +1549,12 @@ function N9(id) {
 }
 function supper(text) {
   if (text === null || text === undefined) return "";
-   return text.toString().replace(/'/g, "").toUpperCase().trim()
+  
+  return text.toString()
+    .replace(/'/g, "")           // Xóa dấu nháy đơn
+    .replace(/\s+/g, " ")        // Biến mọi loại khoảng trắng (tab, xuống dòng, cách nhiều) thành 1 dấu cách
+    .trim()                      // Xóa khoảng trắng 2 đầu
+    .toUpperCase();              // Viết hoa toàn bộ
 }
   
 

@@ -965,7 +965,24 @@ if (closeTime && now > closeTime) {
       const sheetExamsGV = ss.getSheetByName("exams") || ss.insertSheet("exams");
       const examCode = (data.examCode || "").toString().trim();
       const idgv = (data.idgv || "").toString().trim();
+      const passGV = (data.passGV || "").toSting().trim();
       const cfg = data.config;
+      const key = supper(passGV + "." + idgv);
+      const sheetId = ssAdmin.getSheetByName("idgv");
+      const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
+      let kiemtra = 0;
+      for (let i = 0; i < datapass.length; i++) {
+
+        if (datapass[i][0] && datapass[i][0].toString().trim() === key) {
+
+        kiemtra = 1;
+
+      break;
+        }
+      }
+      if (kiemtra === 0) {
+  return createResponse("error", "⚠️ Sai mật khẩu hoặc ID rồi thầy/cô ơi!");
+}
 
       // Lấy force từ data (Body JSON)
       const isForce = data.force === true || data.force === "true";
@@ -986,8 +1003,8 @@ if (closeTime && now > closeTime) {
       }
         sheetExamsGV.getRange("B:B").setNumberFormat("@");
       const rowData = [
-        examCode, 
-        "'" + idgv, 
+        supper(examCode), 
+        "'" + supper(idgv), 
         cfg.numMCQ, 
         cfg.scoreMCQ, 
         cfg.numTF, 
@@ -1000,7 +1017,7 @@ if (closeTime && now > closeTime) {
         cfg.close, 
         cfg.open, 
         cfg.maxthi,
-        examCode + "." + idgv
+        key
       ];
       
       if (existingRow !== -1) {

@@ -88,7 +88,7 @@ const params = e.parameter;
       }  
     const values = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
     // var headers = values[0]; // có cần lệnh này không?
-    // var rows = values.slice(1);
+    var rows = values;
     var result = rows.map(function (r) {
       var obj = {
         id: r[0],

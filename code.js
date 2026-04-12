@@ -568,9 +568,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         return s.startsWith("[") ? s : "[" + s + "]";
       };
       sheetMatran.getRange("A:A").setNumberFormat("@");
+      const exams = supper(data.makiemtra);
+      cosnt idgv = supper(data.gvId);
+      const key = exams + "." + idgv;
       const rowData = [
-        "'" + toStr(data.gvId), 
-        toStr(data.makiemtra), 
+        "'" + idgv, 
+        exams, 
         toStr(data.name), 
         toJson(data.topics),
         toNum(data.duration), 
@@ -586,12 +589,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
-        toStr(data.makiemtra) + "." + toStr(data.gvId)
+        key
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][0].toString() === toStr(data.gvId) && vals[i][1].toString() === toStr(data.makiemtra)) {
+        if (vals[i][7].toString().trim() === key) {
           rowIndex = i + 1; break;
         }
       }

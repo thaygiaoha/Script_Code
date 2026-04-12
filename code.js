@@ -57,15 +57,14 @@ const params = e.parameter;
     const sheet = ss.getSheetByName("danhsach");
     const lastRow = sheet.getLastRow();
     // #vip
-    if (lastRow < 1) {
+    if (lastRow < 2) {
     return createResponse("error", "Danh sách thí sinh trống!");
-      }  
-    const columH = sheet.getRange(1, 8, lastRow, 1).getValues();
+      }      
     // #vip
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
     const key = supper(sbd + "." + idNumber);      
-    for (let i = 1; i < columH.length; i++) {
-      if ((columH[i][0] || "").toString().trim() === key) {
+    for (let i = 0; i < data.length; i++) {
+      if ((data[i][7] || "").toString().trim() === key) {
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 
@@ -82,19 +81,15 @@ const params = e.parameter;
 
 // #02 Thi theo ma trận
 // load ngân hàng đề
-  if (action === "loadQuestions") {
-
-    const sheet = ss.getSheetByName("nganhang");
-    const values = sheet.getDataRange().getValues();
-    if (values.length <= 1) {
-      return createResponse("success", "Không có dữ liệu", []);
-    }
-
-    var headers = values[0];
-    var rows = values.slice(1);
-
+  if (action === "loadQuestions") {    
+    const lastRow = sheetNH.getLastRow();
+    if (lastRow < 2) {
+    return createResponse("error", "Ngân hàng trống!");
+      }  
+    const values = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
+    // var headers = values[0]; // có cần lệnh này không?
+    // var rows = values.slice(1);
     var result = rows.map(function (r) {
-
       var obj = {
         id: r[0],
         classTag: r[1],
@@ -123,13 +118,16 @@ const params = e.parameter;
   }
   //=========== Tìm lời giải ========================
   if (action === 'getLG') {
-    var idTraCuu = params.id;
+    var idTraCuu = supper(params.id);
     if (!idTraCuu) return ContentService.createTextOutput("Thiếu ID rồi!").setMimeType(ContentService.MimeType.TEXT);
+    const lastRow = sheetNH.getLastRow();
    
-    var data = sheetNH.getDataRange().getValues();
-
-    for (var i = 1; i < data.length; i++) {
-      if (data[i][0].toString().trim() === idTraCuu.toString().trim()) {
+        if (lastRow < 2) {
+    return createResponse("error", "Ngân hàng đang trống!");
+      }  
+    var data = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();   
+    for (var i = 0; i < data.length; i++) {
+      if (supper(data[i][0]) === idTraCuu) {
         var loigiai = data[i][7] || "";
 
         // Ép kiểu về String để đảm bảo không bị lỗi tệp
@@ -152,10 +150,15 @@ const params = e.parameter;
   }
   // 7. LẤY CÂU HỎI THEO ID
   if (action === 'getQuestionById') {
-    var id = params.id;    
-    var dataNH = sheetNH.getDataRange().getValues();
-    for (var i = 1; i < dataNH.length; i++) {
-      if (dataNH[i][0].toString() === id.toString()) {
+    var id = supper(params.id);   
+    const lastRow = sheetNH.getLastRow();
+    if (lastRow < 2) {
+    return createResponse("error", "Ngân hàng trống!");
+      }  
+
+    var dataNH = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
+    for (var i = 0; i < dataNH.length; i++) {
+      if (supper(dataNH[i][0]) === id) {
         return createResponse("success", "OK", {
           idquestion: dataNH[i][0], 
           classTag: dataNH[i][1], 
@@ -176,9 +179,14 @@ const params = e.parameter;
   if (type === 'getExamCodes') {
     const teacherId = supper(params.idnumber);
     const sheet = ss.getSheetByName("matran");
-    const data = sheet.getDataRange().getValues();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+    return createResponse("error", "Ma trận trống!");
+      }  
+
+    const data = sheet.getRange(2, 1, lastRow - 1, 19).getValues();
     const results = [];
-    for (let i = 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const row = data[i];
       if (supper(row[0]) === teacherId || row[0].toString() === "SYSTEM") {
         try {
@@ -198,9 +206,8 @@ const params = e.parameter;
   }
 
   // 9. LẤY TẤT CẢ CÂU HỎI (Hàm này thầy bị trùng, em gom lại bản chuẩn nhất)
-  if (action === "getQuestions") {
-  var sheet = ss.getSheetByName("nganhang");
-  var rows = sheet.getDataRange().getValues();
+  if (action === "getQuestions") {  
+  var rows = sheetNH.getDataRange().getValues();
   var questions = [];
 
   for (var i = 1; i < rows.length; i++) {
@@ -246,7 +253,10 @@ const params = e.parameter;
   if (action === "getSingleQuestion") {
 
   const sheet = ss.getSheetByName("exam_data");
-
+  const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+    return createResponse("error", "Ngân hàng câu hỏi trống!");
+      }  
   const examCodeInput = supper(e.parameter.examCode || "");
   const questionIdInput = supper(e.parameter.questionId || "");
   const idgv = supper(e.parameter.idgv || "");
@@ -254,12 +264,9 @@ const params = e.parameter;
 
   const data = sheet.getDataRange().getValues();
 
-  for (let i = 1; i < data.length; i++) {
+  for (let i = 1; i < data.length; i++) {   
 
-    const rowExam = String(data[i][0]).trim();
-    const rowId = String(data[i][1]).trim();
-
-    if (rowExam === examCodeInput && rowId === questionIdInput) {
+    if (data[i][9] === key) {
 
   return createResponse(
     "success",
@@ -278,10 +285,17 @@ const params = e.parameter;
 
   return createResponse("error", "Không tìm thấy câu hỏi");
 } 
+  // lấy ngân hàng theo idgv
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+    return createResponse("error", "Ngân hàng trống!");
+      }  
+
+  
 
     const data = sheet.getDataRange().getValues();
     const results = [];

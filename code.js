@@ -965,7 +965,7 @@ if (closeTime && now > closeTime) {
       const sheetExamsGV = ss.getSheetByName("exams") || ss.insertSheet("exams");
       const examCode = (data.examCode || "").toString().trim();
       const idgv = (data.idgv || "").toString().trim();
-      const passGV = (data.passGV || "").toSting().trim();
+      const passGV = (data.passGV || "").toString().trim();
       const cfg = data.config;
       const key = supper(passGV + "." + idgv);
       const sheetId = ssAdmin.getSheetByName("idgv");

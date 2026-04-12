@@ -968,6 +968,7 @@ if (closeTime && now > closeTime) {
       const passGV = (data.passGV || "").toString().trim();
       const cfg = data.config;
       const key = supper(passGV + "." + idgv);
+      const keyId = supper(examCode + "." + idgv);
       const sheetId = ssAdmin.getSheetByName("idgv");
       const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
       let kiemtra = 0;
@@ -991,7 +992,7 @@ if (closeTime && now > closeTime) {
       let existingRow = -1;
       // Dò tìm mã đề
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][0] && vals[i][0].toString().trim() === examCode) {
+        if (vals[i][14] && vals[i][14].toString().trim() === keyId) {
           existingRow = i + 1;
           break;
         }
@@ -1017,7 +1018,7 @@ if (closeTime && now > closeTime) {
         cfg.close, 
         cfg.open, 
         cfg.maxthi,
-        key
+        keyId
       ];
       
       if (existingRow !== -1) {

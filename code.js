@@ -127,7 +127,7 @@ const params = e.parameter;
       }  
     var data = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();   
     for (var i = 0; i < data.length; i++) {
-      if (supper(data[i][0]) === idTraCuu) {
+      if (data[i][0].toString().trim() === idTraCuu) {
         var loigiai = data[i][7] || "";
 
         // Ép kiểu về String để đảm bảo không bị lỗi tệp
@@ -158,7 +158,7 @@ const params = e.parameter;
 
     var dataNH = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
     for (var i = 0; i < dataNH.length; i++) {
-      if (supper(dataNH[i][0]) === id) {
+      if (dataNH[i][0].toString().trim() === id) {
         return createResponse("success", "OK", {
           idquestion: dataNH[i][0], 
           classTag: dataNH[i][1], 
@@ -188,7 +188,7 @@ const params = e.parameter;
     const results = [];
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      if (supper(row[0]) === teacherId || row[0].toString() === "SYSTEM") {
+      if (row[0].toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
         try {
           results.push({
             code: row[1].toString(), name: row[2].toString(), topics: JSON.parse(row[3]),
@@ -257,16 +257,15 @@ const params = e.parameter;
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng câu hỏi trống!");
       }  
-  const examCodeInput = supper(e.parameter.examCode || "");
-  const questionIdInput = supper(e.parameter.questionId || "");
-  const idgv = supper(e.parameter.idgv || "");
-  const key = examCodeInput + "." + questionIdInput + "." + idgv;
+  const examCodeInput = e.parameter.examCode || "";
+  const questionIdInput = e.parameter.questionId || "";
+  const idgv = e.parameter.idgv || "";
+  const key = supper(examCodeInput + "." + questionIdInput + "." + idgv);
 
   const data = sheet.getDataRange().getValues();
 
-  for (let i = 1; i < data.length; i++) {
-    const cellKey = supper(data[i][9]);
-    if (cellKey === key) {
+  for (let i = 1; i < data.length; i++) {    
+    if (data[i][9].toString().trim() === key) {
 
   return createResponse(
     "success",
@@ -288,6 +287,8 @@ const params = e.parameter;
   // lấy ngân hàng theo idgv
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
+    const idgv = params.idgv;
+    const key = supper(examCode + "." + idgv);
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
@@ -302,12 +303,12 @@ const params = e.parameter;
 
     for (let i = 1; i < data.length; i++) {
       // Cột A là mã đề
-      if (data[i][0].toString() === examCode.toString()) {
+      if (data[i][8].toString().trim() === key) {
         try {
-          // Cột C chứa JSON câu hỏi
-          results.push(JSON.parse(data[i][2]));
+          // Cột E chứa JSON câu hỏi
+          results.push(JSON.parse(data[i][4]));
         } catch (err) {
-          results.push(data[i][2]);
+          results.push(data[i][4]);
         }
       }
     }
@@ -462,11 +463,10 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       supper(data.name || ""),                             // D
       supper(className),                                                 // E
       diem,                                                // F
-      thoiGian,                                            // G
-      "", "", "", "", "", "", "", "", "", "",              // H đến Q
+      thoiGian,                                           // G           
       "'" + supper(idgv),
       supper(exams + "." + idgv),                                    // S
-      supper(exams + "." + sbd + "." + idgv)
+      supper(exams + "." + sbd + "." + idgv)      
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
@@ -516,7 +516,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
       if (lastRow < 2) return ContentService.createTextOutput("⚠️ Sheet rỗng, chưa có ID để khớp thầy ơi!").setMimeType(ContentService.MimeType.TEXT);
 
-      // 1. Tìm ô trống đầu tiên ở cột E
+      // 1. Tìm ô trống đầu tiên ở cột H
       var eValues = sheetNH.getRange(1, 8, lastRow, 1).getValues();
       var firstEmptyRow = 0;
       for (var i = 1; i < eValues.length; i++) {
@@ -542,7 +542,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
           // Đoạn này xử lý cả trường hợp có ngoặc kép hoặc không
           var fixedLG = rawLG.replace(/id\s*:\s*["']?[^"'\s]+["']?/g, 'id: "' + realId + '"');
 
-          // Ghi vào cột E
+          // Ghi vào cột H
           sheetNH.getRange(targetRow, 8).setValue(fixedLG);
           count++;
         }
@@ -567,8 +567,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       };
       sheetMatran.getRange("A:A").setNumberFormat("@");
       const rowData = [
-        "'" + toStr(data.gvId), 
-        toStr(data.makiemtra), 
+        "'" + supper(toStr(data.gvId)), 
+        supper(toStr(data.makiemtra)), 
         toStr(data.name), 
         toJson(data.topics),
         toNum(data.duration), 
@@ -584,7 +584,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
-        toStr(data.makiemtra) + "." + toStr(data.gvId)
+        supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
       ];
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
@@ -667,9 +667,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
     if (action === "studentGetExam") {
       try {
-        const sbd = data.sbd ? data.sbd.toString().trim() : "";
-        const examCode = data.examCode ? data.examCode.toString().trim() : "";
-        const idgv = data.idgv ? data.idgv.toString().trim() : "";
+        const sbd = data.sbd ? data.sbd : "";
+        const examCode = data.examCode ? data.examCode : "";
+        const idgv = data.idgv ? data.idgv : "";
+        const keyds = supper(sbd + "." + idgv);
+        const keyexams = supper(examCode + "." + idgv);
+        const keysbd = supper(examCode + "." + sbd + idgv);
 
         const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");
@@ -683,11 +686,10 @@ if (action === "submitExam" || action === "submitExamMatrix") {
        // 1. Tìm học sinh bằng vòng lặp (An toàn và nhanh nhất)
 var student = null;
 for (var i = 1; i < dataDS.length; i++) {
-  var rowSBD = (dataDS[i][0] || "").toString().trim();
-  var rowIDGV = (dataDS[i][5] || "").toString().trim();
+  var rowSBD = (dataDS[i][7] || "").toString().trim();  
   
   // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === sbd.toString().trim() && rowIDGV === idgv) {
+  if (rowSBD === keyds) {
     student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
@@ -698,10 +700,9 @@ if (!student) {
   return createResponse("error", "SBD hoặc IDGV không chính xác!");
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => 
-  (r[0] || "").toString() === examCode && // Khớp mã đề (Cột A)
-  (r[1] || "").toString() === idgv       // Khớp IDGV (Cột B) 👈 THÊM Ở ĐÂY
+  (r[14] || "").toString() === keyexams
 );
-        if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode);
+        if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode + " / GV: " + idgv);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
 const now = new Date();
 
@@ -722,8 +723,7 @@ const closeTime = exRow[11] instanceof Date
         exRowKq = sheetKQ.getRange(2,1,sheetKQ.getLastRow()-1,3).getValues();
           }
         const currentAttempts = exRowKq.filter(r => 
-      r[1].toString() === examCode && r[2].toString() === sbd
-    ).length;
+      r[9].toString().trim() === keysbd).length;
 
     if (sbd !== "8888") {       
       if (openTime && now < openTime) {
@@ -767,7 +767,7 @@ if (closeTime && now > closeTime) {
         // 2. Lấy câu hỏi - ĐOẠN ĐÃ TỐI ƯU
         const allRows = sheetData.getDataRange().getValues();
         const filteredQuestions = allRows.slice(1)
-          .filter(r => r[0].toString().trim() === examCode)
+          .filter(r => r[8].toString().trim() === keyexams)
           .map(r => {
             let raw = r[4];
             if (!raw) return null;
@@ -824,9 +824,11 @@ if (closeTime && now > closeTime) {
       const lastRow = sheet.getLastRow();
       const solutions = data.solutions; // Mảng các chuỗi {...}
       const examCode = data.examCode;
+      const idgv = data.idgv;
+      
 
       // Đọc dữ liệu để làm bản đồ
-      const range = sheet.getRange(1, 1, lastRow, 6).getValues();
+      const range = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
       let updatedCount = 0;
 
       solutions.forEach(solText => {
@@ -836,9 +838,11 @@ if (closeTime && now > closeTime) {
 
         if (idMatch) {
           const solId = idMatch[1].toString();
+           key = supper(examCode + "." + solId + "." + solId)
           // Dò đúng dòng có Mã đề + ID
           for (let i = 1; i < range.length; i++) {
-            if (range[i][0].toString() === examCode.toString() && range[i][1].toString() === solId) {
+           
+            if (range[i][9].toString() === key) {
               sheet.getRange(i + 1, 6).setValue(solText);
               range[i][5] = solText; // Cập nhật vào mảng tạm để tránh ghi đè
               updatedCount++;
@@ -846,7 +850,7 @@ if (closeTime && now > closeTime) {
               break;
             }
           }
-        }
+        }  // ######
 
         // 2. Nếu không có ID hoặc không tìm thấy dòng khớp ID -> Tìm dòng trống đầu tiên của mã đề đó
         if (!found) {
@@ -1487,13 +1491,14 @@ function resetData(type, password, mode, exams, idgv) {
 function getScore(e) {
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
+  const idgv = e.parameter.idgv;
+  const key = supper(exams + "." + sbd + "." + idgv);
 
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
-    row[1].toString().trim().toUpperCase() === exams.trim().toUpperCase() &&
-    row[2].toString().trim() === sbd.trim()
+    row[9].toString().trim() === key
   );
 
   if (results.length === 0) {

@@ -1489,7 +1489,7 @@ function resetData(type, password, mode, exams, idgv) {
     if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
     
     // Xóa theo mã cụ thể (cột colums + 1)
-    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
+    rowsDeleted = deleteFast(keyexamsid, colums, sheetName);
     return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
   }
 

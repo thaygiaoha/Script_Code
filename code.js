@@ -1585,40 +1585,53 @@ function deleteFast(text, colums, sheetName) {
   const lastRow = sheet.getLastRow();
   const lastCol = sheet.getLastColumn();
   
-  // Nếu sheet trống hoặc chỉ có header thì không cần xóa
   if (lastRow < 2) return 0; 
 
-  // Lấy toàn bộ dữ liệu
   var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
   var header = data[0];
   var initialCount = data.length;
 
-  // 1. Lọc dữ liệu (Chỉ giữ lại những dòng KHÔNG khớp với mã xóa)
+  // 1. Lọc dữ liệu
   var filteredData = data.filter(function(row, index) {
-    if (index === 0) return false; // Tạm bỏ header ra khỏi mảng lọc
+    if (index === 0) return false;
     
-    // Kiểm tra ô dữ liệu có tồn tại không trước khi toString để tránh lỗi crash
-    var cellValue = row[colums - 1] ? row[colums - 1].toString().trim() : "";
-    return cellValue !== text.toString().trim();
+    // Sử dụng hàm supper cho cả 2 vế để đảm bảo so sánh chính xác tuyệt đối
+    var sheetValue = supper(row[colums - 1]); 
+    var compareValue = supper(text);
+    
+    return sheetValue !== compareValue;
   });
 
-  // 2. Tính số dòng bị loại bỏ (số dòng đã xóa)
-  // initialCount - 1 (trừ header) - filteredData.length
+  // 2. Tính số dòng đã xóa
   var deletedCount = (initialCount - 1) - filteredData.length;
 
-  // 3. Thêm header vào lại đầu mảng
-  filteredData.unshift(header);
+  // 3. Xử lý dữ liệu trước khi ghi để GIỮ SỐ 0
+  var finalData = filteredData.map(function(row) {
+    return row.map(function(cell) {
+      // Nếu ô dữ liệu là chuỗi số hoặc IDGV, thêm dấu nháy đơn để không mất số 0
+      if (cell !== null && cell !== undefined && cell !== "") {
+        var strCell = cell.toString().trim();
+        // Nếu chuỗi toàn số và có độ dài đáng kể (như IDGV hoặc SĐT)
+        if (/^\d+$/.test(strCell) && strCell.length >= 3) {
+          return "'" + strCell;
+        }
+      }
+      return cell;
+    });
+  });
 
-  // 4. Cập nhật lại Sheet
+  // 4. Thêm lại header
+  finalData.unshift(header);
+
+  // 5. Cập nhật Sheet
   sheet.clearContents();
+  if (finalData.length > 0) {
+    // Ghi đè lại toàn bộ mảng đã được xử lý dấu nháy đơn
+    sheet.getRange(1, 1, finalData.length, lastCol).setValues(finalData); 
+  }
   
-  // Ghi lại mảng mới (luôn có ít nhất 1 dòng là header)
-  sheet.getRange(1, 1, filteredData.length, lastCol).setValues(filteredData); 
-  
-  // Trả về con số để hàm resetData sử dụng
   return deletedCount;
 }
-
 
 // Đăng ký GameShow
   function register(e) {

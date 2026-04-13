@@ -1626,6 +1626,9 @@ function supper(text) {
   });
 
   var deletedCount = data.length - filteredData.length;
+   Logger.log("👉 KEY: [" + key + "]");
+Logger.log("👉 RAW idgv: [" + text + "]");
+Logger.log("👉 CELL: [" + row[number - 1] + "]");
 
   // 👉 clear data cũ
   sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();

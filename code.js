@@ -1451,7 +1451,7 @@ function resetData(type, password, mode, exams, idgv) {
   if (!idgv) return createResponse("error", "Thiếu IDGV"); 
   
   // Chuẩn hóa mã trước khi so sánh
-  const keyid = supper(idgv);
+  const keyid = N9(idgv);
   const keyexamsid = supper(exams + "." + idgv);
 
   let sheetName = "";
@@ -1481,7 +1481,7 @@ function resetData(type, password, mode, exams, idgv) {
   // 2. Xử lý xóa theo MODE
   if (mode === "all") {
     // Xóa toàn bộ theo IDGV (cột colums)
-    rowsDeleted = deleteFast(keyid, colums, sheetName);
+    rowsDeleted = deleteFastAll(keyid, colums, sheetName);
     return createResponse("success", "Đã dọn sạch " + rowsDeleted + " dòng trong sheet " + sheetName);
   }
 
@@ -1561,7 +1561,7 @@ function jsonOutput(obj) {
 }
 
 function N9(id) {
-  return id.toString().replace(/'/g, "").trim().slice(-9);
+  return id.toString().toUpperCase().trim().slice(-9);
 }
 function supper(text) {
   if (text === null || text === undefined) return "";
@@ -1573,6 +1573,32 @@ function supper(text) {
 /**
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
+function deleteFastAll(text, number, name) {  
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return;
+
+  var range = sheet.getDataRange();
+  var data = range.getValues();
+  
+  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
+
+  // 1. Tách dòng đầu tiên (Header) ra
+  var header = data.shift(); 
+  
+  // 2. Lọc các dòng còn lại (Data)
+  var filteredData = data.filter(function(row) {
+    // Chỉ giữ lại những dòng có giá trị khác với 'text'
+    return N9(row[number - 1]) != N9(text);
+  });
+
+  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
+  filteredData.unshift(header);
+
+  // 4. Cập nhật lại Sheet
+  sheet.clearContents();
+  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
+}
+
 function deleteFast(text, number, name) {  
   var sheet = ss.getSheetByName(name);
   if (!sheet) return;
@@ -1588,7 +1614,7 @@ function deleteFast(text, number, name) {
   // 2. Lọc các dòng còn lại (Data)
   var filteredData = data.filter(function(row) {
     // Chỉ giữ lại những dòng có giá trị khác với 'text'
-    return row[number - 1] != text;
+    return supper(row[number - 1]) != supper(text);
   });
 
   // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
@@ -1598,6 +1624,7 @@ function deleteFast(text, number, name) {
   sheet.clearContents();
   sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
 }
+
 
 // Đăng ký GameShow
   function register(e) {

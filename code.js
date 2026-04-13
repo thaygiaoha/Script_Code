@@ -1460,7 +1460,7 @@ function resetData(type, password, mode, exams, idgv) {
   // 1. Xác định Sheet và Cột mốc
   if (type === "ketqua") {
     sheetName = "ketqua";
-    colums = 9;
+    colums = 8;
   }
   else if (type === "matran") {
     sheetName = "matran";

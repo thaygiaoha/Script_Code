@@ -1449,77 +1449,52 @@ function getExamsList(type, idgv) {
 function resetData(type, password, mode, exams, idgv) {
   if (password !== passReset) return createResponse("error", "Sai mật khẩu!");
   if (!idgv) return createResponse("error", "Thiếu IDGV"); 
+  
+  // Chuẩn hóa mã trước khi so sánh
+  const keyid = supper(idgv);
+  const keyexamsid = supper(exams + "." + idgv);
 
   let sheetName = "";
-  if (type === "ketqua") sheetName = "ketqua";
-  else if (type === "matran") sheetName = "matran";
-  else if (type === "exams") sheetName = "exams";
-  else if (type === "exam_data") sheetName = "exam_data";
-  else return createResponse("error", "Type không hợp lệ");
+  let colums = 0;
 
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    return createResponse("error", "Không tìm thấy sheet " + sheetName);
+  // 1. Xác định Sheet và Cột mốc
+  if (type === "ketqua") {
+    sheetName = "ketqua";
+    colums = 9;
   }
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) {
-    return createResponse("success", "Không có dữ liệu để xóa");
+  else if (type === "matran") {
+    sheetName = "matran";
+    colums = 18;
   }
+  else if (type === "exams") {
+    sheetName = "exams";
+    colums = 15;
+  }
+  else if (type === "exam_data") {
+    sheetName = "exam_data";
+    colums = 8;
+  }
+  else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 
-  // ======================
-  // MODE 1 — XÓA ALL
-  // ======================
+  let rowsDeleted = 0;
+
+  // 2. Xử lý xóa theo MODE
   if (mode === "all") {
-    sheet.deleteRows(2, lastRow - 1);
-    return createResponse("success", "Đã xóa toàn bộ dữ liệu trong sheet(" + sheetName + ")");
+    // Xóa toàn bộ theo IDGV (cột colums)
+    rowsDeleted = deleteFast(keyid, colums, sheetName);
+    return createResponse("success", "Đã dọn sạch " + rowsDeleted + " dòng trong sheet " + sheetName);
   }
 
-  // ======================
-  // MODE 2 — XÓA THEO EXAMS
-  // ======================
   if (mode === "byExams") {
-
-    if (!exams) {
-      return createResponse("error", "Thiếu mã exams");
-    }
-
-    const data = sheet
-      .getRange(2, 1, lastRow - 1, sheet.getLastColumn())
-      .getValues();
-
-    let rowsToDelete = [];
-
-    data.forEach((row, index) => {
-
-      let rowExams = "";
-
-      // Cột chứa mã exams
-      if (type === "ketqua") rowExams = row[1];      // cột B
-      if (type === "matran") rowExams = row[1];      // cột B
-      if (type === "exams") rowExams = row[0];       // cột A
-      if (type === "exam_data") rowExams = row[0];   // cột A
-
-      if (String(rowExams).trim() === String(exams).trim()) {
-        rowsToDelete.push(index + 2); // +2 vì bỏ header
-      }
-
-    });
-
-    if (rowsToDelete.length === 0) {
-      return createResponse("error", "Không tìm thấy mã exams");
-    }
-
-    // Xóa từ dưới lên
-    rowsToDelete.reverse().forEach(r => sheet.deleteRow(r));
-
-    return createResponse(
-      "success",
-      "Đã xóa " + rowsToDelete.length + " dòng trong sheet(" + sheetName + ")"
-    );
+    if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
+    
+    // Xóa theo mã cụ thể (cột colums + 1)
+    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
+    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
   }
 
-  return createResponse("error", "Mode không hợp lệ");
+  // 3. Nếu không rơi vào 2 mode trên
+  return createResponse("error", "Chế độ (Mode) không hợp lệ");
 }
 // =============================================================Kết thúc Reset chung=========================================================================
 
@@ -1603,37 +1578,48 @@ function supper(text) {
 /**
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
-function deleteFast(text, number, sheetName) {  
+function deleteFast(text, colums, sheetName) {  
   var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return;
-  let colums = "";
-  if (sheetName = "ketqua") colums = 9;
-  else if (sheetName = "matran") colums = "matran";
-  else if (sheetName = "exams") colums = "exams";
-  else if (sheetName = "exam_data") colums = "exam_data";
-  else return createResponse("error", "Type không hợp lệ");
-  const lastRow = sheet.getLastRow();
-  var range = sheet.getDataRange(2, colums, lastRow - 1, 1);
-  var data = range.getValues();
-  
-  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
+  if (!sheet) return 0;
 
-  // 1. Tách dòng đầu tiên (Header) ra
-  var header = data.shift(); 
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
   
-  // 2. Lọc các dòng còn lại (Data)
-  var filteredData = data.filter(function(row) {
-    // Chỉ giữ lại những dòng có giá trị khác với 'text'
-    return row[number - 1] != text;
+  // Nếu sheet trống hoặc chỉ có header thì không cần xóa
+  if (lastRow < 2) return 0; 
+
+  // Lấy toàn bộ dữ liệu
+  var data = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var header = data[0];
+  var initialCount = data.length;
+
+  // 1. Lọc dữ liệu (Chỉ giữ lại những dòng KHÔNG khớp với mã xóa)
+  var filteredData = data.filter(function(row, index) {
+    if (index === 0) return false; // Tạm bỏ header ra khỏi mảng lọc
+    
+    // Kiểm tra ô dữ liệu có tồn tại không trước khi toString để tránh lỗi crash
+    var cellValue = row[colums - 1] ? row[colums - 1].toString().trim() : "";
+    return cellValue !== text.toString().trim();
   });
 
-  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
+  // 2. Tính số dòng bị loại bỏ (số dòng đã xóa)
+  // initialCount - 1 (trừ header) - filteredData.length
+  var deletedCount = (initialCount - 1) - filteredData.length;
+
+  // 3. Thêm header vào lại đầu mảng
   filteredData.unshift(header);
 
   // 4. Cập nhật lại Sheet
   sheet.clearContents();
-  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
+  
+  // Ghi lại mảng mới (luôn có ít nhất 1 dòng là header)
+  sheet.getRange(1, 1, filteredData.length, lastCol).setValues(filteredData); 
+  
+  // Trả về con số để hàm resetData sử dụng
+  return deletedCount;
 }
+
+
 // Đăng ký GameShow
   function register(e) {
   const phone = (e.parameter.phone || "").trim();

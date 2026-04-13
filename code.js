@@ -1412,12 +1412,12 @@ function getExamsList(type, idgv) {
 
   else if (type === "exams") {
     sheetName = "exams";
-    columnIndex = 14; // cột A
+    columnIndex = 16; // cột A
   }
 
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    columnIndex = 8; // cột A
+    columnIndex = 9; // cột A
   }
 
   else {
@@ -1565,12 +1565,7 @@ function N9(id) {
 }
 function supper(text) {
   if (text === null || text === undefined) return "";
-  
-  return text.toString()
-    .replace(/'/g, "")           // Xóa dấu nháy đơn
-    .replace(/\s+/g, " ")        // Biến mọi loại khoảng trắng (tab, xuống dòng, cách nhiều) thành 1 dấu cách
-    .trim()                      // Xóa khoảng trắng 2 đầu
-    .toUpperCase();              // Viết hoa toàn bộ
+   return text.toString().replace(/'/g, "").toUpperCase().trim()
 }
   
 

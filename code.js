@@ -1452,7 +1452,8 @@ function resetData(type, password, mode, exams, idgv) {
   
   // Chuẩn hóa mã trước khi so sánh
   const keyid = N9(idgv);
-  const keyexamsid = supper(exams + "." + idgv);
+  const idgvStr = idgv.toString().trim();
+  const keyexamsid = supper(exams + "." + idgvStr);
 
   let sheetName = "";
   let colums = 0;

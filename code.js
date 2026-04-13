@@ -585,6 +585,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toNum(data.scoreSA), 
         toJson(data.saL3), 
         toJson(data.saL4),
+         "'" + supper(toStr(data.gvId)), 
         supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
       ];
       const key = supper(data.gvPass + "." + data.gvId);
@@ -1602,11 +1603,17 @@ function supper(text) {
 /**
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
-function deleteFast(text, number, name) {  
-  var sheet = ss.getSheetByName(name);
+function deleteFast(text, number, sheetName) {  
+  var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return;
-
-  var range = sheet.getDataRange();
+  let colums = "";
+  if (sheetName = "ketqua") colums = 9;
+  else if (sheetName = "matran") colums = "matran";
+  else if (sheetName = "exams") colums = "exams";
+  else if (sheetName = "exam_data") colums = "exam_data";
+  else return createResponse("error", "Type không hợp lệ");
+  const lastRow = sheet.getLastRow();
+  var range = sheet.getDataRange(2, colums, lastRow - 1, 1);
   var data = range.getValues();
   
   if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header

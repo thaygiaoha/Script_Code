@@ -1621,14 +1621,19 @@ function supper(text) {
 
   var key = supper(text);
 
-  var filteredData = data.filter(function(row) {
-    return supper(row[number - 1]) !== key;
-  });
+ var filteredData = data.filter(function(row, index) {
+  var cell = row[number - 1];
+  var val = supper(cell);
 
-  var deletedCount = data.length - filteredData.length;
-   Logger.log("👉 KEY: [" + key + "]");
-Logger.log("👉 RAW idgv: [" + text + "]");
-Logger.log("👉 CELL: [" + row[number - 1] + "]");
+  if (index < 5) { // chỉ log vài dòng đầu
+    Logger.log("👉 KEY: [" + key + "]");
+    Logger.log("👉 CELL: [" + val + "]");
+  }
+
+  return val !== key;
+});
+
+  var deletedCount = data.length - filteredData.length;  
 
   // 👉 clear data cũ
   sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();

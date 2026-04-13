@@ -323,6 +323,22 @@ const params = e.parameter;
 
   // ===== RESET DATA =====
   if (action === "resetData") {
+    const key = supper(e.parameter.password + "." + e.parameter.idgv );
+      const sheetId = ssAdmin.getSheetByName("idgv");
+      const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
+      let kiemtra = 0;
+      for (let i = 0; i < datapass.length; i++) {
+
+        if (datapass[i][0] && datapass[i][0].toString().trim() === key) {
+
+        kiemtra = 1;
+
+      break;
+        }
+      }
+      if (kiemtra === 0) {
+  return createResponse("error", "⚠️ Sai mật khẩu hoặc ID rồi thầy/cô ơi!");
+}
     return resetData(
       e.parameter.type,
       e.parameter.password,
@@ -1446,10 +1462,7 @@ function getExamsList(type, idgv) {
   return createResponse("success", "OK", unique);
 }
 // Reset chung
-function resetData(type, password, mode, exams, idgv) {
-  if (password !== passReset) return createResponse("error", "Sai mật khẩu!");
-  if (!idgv) return createResponse("error", "Thiếu IDGV");   
-  
+function resetData(type, password, mode, exams, idgv) {  
   // Chuẩn hóa mã trước khi so sánh
   const keyid = N9(idgv);
   const idgvStr = idgv.toString().trim();

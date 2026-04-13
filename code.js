@@ -1573,60 +1573,30 @@ function supper(text) {
 /**
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
-function deleteFast(text, colums, sheetName) {  
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return 0;
+function deleteFast(text, number, name) {  
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return;
 
-  const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
-  if (lastRow < 2) return 0; 
+  var range = sheet.getDataRange();
+  var data = range.getValues();
+  
+  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
 
-  // 1. Lấy toàn bộ dữ liệu dưới dạng chuỗi hiển thị (để giữ nguyên số 0 nếu có)
-  var data = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
-  var header = data[0];
-  var initialCount = data.length;
-
-  // 2. Chuẩn hóa mã cần xóa (Viết hoa, bỏ nháy, bỏ cách thừa)
-  var targetKey = supper(text);
-
-  // 3. Lọc dữ liệu
-  var filteredData = data.filter(function(row, index) {
-    if (index === 0) return false;
-    
-    // Lấy giá trị trong ô, ép về chuỗi và làm sạch bằng supper
-    var cellValue = row[colums - 1];
-    var sheetKey = supper(cellValue); 
-    
-    // So sánh: Nếu khác nhau thì giữ lại, giống nhau thì loại bỏ (xóa)
-    return sheetKey !== targetKey;
+  // 1. Tách dòng đầu tiên (Header) ra
+  var header = data.shift(); 
+  
+  // 2. Lọc các dòng còn lại (Data)
+  var filteredData = data.filter(function(row) {
+    // Chỉ giữ lại những dòng có giá trị khác với 'text'
+    return row[number - 1] != text;
   });
 
-  // 4. Tính số dòng đã xóa
-  var deletedCount = (initialCount - 1) - filteredData.length;
+  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
+  filteredData.unshift(header);
 
-  // 5. Xử lý ghi lại dữ liệu để bảo toàn định dạng số 0
-  var finalData = filteredData.map(function(row) {
-    return row.map(function(cell) {
-      var s = (cell === null || cell === undefined) ? "" : String(cell).trim();
-      // Nếu là chuỗi số (IDGV, SĐT) thì thêm dấu nháy đơn để Google không tự biến thành Number
-      if (/^\d+$/.test(s) && s.length > 0) {
-        return "'" + s;
-      }
-      return s;
-    });
-  });
-
-  // 6. Ghi lại dữ liệu
-  finalData.unshift(header);
+  // 4. Cập nhật lại Sheet
   sheet.clearContents();
-  // Flush để đảm bảo sheet đã trống trước khi ghi
-  SpreadsheetApp.flush(); 
-  
-  if (finalData.length > 0) {
-    sheet.getRange(1, 1, finalData.length, lastCol).setValues(finalData);
-  }
-  
-  return deletedCount;
+  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
 }
 
 // Đăng ký GameShow

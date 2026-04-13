@@ -1402,22 +1402,22 @@ function getExamsList(type, idgv) {
 
   if (type === "ketqua") {
     sheetName = "ketqua";
-    columnIndex = 8; // cột B
+    columnIndex = 9; // cột I
   }
 
   else if (type === "matran") {
     sheetName = "matran";
-    columnIndex = 17; // cột B
+    columnIndex = 19; // cột S
   }
 
   else if (type === "exams") {
     sheetName = "exams";
-    columnIndex = 16; // cột A
+    columnIndex = 16; // cột P
   }
 
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    columnIndex = 9; // cột A
+    columnIndex = 9; // cột I
   }
 
   else {
@@ -1436,7 +1436,7 @@ function getExamsList(type, idgv) {
   }
 
   const examsColumn = sheet
-    .getRange(2, columnIndex + 1, lastRow - 1, 1)
+    .getRange(2, columnIndex, lastRow - 1, 1)
     .getValues()
     .flat()
     .filter(v => v && v !== "");

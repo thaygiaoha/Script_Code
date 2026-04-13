@@ -1457,23 +1457,28 @@ function resetData(type, password, mode, exams, idgv) {
 
   let sheetName = "";
   let colums = 0;
+  let columse = 0
 
   // 1. Xác định Sheet và Cột mốc
   if (type === "ketqua") {
     sheetName = "ketqua";
     colums = 8;
+    columse = 2;
   }
   else if (type === "matran") {
     sheetName = "matran";
     colums = 18;
+    columse = 2;
   }
   else if (type === "exams") {
     sheetName = "exams";
     colums = 15;
+    columse = 1;
   }
   else if (type === "exam_data") {
     sheetName = "exam_data";
     colums = 8;
+    columse = 1;
   }
   else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 
@@ -1490,7 +1495,7 @@ function resetData(type, password, mode, exams, idgv) {
     if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
     
     // Xóa theo mã cụ thể (cột colums + 1)
-    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
+    rowsDeleted = deleteFast(exams, idgv, columse, colums, sheetName);
     return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
   }
 
@@ -1607,38 +1612,38 @@ function supper(text) {
   return deletedCount;
 }
 
- function deleteFast(text, number, name) {  
+ function deleteFast(textexam, textid, numberexam, numberid, name) {  
   var sheet = ss.getSheetByName(name);
- if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
+  if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
-
-  // 👉 chỉ lấy data (bỏ header)
-  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
-
-  var key = supper(text);
-
- var filteredData = data.filter(function(row, index) {
-  var cell = row[number - 1];
-  var val = supper(cell);
-
-  if (index < 5) { // chỉ log vài dòng đầu
-    Logger.log("👉 KEY: [" + key + "]");
-    Logger.log("👉 CELL: [" + val + "]");
+  if (lastRow <= 1) {
+    return createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
   }
 
-  return val !== key;
-});
+  // 👉 lấy data (bỏ header)
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
 
-  var deletedCount = data.length - filteredData.length;  
+  // 👉 chuẩn hóa key
+  var keyExam = N9(textexam);
+  var keyId   = N9(textid);
+
+  var filteredData = data.filter(function(row) {
+    var exam = N9(row[numberexam - 1]);
+    var id   = N9(row[numberid - 1]);
+
+    // ❌ XÓA khi BOTH match
+    return !(exam === keyExam && id === keyId);
+  });
+
+  var deletedCount = data.length - filteredData.length;
 
   // 👉 clear data cũ
   sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
 
-  // 👉 ghi lại data mới từ dòng 2
+  // 👉 ghi lại
   if (filteredData.length > 0) {
     sheet.getRange(2, 1, filteredData.length, lastCol)
          .setValues(filteredData);

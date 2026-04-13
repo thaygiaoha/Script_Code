@@ -1489,7 +1489,7 @@ function resetData(type, password, mode, exams, idgv) {
     if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
     
     // Xóa theo mã cụ thể (cột colums + 1)
-    rowsDeleted = deleteFast(keyexamsid, colums, sheetName);
+    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
     return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
   }
 
@@ -1621,7 +1621,7 @@ function supper(text) {
   var key = supper(text);
 
   var filteredData = data.filter(function(row) {
-    return supper(row[number]) !== key;
+    return supper(row[number - 1]) !== key;
   });
 
   var deletedCount = data.length - filteredData.length;

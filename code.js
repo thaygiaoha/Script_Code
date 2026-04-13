@@ -1448,7 +1448,7 @@ function getExamsList(type, idgv) {
 // Reset chung
 function resetData(type, password, mode, exams, idgv) {
   if (password !== passReset) return createResponse("error", "Sai mật khẩu!");
-  if (!idgv) return createResponse("error", "Thiếu IDGV"); 
+  if (!idgv) return createResponse("error", "Thiếu IDGV");   
   
   // Chuẩn hóa mã trước khi so sánh
   const keyid = N9(idgv);
@@ -1573,56 +1573,69 @@ function supper(text) {
 /**
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
-function deleteFastAll(text, number, name) {  
+
+  function deleteFastAll(text, number, name) {  
   var sheet = ss.getSheetByName(name);
-  if (!sheet) return;
+ if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
-  var range = sheet.getDataRange();
-  var data = range.getValues();
-  
-  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
 
-  // 1. Tách dòng đầu tiên (Header) ra
-  var header = data.shift(); 
-  
-  // 2. Lọc các dòng còn lại (Data)
+  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
+
+  // 👉 chỉ lấy data (bỏ header)
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+
+  var key = N9(text);
+
   var filteredData = data.filter(function(row) {
-    // Chỉ giữ lại những dòng có giá trị khác với 'text'
-    return N9(row[number - 1]) != N9(text);
+    return N9(row[number - 1]) !== key;
   });
 
-  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
-  filteredData.unshift(header);
+  var deletedCount = data.length - filteredData.length;
 
-  // 4. Cập nhật lại Sheet
-  sheet.clearContents();
-  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
+  // 👉 clear data cũ
+  sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+
+  // 👉 ghi lại data mới từ dòng 2
+  if (filteredData.length > 0) {
+    sheet.getRange(2, 1, filteredData.length, lastCol)
+         .setValues(filteredData);
+  }
+
+  return deletedCount;
 }
 
-function deleteFast(text, number, name) {  
+ function deleteFast(text, number, name) {  
   var sheet = ss.getSheetByName(name);
-  if (!sheet) return;
+ if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
-  var range = sheet.getDataRange();
-  var data = range.getValues();
-  
-  if (data.length <= 1) return; // Không có dữ liệu hoặc chỉ có mỗi header
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
 
-  // 1. Tách dòng đầu tiên (Header) ra
-  var header = data.shift(); 
-  
-  // 2. Lọc các dòng còn lại (Data)
+  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
+
+  // 👉 chỉ lấy data (bỏ header)
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+
+  var key = supper(text);
+
   var filteredData = data.filter(function(row) {
-    // Chỉ giữ lại những dòng có giá trị khác với 'text'
-    return supper(row[number - 1]) != supper(text);
+    return supper(row[number]) !== key;
   });
 
-  // 3. Gộp Header lại vào đầu mảng dữ liệu đã lọc
-  filteredData.unshift(header);
+  var deletedCount = data.length - filteredData.length;
 
-  // 4. Cập nhật lại Sheet
-  sheet.clearContents();
-  sheet.getRange(1, 1, filteredData.length, filteredData[0].length).setValues(filteredData); 
+  // 👉 clear data cũ
+  sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+
+  // 👉 ghi lại data mới từ dòng 2
+  if (filteredData.length > 0) {
+    sheet.getRange(2, 1, filteredData.length, lastCol)
+         .setValues(filteredData);
+  }
+
+  return deletedCount;
 }
 
 

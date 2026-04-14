@@ -426,6 +426,9 @@ const lock = LockService.getScriptLock();
         JSON.stringify({ status, message, data: payload || null })
       ).setMimeType(ContentService.MimeType.JSON);
    const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
+    if (action === "importExamFull") {
+      return importExamFull(Data.config, Data.data);
+    }
 
   // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
   if (sheetKq.getLastRow() === 0) {

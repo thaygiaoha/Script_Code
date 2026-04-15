@@ -42,19 +42,30 @@ const params = e.parameter;
 }
 
   // VBA Pro
-  if (action === "verifyTeacherSubject") {
+ if (action === "verifyTeacherSubject") {
   const key = (params.key || "").toUpperCase().trim();
+  const passClient = (params.pass || "").trim(); // Lấy pass từ VBA gửi sang
 
-  const sheet = ssAdmin.getSheetByName("idgv");
+  const sheet = ssAdmin.getSheetByName("idgv");    
+
+  
+  // 1. Kiểm tra mã GV trong cột G
   const data = sheet.getRange("G2:G" + sheet.getLastRow())
                     .getValues()
                     .flat()
                     .map(x => String(x).toUpperCase().trim());
+  const isKeyValid = data.includes(key);
 
-  const found = data.includes(key);
+  // 2. Kiểm tra Pass Admin tại ô F2
+  const adminPass = String(sheet.getRange("I2").getValue()).trim();
+  const isPassValid = (passClient === adminPass);
 
+  // Trả về kết quả (chỉ valid khi khớp cả key và pass nếu bạn muốn bảo mật chặt)
   return ContentService.createTextOutput(
-    JSON.stringify({ valid: found })
+    JSON.stringify({ 
+      valid: isKeyValid, 
+      isAdmin: isPassValid 
+    })
   ).setMimeType(ContentService.MimeType.JSON);
 }
 // Xác minh admin

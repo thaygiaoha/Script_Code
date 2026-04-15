@@ -40,6 +40,23 @@ const params = e.parameter;
   // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
   return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
 }
+
+  // VBA Pro
+  if (action === "verifyTeacherSubject") {
+  const key = (params.key || "").toUpperCase().trim();
+
+  const sheet = ssAdmin.getSheetByName("idgv");
+  const data = sheet.getRange("G2:G" + sheet.getLastRow())
+                    .getValues()
+                    .flat()
+                    .map(x => String(x).toUpperCase().trim());
+
+  const found = data.includes(key);
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ valid: found })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   

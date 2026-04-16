@@ -26,51 +26,48 @@ const params = e.parameter;
   if (action === "getTeachers") {
   return getTeachers();
 }
-  // Xác minh bên VBA
+  // Xác minh bên VBA 3 hàm
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("A2:A" + sheet.getLastRow())
+  const data = sheet.getRange("G2:G" + sheet.getLastRow())
+                  .getValues()
+                  .flat()
+                  .map(item => String(item);
+  
+  // Lọc bỏ ô trống và chuyển về chữ thường
+  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());
+  
+  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
+  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+}
+  if (action === "getIdGVMON") {
+  const sheet = ssAdmin.getSheetByName("idgv");
+  const data = sheet.getRange("E2:E" + sheet.getLastRow())
                   .getValues()
                   .flat()
                   .map(item => String(item).slice(-9));
   
   // Lọc bỏ ô trống và chuyển về chữ thường
-  const cleanData = data.filter(String).map(id => id.toString().toLowerCase().trim());
+  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());
+  
+  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
+  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+}
+   if (action === "getIdGVMON") {
+  const sheet = ssAdmin.getSheetByName("idgv");
+  const data = sheet.getRange("E2:E" + sheet.getLastRow())
+                  .getValues()
+                  .flat()
+                  .map(item => String(item).slice(-9));
+  
+  // Lọc bỏ ô trống và chuyển về chữ thường
+  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());
   
   // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
   return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
 }
 
-  // VBA Pro
- if (action === "verifyTeacherSubject") {
-  const key = (params.key || "").toUpperCase().trim();
-  const passClient = (params.pass || "").trim(); // Lấy pass từ VBA gửi sang
-
-  const sheet = ssAdmin.getSheetByName("idgv");    
-
   
-  // 1. Kiểm tra mã GV trong cột G
-  const data = sheet.getRange("G2:G" + sheet.getLastRow())
-                    .getValues()
-                    .flat()
-                    .map(x => String(x).toUpperCase().trim());
-
-
-  // 2. Kiểm tra Pass Admin tại ô F2
-  const adminPass = String(sheet.getRange("I2").getValue()).trim();
-  const isPassValid = (passClient === adminPass);
-  const isKeyValid = data.includes(key);
-  const valid = isKeyValid;
-  const isAdmin = isKeyValid && isPassValid;
-
-  // Trả về kết quả (chỉ valid khi khớp cả key và pass nếu bạn muốn bảo mật chặt)
-return ContentService.createTextOutput(
-  JSON.stringify({ 
-    valid: valid,
-    isAdmin: isAdmin
-  })
-).setMimeType(ContentService.MimeType.JSON);
-}
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   

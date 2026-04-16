@@ -29,14 +29,16 @@ const params = e.parameter;
   // Xác minh bên VBA 3 hàm
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("G2:G" + sheet.getLastRow())
-                  .getValues()
-                  .flat()
-                  .map(item => String(item));
   
-  // Lọc bỏ ô trống và chuyển về chữ thường
-  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim()); 
-  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+  const data = sheet.getRange("G2:G" + sheet.getLastRow())
+    .getValues()
+    .flat()
+    .map(item => String(item).toUpperCase().trim())
+    .filter(item => item !== "");
+
+  return ContentService
+    .createTextOutput(data.join(","))
+    .setMimeType(ContentService.MimeType.TEXT);
 }
   // Xác minh Pass Admin trong VBA
    if (action === "getIdGVAD") {

@@ -32,7 +32,7 @@ const params = e.parameter;
   const data = sheet.getRange("G2:G" + sheet.getLastRow())
                   .getValues()
                   .flat()
-                  .map(item => String(item);
+                  .map(item => String(item));
   
   // Lọc bỏ ô trống và chuyển về chữ thường
   const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());

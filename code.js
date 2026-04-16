@@ -54,19 +54,22 @@ const params = e.parameter;
                     .getValues()
                     .flat()
                     .map(x => String(x).toUpperCase().trim());
-  const isKeyValid = data.includes(key);
+
 
   // 2. Kiểm tra Pass Admin tại ô F2
   const adminPass = String(sheet.getRange("I2").getValue()).trim();
   const isPassValid = (passClient === adminPass);
+  const isKeyValid = data.includes(key);
+  const valid = isKeyValid;
+  const isAdmin = isKeyValid && isPassValid;
 
   // Trả về kết quả (chỉ valid khi khớp cả key và pass nếu bạn muốn bảo mật chặt)
-  return ContentService.createTextOutput(
-    JSON.stringify({ 
-      valid: isKeyValid, 
-      isAdmin: isPassValid 
-    })
-  ).setMimeType(ContentService.MimeType.JSON);
+return ContentService.createTextOutput(
+  JSON.stringify({ 
+    valid: valid,
+    isAdmin: isAdmin
+  })
+).setMimeType(ContentService.MimeType.JSON);
 }
 // Xác minh admin
   if (action === "checkAdminOTP") {

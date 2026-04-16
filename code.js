@@ -26,34 +26,20 @@ const params = e.parameter;
   if (action === "getTeachers") {
   return getTeachers();
 }
-  // Xác minh bên VBA 3 hàm
+  // Xác minh bên VBA
  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
+  const data = sheet.getRange("A2:A" + sheet.getLastRow())
+                  .getValues()
+                  .flat()
+                  .map(item => String(item).slice(-9));
   
-  const data = sheet.getRange("G2:G" + sheet.getLastRow())
-    .getValues()
-    .flat()
-    .map(item => String(item).toUpperCase().trim())
-    .filter(item => item !== "");
-
-  return ContentService
-    .createTextOutput(data.join(","))
-    .setMimeType(ContentService.MimeType.TEXT);
-}
-  // Xác minh Pass Admin trong VBA
-   if (action === "getIdGVAD") {
-  const sheet = ssAdmin.getSheetByName("idgv");
-
-  const pass = String(sheet.getRange("H2").getValue())
-    .toUpperCase()
-    .trim();
-
-  return ContentService
-    .createTextOutput(pass)
-    .setMimeType(ContentService.MimeType.TEXT);
-}
-
+  // Lọc bỏ ô trống và chuyển về chữ thường
+  const cleanData = data.filter(String).map(id => id.toString().toLowerCase().trim());
   
+  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
+  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+}
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   
@@ -440,9 +426,6 @@ const lock = LockService.getScriptLock();
         JSON.stringify({ status, message, data: payload || null })
       ).setMimeType(ContentService.MimeType.JSON);
    const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
-    //if (action === "importExamFull") {
-      //return importExamFull(Data.config, Data.data);
-    //}
 
   // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
   if (sheetKq.getLastRow() === 0) {

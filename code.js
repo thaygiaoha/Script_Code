@@ -35,21 +35,20 @@ const params = e.parameter;
                   .map(item => String(item));
   
   // Lọc bỏ ô trống và chuyển về chữ thường
-  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());
-  
-  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
+  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim()); 
   return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
 }
-  
+  // Xác minh Pass Admin trong VBA
    if (action === "getIdGVAD") {
   const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("H2:H2").getValues();         
-  
-  // Lọc bỏ ô trống và chuyển về chữ thường
-  const cleanData = data.filter(String).toUpperCase().trim());
-  
-  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
-  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+
+  const pass = String(sheet.getRange("H2").getValue())
+    .toUpperCase()
+    .trim();
+
+  return ContentService
+    .createTextOutput(pass)
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
   

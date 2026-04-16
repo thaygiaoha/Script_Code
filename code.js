@@ -40,28 +40,13 @@ const params = e.parameter;
   // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
   return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
 }
-  if (action === "getIdGVMON") {
+  
+   if (action === "getIdGVAD") {
   const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("E2:E" + sheet.getLastRow())
-                  .getValues()
-                  .flat()
-                  .map(item => String(item).slice(-9));
+  const data = sheet.getRange("H2:H2").getValues();         
   
   // Lọc bỏ ô trống và chuyển về chữ thường
-  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());
-  
-  // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
-  return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
-}
-   if (action === "getIdGVMON") {
-  const sheet = ssAdmin.getSheetByName("idgv");
-  const data = sheet.getRange("E2:E" + sheet.getLastRow())
-                  .getValues()
-                  .flat()
-                  .map(item => String(item).slice(-9));
-  
-  // Lọc bỏ ô trống và chuyển về chữ thường
-  const cleanData = data.filter(String).map(id => id.toString().toUpperCase().trim());
+  const cleanData = data.filter(String).toUpperCase().trim());
   
   // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
   return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);

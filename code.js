@@ -26,8 +26,9 @@ const params = e.parameter;
   if (action === "getTeachers") {
   return getTeachers();
 }
-  // Xác minh bên VBA
- if (action === "getIdGV") {
+  // Xác minh giáo viên bên VBA
+  // Xác minh chỉ idgv
+  if (action === "getIdGV") {
   const sheet = ssAdmin.getSheetByName("idgv");
   const data = sheet.getRange("A2:A" + sheet.getLastRow())
                   .getValues()
@@ -40,6 +41,30 @@ const params = e.parameter;
   // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
   return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
 }
+ // Xác minh idgv và môn
+  if (action === "getIdGVM") {
+    const sheet = ssAdmin.getSheetByName("idgv");
+    const data = sheet.getRange("G2:G" + sheet.getLastRow())
+      .getValues()
+      .flat()
+      .map(item => String(item));
+
+    // Lọc bỏ ô trống và chuyển về chữ thường
+    const cleanData = data.filter(String).map(id => id.toString().trim());
+
+    // Trả về chuỗi thuần túy: "gv100,gv101,admin22"
+    return ContentService.createTextOutput(cleanData.join(",")).setMimeType(ContentService.MimeType.TEXT);
+  }
+  // Xác minh ADMIN VBA
+  // Xác minh ADMIN VBA
+  if (action === "getIdGVAD") {
+    const sheet = ssAdmin.getSheetByName("idgv");
+    // Lấy giá trị ô H2, ép kiểu chuỗi và cắt khoảng trắng
+    const passAdmiN = sheet.getRange("H2").getValue().toString().trim();
+
+    // Trả về trực tiếp chuỗi pass, không join gì cả
+    return ContentService.createTextOutput(passAdmiN).setMimeType(ContentService.MimeType.TEXT);
+  }
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   

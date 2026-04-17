@@ -341,6 +341,37 @@ const params = e.parameter;
   }
 
 // #04 chung
+  // Tải điểm
+if (action === "downloadScores") {
+    const idgv = e.parameter.idgv; 
+    const exams = e.parameter.exams;     
+    const sheet = ss.getSheetByName("ketqua");
+    
+    const keycheck = (exams + "." + idgv).toUpperCase();
+    
+    if (!sheet) return ContentService.createTextOutput("Sheet ketqua không tồn tại").setMimeType(ContentService.MimeType.TEXT);
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return ContentService.createTextOutput("Dữ liệu kết quả đang trống").setMimeType(ContentService.MimeType.TEXT);
+
+    // --- ĐIỀU CHỈNH TẠI ĐÂY ---
+    // Lấy header từ cột 1 đến cột 8 (Cột H)
+    const header = sheet.getRange(1, 1, 1, 10).getValues()[0];
+    
+    // Lấy dữ liệu từ dòng 2, cột 1, đến dòng cuối, lấy 10 cột để vẫn lọc được cột I (cột 9)
+    // Nhưng chúng ta sẽ dùng slice để cắt bớt trước khi trả về
+    const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();   
+    
+    const filteredData = data
+      .filter(row => String(row[8]).toUpperCase() === keycheck) // Lọc dựa trên cột I (index 8)
+      .map(row => row.slice(0, 8)); // Cắt bỏ cột I, chỉ lấy từ cột A (index 0) đến H (index 7)
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      header: header,
+      data: filteredData
+    })).setMimeType(ContentService.MimeType.JSON);
+}
+  
 // ===== LẤY LIST EXAMS =====
   if (action === "getExamsList") {
     return getExamsList(e.parameter.type, e.parameter.idgv );

@@ -995,7 +995,6 @@ if (closeTime && now > closeTime) {
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
     }
   }
-
   // --- LOGIC CŨ CỦA THẦY: LƯU CẢ BỘ ---
   const exists = fullData.some(row => row[0].toString() === examCode.toString());
   if (exists && !force) return createResponse("exists", `Mã đề đã có dữ liệu!`);
@@ -1005,15 +1004,22 @@ if (closeTime && now > closeTime) {
       if (fullData[i][0].toString() === examCode.toString()) sheet.deleteRow(i + 1);
     }
   }
-
   const rows = qArray.map(q => [
-    examCode, q.id || "", q.classTag || "1001.a", q.type || "mcq", q.question || "", 
-    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", new Date()
+    examCode, 
+    q.id || "", 
+    q.classTag || "1001.a", 
+    q.type || "mcq", 
+    q.question || "", 
+    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
+    new Date(),
+     "'" + idgv,
+    examCode + "." + idgv,
+    examCode + "." + q.id + "." + idgv
   ]);
 
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setValues(rows);
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
   var lastRow = sheet.getLastRow();
-      sheet.getRange("E:H").setWrap(true);
+      sheet.getRange("E:F").setWrap(true);
 
       // Tự chỉnh chiều cao từ dòng 2 trở xuống
       

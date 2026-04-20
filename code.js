@@ -320,9 +320,6 @@ const params = e.parameter;
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng trống!");
       }  
-
-  
-
     const data = sheet.getDataRange().getValues();
     const results = [];
 
@@ -989,11 +986,12 @@ if (closeTime && now > closeTime) {
         q.type || "mcq", 
         q.question || "", 
         finalLG, 
+        new Date(),
         "'" + idgv,
         examCode + "." + idgv,
-        new Date()
+        examCode + "." + q.id + "." + idgv
       ];
-      sheet.getRange(rowIdx, 1, 1, 7).setValues([rowToUpdate]);
+      sheet.getRange(rowIdx, 1, 1, 10).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
     }
   }

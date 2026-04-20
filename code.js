@@ -914,7 +914,7 @@ if (closeTime && now > closeTime) {
 
         if (idMatch) {
           const solId = idMatch[1].toString();
-           key = supper(examCode + "." + solId + "." + solId)
+          const key = supper(examCode + "." + solId + "." + idgv)
           // Dò đúng dòng có Mã đề + ID
           for (let i = 1; i < range.length; i++) {
            

@@ -969,7 +969,7 @@ if (closeTime && now > closeTime) {
 
     // Tìm xem ID câu hỏi này đã nằm ở dòng nào của Mã đề này chưa
     for (let i = 0; i < fullData.length; i++) {
-      if (fullData[i][0].toString() === examCode.toString() && fullData[i][1].toString() === targetId) {
+      if ((fullData[i][0] || "").toString() === examCode.toString() && (fullData[i][1] || "").toString() === targetId) {
         rowIdx = i + 1;
         break;
       }
@@ -1001,7 +1001,7 @@ if (closeTime && now > closeTime) {
 
   if (exists && force) {
     for (let i = fullData.length - 1; i >= 0; i--) {
-      if (fullData[i][0].toString() === examCode.toString()) sheet.deleteRow(i + 1);
+      if ((fullData[i][0] || "").toString() === examCode.toString()) sheet.deleteRow(i + 1);
     }
   }
   const rows = qArray.map(q => [
@@ -1441,7 +1441,7 @@ function updateQuestion(payload) {
       if (!fullData[i][0]) continue; 
 
       // So sánh ID an toàn
-      if (fullData[i][0].toString() === data.id.toString()) {
+      if ((fullData[i][0] || "").toString() === data.id.toString()) {
         const rowNum = i + 1;
         
         // Cập nhật các cột dựa trên tên Header

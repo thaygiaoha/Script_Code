@@ -798,10 +798,10 @@ const closeTime = exRow[11] instanceof Date
         let exRowKq = [];
 
         if (sheetKQ.getLastRow() > 1) {
-        exRowKq = sheetKQ.getRange(2, 1, sheetKQ.getLastRow()-1, 10).getValues();
+        exRowKq = sheetKQ.getRange(2, 1, sheetKQ.getLastRow()-1, 11).getValues();
           }
         const currentAttempts = exRowKq.filter(r => 
-      r[9].toString().trim() === keysbd).length;
+      r[10].toString().trim() === keysbd).length;
 
     if (sbd !== "8888") {       
       if (openTime && now < openTime) {
@@ -1469,7 +1469,7 @@ function getExamsList(type, idgv) {
 
   if (type === "ketqua") {
     sheetName = "ketqua";
-    columnIndex = 9; // cột I
+    columnIndex = 10; // cột I
   }
 
   else if (type === "matran") {
@@ -1575,7 +1575,7 @@ function getScore(e) {
   const data = sheet.getDataRange().getValues();
 
   const results = data.slice(1).filter(row =>
-    row[9].toString().trim() === key
+    row[10].toString().trim() === key
   );
 
   if (results.length === 0) {

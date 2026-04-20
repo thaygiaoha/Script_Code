@@ -352,15 +352,15 @@ if (action === "downloadScores") {
 
     // --- ĐIỀU CHỈNH TẠI ĐÂY ---
     // Lấy header từ cột 1 đến cột 8 (Cột H)
-    const header = sheet.getRange(1, 1, 1, 10).getValues()[0];
+    const header = sheet.getRange(1, 1, 1, 11).getValues()[0];
     
     // Lấy dữ liệu từ dòng 2, cột 1, đến dòng cuối, lấy 10 cột để vẫn lọc được cột I (cột 9)
     // Nhưng chúng ta sẽ dùng slice để cắt bớt trước khi trả về
-    const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();   
+    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();   
     
     const filteredData = data
-      .filter(row => String(row[8]).toUpperCase() === keycheck) // Lọc dựa trên cột I (index 8)
-      .map(row => row.slice(0, 8)); // Cắt bỏ cột I, chỉ lấy từ cột A (index 0) đến H (index 7)
+      .filter(row => String(row[9]).toUpperCase() === keycheck) // Lọc dựa trên cột I (index 9)
+      .map(row => row.slice(0, 9)); // Cắt bỏ cột J, chỉ lấy từ cột A (index 0) đến I (index 8)
     
     return ContentService.createTextOutput(JSON.stringify({
       header: header,
@@ -471,7 +471,7 @@ const lock = LockService.getScriptLock();
 
   // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
   if (sheetKq.getLastRow() === 0) {
-    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv"]);
+    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv", "vipham", "exams.idgv", "exams.sbd.idgv"]);
   }
 
   // LOGIC CHUNG CHO CẢ 2 LOẠI (Vì cấu trúc cột ghi là giống nhau)
@@ -485,7 +485,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     let sheetKq = ss.getSheetByName("ketqua");    
     if (!sheetKq) {
       sheetKq = ss.insertSheet("ketqua");
-      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Mã KQ"]);
+      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv"]);
     }
 
     // 2. CHUẨN HÓA DỮ LIỆU
@@ -495,6 +495,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const className  = (data.class || data.className || "Tự do").toString();
     const thoiGian = data.time || 0;
     const sbd = data.sbd || "";
+    const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
@@ -523,6 +524,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       diem,                                                // F
       thoiGian,                                           // G           
       "'" + supper(idgv),
+      tabCount,
       supper(exams + "." + idgv),                                    // S
       supper(exams + "." + sbd + "." + idgv)      
     ];

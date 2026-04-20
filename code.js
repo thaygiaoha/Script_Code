@@ -287,10 +287,10 @@ const params = e.parameter;
   const idgv = e.parameter.idgv || "";
   const key = supper(examCodeInput + "." + questionIdInput + "." + idgv);
 
-  const data = sheet.getDataRange().getValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
-  for (let i = 1; i < data.length; i++) {    
-    if (data[i][9].toString().trim() === key) {
+  for (let i = 0; i < data.length; i++) {    
+    if (supper(data[i][9] || "") === key) {
 
   return createResponse(
     "success",
@@ -320,12 +320,11 @@ const params = e.parameter;
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng trống!");
       }  
-    const data = sheet.getDataRange().getValues();
+    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
     const results = [];
 
-    for (let i = 1; i < data.length; i++) {
-      // Cột A là mã đề
-      if (data[i][8].toString().trim() === key) {
+    for (let i = 0; i < data.length; i++) {      
+      if (supper(data[i][8] || "") === key) {
         try {
           // Cột E chứa JSON câu hỏi
           results.push(JSON.parse(data[i][4]));
@@ -763,7 +762,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
        // 1. Tìm học sinh bằng vòng lặp (An toàn và nhanh nhất)
 var student = null;
 for (var i = 1; i < dataDS.length; i++) {
-  var rowSBD = (dataDS[i][7] || "").toString().trim();  
+  var rowSBD = supper(dataDS[i][7] || "");  
   
   // So sánh chuẩn cả 2 điều kiện
   if (rowSBD === keyds) {
@@ -777,7 +776,7 @@ if (!student) {
   return createResponse("error", "SBD hoặc IDGV không chính xác!");
 }
 const exRow = sheetExam.getDataRange().getValues().find(r => 
-  (r[14] || "").toString() === keyexams
+  supper(r[14]) === keyexams
 );
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode + " / GV: " + idgv);
         // ===== CHECK THỜI GIAN MỞ / ĐÓNG =====
@@ -844,7 +843,7 @@ if (closeTime && now > closeTime) {
         // 2. Lấy câu hỏi - ĐOẠN ĐÃ TỐI ƯU
         const allRows = sheetData.getDataRange().getValues();
         const filteredQuestions = allRows.slice(1)
-          .filter(r => r[8].toString().trim() === keyexams)
+          .filter(r => supper(r[8]) === keyexams)
           .map(r => {
             let raw = r[4];
             if (!raw) return null;

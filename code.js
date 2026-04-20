@@ -422,16 +422,6 @@ if (action === 'getAppConfigmt') {
     data: getAppConfigmt()
   })).setMimeType(ContentService.MimeType.JSON);
 }
-// 2. LẤY DANH SÁCH ỨNG DỤNG
-  if (params.sheet === "ungdung") {
-    var sheet = ssAdmin.getSheetByName("ungdung");
-    var rows = sheet.getDataRange().getValues();
-    var data = [];
-    for (var i = 1; i < rows.length; i++) {
-      data.push({ name: rows[i][0], icon: rows[i][1], link: rows[i][2] });
-    }
-    return resJSON(data);
-  }
 
   // 3. TOP 10
   if (type === 'top10') {

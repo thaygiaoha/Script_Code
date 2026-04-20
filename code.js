@@ -1633,7 +1633,7 @@ function supper(text) {
 }
   
 
-// Hàm xóa nhiều dòng
+// Hàm xóa nhiều dòng //
 /**
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */

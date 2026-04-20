@@ -796,7 +796,7 @@ const closeTime = exRow[11] instanceof Date
         let exRowKq = [];
 
         if (sheetKQ.getLastRow() > 1) {
-        exRowKq = sheetKQ.getRange(2,1,sheetKQ.getLastRow()-1,3).getValues();
+        exRowKq = sheetKQ.getRange(2, 1, sheetKQ.getLastRow()-1, 10).getValues();
           }
         const currentAttempts = exRowKq.filter(r => 
       r[9].toString().trim() === keysbd).length;

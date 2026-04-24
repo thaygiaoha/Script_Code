@@ -1172,7 +1172,8 @@ function replaceIdInBlock(block, newId) {
 
 function getAppConfig() {
   var sheetCD = ss.getSheetByName("dangcd");
-  var dataCD = sheetCD.getDataRange().getValues();
+  // var dataCD = sheetCD.getDataRange().getValues();
+  var dataCD = sheetCD.getDataRange().getDisplayValues();
 
   var topics = [];
   var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp

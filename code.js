@@ -1190,7 +1190,7 @@ function getAppConfig() {
         grade: lop,
         id: idcd,
         name: namecd,
-        total: total || 0
+        total: parseInt(total) || 0
       });
 
       // 2. Thu thập danh sách lớp (để nạp vào CLASS_ID bên React)

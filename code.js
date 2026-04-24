@@ -1182,13 +1182,15 @@ function getAppConfig() {
     var lop = dataCD[i][0];   // Cột A: lop
     var idcd = dataCD[i][1];  // Cột B: idcd
     var namecd = dataCD[i][2]; // Cột C: namecd
+    var total = dataCD[i][8]; // cột I ghi tổng số câu
 
     if (lop) {
       // 1. Đẩy vào danh sách chuyên đề
       topics.push({
         grade: lop,
         id: idcd,
-        name: namecd
+        name: namecd,
+        total: total || 0
       });
 
       // 2. Thu thập danh sách lớp (để nạp vào CLASS_ID bên React)
@@ -1217,12 +1219,14 @@ function getAppConfigmt() {
       var lop = dataCD[i][0];    // Cột A: lop
       var idcd = dataCD[i][1];   // Cột B: idcd
       var namecd = dataCD[i][2]; // Cột C: namecd
+      var total = dataCD[i][8]; // Cột I
 
       if (idcd) {
         topics.push({
           grade: lop,            // Khối lớp (10, 11, 12)
           id: String(idcd),      // ID chuyên đề (để lưu vào matrix)
-          name: String(namecd)   // Tên để hiển thị cho GV chọn
+          name: String(namecd),   // Tên để hiển thị cho GV chọn
+          total: total || 0
         });
       }
     }

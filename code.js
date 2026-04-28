@@ -67,18 +67,18 @@ const params = e.parameter;
   }
   // Ghi idinput vào sheet(danhsach)
   // Thêm vào trong hàm doGet(e) của thầy
-if (action === 'getLastID') {  
-  var sheet = ss.getSheetByName("danhsach");
-  var val = sheet.getRange("I2").getValue();
-  return ContentService.createTextOutput(val.toString());
-}
+if (action === "getLastID") {  
+    var val = sheet.getRange("I2").getValue();
+    return ContentService.createTextOutput(val.toString());
+  }
 
-if (action === 'saveLastID') {
-  var idMoi = e.parameter.id;  
-  var sheet = ss.getSheetByName("danhsach");
-  sheet.getRange("I2").setValue(idMoi);
-  return ContentService.createTextOutput("Success");
-}
+  if (action === "saveLastID") {
+    var idMoi = e.parameter.id;  
+    // Đảm bảo ghi ở định dạng chuỗi nếu ID có số 0 ở đầu
+    sheet.getRange("I2").setValue("'" + idMoi); 
+    SpreadsheetApp.flush(); // Lệnh này ép Google ghi dữ liệu ngay lập tức
+    return ContentService.createTextOutput("Success");
+  }
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   

@@ -65,6 +65,20 @@ const params = e.parameter;
     // Trả về trực tiếp chuỗi pass, không join gì cả
     return ContentService.createTextOutput(passAdmiN).setMimeType(ContentService.MimeType.TEXT);
   }
+  // Ghi idinput vào sheet(danhsach)
+  // Thêm vào trong hàm doGet(e) của thầy
+if (action === 'getLastID') {  
+  var sheet = ss.getSheetByName("danhsach");
+  var val = sheet.getRange("I2").getValue();
+  return ContentService.createTextOutput(val.toString());
+}
+
+if (action === 'saveLastID') {
+  var idMoi = e.parameter.id;  
+  var sheet = ss.getSheetByName("danhsach");
+  sheet.getRange("I2").setValue(idMoi);
+  return ContentService.createTextOutput("Success");
+}
 // Xác minh admin
   if (action === "checkAdminOTP") {
     var userOTP = e.parameter.otp;   

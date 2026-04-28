@@ -67,16 +67,20 @@ const params = e.parameter;
   }
   // Ghi idinput vào sheet(danhsach)
   // Thêm vào trong hàm doGet(e) của thầy
-if (action === "getLastID") {  
+// Ghi idinput vào sheet(danhsach)
+  if (action === "getLastID") {  
+    // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
+    var sheet = ss.getSheetByName("danhsach"); 
     var val = sheet.getRange("I2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
 
   if (action === "saveLastID") {
     var idMoi = e.parameter.id;  
-    // Đảm bảo ghi ở định dạng chuỗi nếu ID có số 0 ở đầu
+    // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
+    var sheet = ss.getSheetByName("danhsach"); 
     sheet.getRange("I2").setValue("'" + idMoi); 
-    SpreadsheetApp.flush(); // Lệnh này ép Google ghi dữ liệu ngay lập tức
+    SpreadsheetApp.flush(); 
     return ContentService.createTextOutput("Success");
   }
 // Xác minh admin

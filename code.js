@@ -765,6 +765,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     if (action === "studentGetExam") {
       try {
         const sbd = data.sbd ? data.sbd : "";
+        const pass = data.pass ? data.pass : "";
         const examCode = data.examCode ? data.examCode : "";
         const idgv = data.idgv ? data.idgv : "";
         const keyds = supper(sbd + "." + idgv);
@@ -786,7 +787,7 @@ for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = supper(dataDS[i][7] || "");  
   
   // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === keyds) {
+  if (rowSBD === keyds && (dataDS[i][8] || "").toString().trim() === pass.toString().trim()) {
     student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }

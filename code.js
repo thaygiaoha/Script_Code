@@ -97,6 +97,7 @@ const params = e.parameter;
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
+    const pass = params.passHS
     const sheet = ss.getSheetByName("danhsach");
     const lastRow = sheet.getLastRow();
     // #vip
@@ -107,7 +108,7 @@ const params = e.parameter;
     const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
     const key = supper(sbd + "." + idNumber);      
     for (let i = 0; i < data.length; i++) {
-      if ((data[i][7] || "").toString().trim() === key) {
+      if ((data[i][7] || "").toString().trim() === key && (data[i][8] || "").toString().trim() === pass.toString().trim()) {
         return createResponse("success", "OK", {
           name: data[i][1], 
           class: data[i][2], 

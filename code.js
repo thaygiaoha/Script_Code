@@ -105,7 +105,7 @@ const params = e.parameter;
     return createResponse("error", "Danh sách thí sinh trống!");
       }      
     // #vip
-    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+    const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
     const key = supper(sbd + "." + idNumber);      
     for (let i = 0; i < data.length; i++) {
       if ((data[i][7] || "").toString().trim() === key && (data[i][8] || "").toString().trim() === pass.toString().trim()) {

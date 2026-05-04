@@ -97,7 +97,7 @@ const params = e.parameter;
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
-    const pass = params.passHS
+    const pass = params.pass
     const sheet = ss.getSheetByName("danhsach");
     const lastRow = sheet.getLastRow();
     // #vip

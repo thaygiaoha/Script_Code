@@ -71,7 +71,7 @@ const params = e.parameter;
   if (action === "getLastID") {  
     // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
     var sheet = ss.getSheetByName("danhsach"); 
-    var val = sheet.getRange("I2").getValue();
+    var val = sheet.getRange("J2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
 
@@ -79,7 +79,7 @@ const params = e.parameter;
     var idMoi = e.parameter.id;  
     // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
     var sheet = ss.getSheetByName("danhsach"); 
-    sheet.getRange("I2").setValue("'" + idMoi); 
+    sheet.getRange("J2").setValue("'" + idMoi); 
     SpreadsheetApp.flush(); 
     return ContentService.createTextOutput("Success");
   }

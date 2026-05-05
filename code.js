@@ -590,49 +590,34 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 // #06 Ma trận
 // 1. NHÁNH LỜI GIẢI (saveLG)
     if (action === 'saveLG') {
-      var lastRow = sheetNH.getLastRow();
+  var lastRow = sheetNH.getLastRow();
+  if (lastRow < 2) return ContentService.createTextOutput("⚠️ Sheet rỗng!").setMimeType(ContentService.MimeType.TEXT);
 
+  // 1. Lấy toàn bộ cột A (ID) để tìm kiếm cho nhanh
+  var idValues = sheetNH.getRange(1, 1, lastRow, 1).getValues().map(function(r) { 
+    return r[0].toString().trim(); 
+  });
 
-      if (lastRow < 2) return ContentService.createTextOutput("⚠️ Sheet rỗng, chưa có ID để khớp thầy ơi!").setMimeType(ContentService.MimeType.TEXT);
+  var count = 0;
+  data.forEach(function (item) {
+    var idToFind = item.id.toString().trim();
+    
+    // 2. Tìm xem ID này nằm ở hàng nào trong cột A
+    var rowIndex = idValues.indexOf(idToFind);
 
-      // 1. Tìm ô trống đầu tiên ở cột H
-      var eValues = sheetNH.getRange(1, 8, lastRow, 1).getValues();
-      var firstEmptyRow = 0;
-      for (var i = 1; i < eValues.length; i++) {
-        if (!eValues[i][0] || eValues[i][0].toString().trim() === "") {
-          firstEmptyRow = i + 1;
-          break;
-        }
-      }
-      if (firstEmptyRow === 0) firstEmptyRow = lastRow + 1;
+    if (rowIndex !== -1) {
+      var targetRow = rowIndex + 1; // Vì index mảng bắt đầu từ 0
+      var rawLG = item.loigiai || "";
 
-      // 2. Điền LG và ép ID theo cột A
-      var count = 0;
-      data.forEach(function (item, index) {
-        var targetRow = firstEmptyRow + index;
-
-        // Lấy ID "xịn" đang nằm ở cột A của hàng này
-        var realId = sheetNH.getRange(targetRow, 1).getValue().toString();
-
-        if (realId) {
-          var rawLG = item.loigiai || item.lg || "";
-
-          // Dùng Regex để tìm "id: ..." hoặc "id:..." và thay bằng ID xịn từ cột A
-          // Đoạn này xử lý cả trường hợp có ngoặc kép hoặc không
-          var fixedLG = rawLG.replace(/id\s*:\s*["']?[^"'\s]+["']?/g, 'id: "' + realId + '"');
-
-          // Ghi vào cột H
-          sheetNH.getRange(targetRow, 8).setValue(fixedLG);
-          count++;
-        }
-      });
-      sheetNH.getRange("D:H").setWrap(true);
-
-      // Tự chỉnh chiều cao từ dòng 2 trở xuống
-      
-
-      return ContentService.createTextOutput("🚀 Đã xong! Điền tiếp " + count + " lời giải. ID trong LG đã được đồng bộ theo ID câu hỏi.").setMimeType(ContentService.MimeType.TEXT);
+      // 3. Ghi trực tiếp khối dữ liệu vào cột H (Cột 8)
+      sheetNH.getRange(targetRow, 8).setValue(rawLG);
+      count++;
     }
+  });
+
+  sheetNH.getRange("H:H").setWrap(true);
+  return ContentService.createTextOutput("🚀 Thành công! Đã cập nhật " + count + " lời giải vào đúng hàng theo ID.");
+}
     // 2. NHÁNH MA TRẬN (saveMatrix)
     if (action === "saveMatrix") {
       

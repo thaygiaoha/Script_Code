@@ -95,8 +95,9 @@ const params = e.parameter;
   } 
   if (action === 'getSheetData') {    
     var sheet = ss.getSheetByName("dangcd");
+    const lastRow = sheet.getLastRow();
     var range = sheet.getDataRange();
-    var values = range.getValues(); // Lấy toàn bộ hàng và cột
+    const values = sheet.getRange(1, 1, lastRow, 9).getValues(); // Lấy toàn bộ hàng và cột
     
     return ContentService.createTextOutput(JSON.stringify(values))
       .setMimeType(ContentService.MimeType.JSON);

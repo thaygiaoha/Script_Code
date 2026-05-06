@@ -93,6 +93,14 @@ const params = e.parameter;
       verified: isCorrect
     })).setMimeType(ContentService.MimeType.JSON);
   } 
+  if (action === 'getSheetData') {    
+    var sheet = ss.getSheetByName("dangcd");
+    var range = sheet.getDataRange();
+    var values = range.getValues(); // Lấy toàn bộ hàng và cột
+    
+    return ContentService.createTextOutput(JSON.stringify(values))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   // 6. XÁC MINH THÍ SINH
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;

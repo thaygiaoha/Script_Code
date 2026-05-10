@@ -695,36 +695,47 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
     // 3. NHÁNH LƯU CÂU HỎI MỚI (saveQuestions)
     if (action === 'saveQuestions') {
+  var now = new Date();
+  var lastRow = sheetNH.getLastRow();
+  
+  // 1. Lấy ID cuối cùng trong Sheet (ép kiểu số)
+  var lastIdInSheet = 0;
+  if (lastRow > 0) {
+    lastIdInSheet = Number(sheetNH.getRange(lastRow, 1).getValue()) || 0;
+  }
 
-      var now = new Date();
+  // 2. Chỉ kiểm tra item đầu tiên của mảng data gửi lên
+  if (data.length > 0) {
+    var firstItemId = Number(data[0].id);
 
-      var startRow = sheetNH.getLastRow() + 1;
-
-      var rows = data.map(function (item) {
-        return [
-          item.id,
-          item.classTag,
-          item.type,
-          item.part,
-          item.question,
-          item.options || "",
-          item.answer || "",
-          item.loigiai || "",
-          now
-        ];
-      });
-
-      if (rows.length > 0) {
-        sheetNH.getRange(startRow, 1, rows.length, rows[0].length)
-          .setValues(rows);
-      }
-      var lastRow = sheetNH.getLastRow();
-      sheetNH.getRange("D:H").setWrap(true);
-
-      // Tự chỉnh chiều cao từ dòng 2 trở xuống     
-
-      return createResponse("success", "Đã lưu " + rows.length + " câu hỏi thành công!");
+    // Nếu ID đầu tiên nhỏ hơn hoặc bằng ID cuối trong sheet -> Chặn luôn
+    if (firstItemId <= lastIdInSheet) {
+      return createResponse("error", "Dữ liệu đã tồn tại hoặc ID không hợp lệ (ID đầu tiên " + firstItemId + " không lớn hơn " + lastIdInSheet + ")");
     }
+  } else {
+    return createResponse("error", "Không có dữ liệu để lưu");
+  }
+
+  // 3. Nếu vượt qua kiểm tra, tiến hành map và lưu toàn bộ
+  var rows = data.map(function (item) {
+    return [
+      item.id,
+      item.classTag,
+      item.type,
+      item.part,
+      item.question,
+      item.options || "",
+      item.answer || "",
+      item.loigiai || "",
+      now
+    ];
+  });
+
+  sheetNH.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
+  sheetNH.getRange("D:H").setWrap(true);
+
+  return createResponse("success", "Đã lưu thành công " + rows.length + " câu hỏi!");
+}
     // 5. CẬP NHẬT CÂU HỎI (updateQuestion)
     if (action === 'updateQuestion') {
   var item = data.data;

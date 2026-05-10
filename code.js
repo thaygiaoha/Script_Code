@@ -562,6 +562,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
     sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
+    sheetKq.getRange("M:M").setWrap(true);
    
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 

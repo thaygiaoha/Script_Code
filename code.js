@@ -513,7 +513,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     let sheetKq = ss.getSheetByName("ketqua");    
     if (!sheetKq) {
       sheetKq = ss.insertSheet("ketqua");
-      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv"]);
+      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv", "Thể loại", "Detail"]);
     }
 
     // 2. CHUẨN HÓA DỮ LIỆU
@@ -524,6 +524,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const thoiGian = data.time || 0;
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
+    const theloai = data.theloai;
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
@@ -555,7 +556,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       tabCount,
       supper(exams + "." + idgv),                                    // S
       supper(exams + "." + sbd + "." + idgv),
-      data.details || ""  // Cột L
+      theloai,
+      data.details || ""  // Cột M
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ

@@ -554,7 +554,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       "'" + supper(idgv),
       tabCount,
       supper(exams + "." + idgv),                                    // S
-      supper(exams + "." + sbd + "." + idgv)      
+      supper(exams + "." + sbd + "." + idgv),
+      data.details || ""  // Cột L
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ

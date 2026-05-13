@@ -1954,42 +1954,53 @@ function calculateSimilarity(row1, row2) {
   const [id1, tag1, type1, part1, q1, opt1, ans1] = row1;
   const [id2, tag2, type2, part2, q2, opt2, ans2] = row2;
 
-  // --- BƯỚC 1: KIỂM TRA LOẠI (TYPE) ---
+  // 1. Khác loại (Type) thì cho cook luôn, không nói nhiều
   const isTF1 = (type1 === 'true-false' || type1 === 'tf');
   const isTF2 = (type2 === 'true-false' || type2 === 'tf');
+  if (isTF1 !== isTF2) return 0;
 
-  // True-false chỉ xét với True-false
-  if (isTF1 !== isTF2) return 0; 
+  // 2. Làm sạch nội dung: Bỏ toán, bỏ HTML, chỉ giữ lại CHỮ
+  const getMainText = (txt) => {
+    return String(txt).toLowerCase()
+      .replace(/<[^>]*>/g, "") // Bỏ HTML
+      .replace(/\$[^\$]*\$/g, "") // Bỏ toàn bộ nội dung nằm trong cặp $ $ (toán học)
+      .replace(/[0-9]/g, "") // Bỏ con số (tránh trùng do cùng là số 20, 30...)
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, " ") // Bỏ ký hiệu đặc biệt
+      .split(/\s+/)
+      .filter(w => w.length > 1); // Chỉ lấy từ có nghĩa (2 ký tự trở lên)
+  };
 
+  const words1 = getMainText(q1);
+  const words2 = getMainText(q2);
+
+  if (words1.length === 0 || words2.length === 0) return 0;
+
+  // 3. Tính toán trọng số theo yêu cầu của thầy Hà
   let totalScore = 0;
 
-  // --- BƯỚC 2: TÍNH ĐIỂM CHI TIẾT ---
-
-  // 1. So sánh 4 ký tự đầu ClassTag (10%)
+  // A. Trọng số ClassTag (10%): So sánh 4 ký tự đầu
   if (String(tag1).substring(0, 4) === String(tag2).substring(0, 4)) {
     totalScore += 10;
   }
 
-  // 2. So sánh Nội dung câu hỏi - Cột E (50%)
-  // Sử dụng hàm cleanText để loại bỏ khoảng trắng, HTML, LaTeX nhiễu
-  if (cleanForCompare(q1) === cleanForCompare(q2)) {
-    totalScore += 50;
-  } else {
-    // Nếu không giống 100%, tính tỉ lệ tương đồng (fuzzy match)
-    totalScore += (textSimilarity(q1, q2) * 0.5); 
-  }
+  // B. Trọng số Nội dung (50%): Đếm số từ trùng lặp thực tế
+  const set2 = new Set(words2);
+  const common = words1.filter(w => set2.has(w));
+  const textSimilarity = (common.length / Math.max(words1.length, words2.length)) * 100;
+  totalScore += (textSimilarity * 0.5);
 
-  // 3. So sánh Đáp án - Cột G (30%)
-  if (cleanForCompare(ans1) === cleanForCompare(ans2) && String(ans1) !== "") {
+  // C. Trọng số Đáp án (30%): MCQ/SA thì đáp án phải khớp
+  if (String(ans1).trim() === String(ans2).trim() && String(ans1) !== "") {
     totalScore += 30;
   }
 
-  // 4. So sánh Lựa chọn/Dẫn khác - Cột F & D (10%)
-  if (cleanForCompare(opt1) === cleanForCompare(opt2)) {
+  // D. Các phần dẫn khác (10%)
+  if (String(part1) === String(part2) && String(part1) !== "") {
     totalScore += 10;
   }
 
-  return totalScore;
+  // Trước khi trả về kết quả, hãy làm tròn số
+return Math.round(totalScore);
 }
 
 // Hàm làm sạch văn bản để so sánh chính xác

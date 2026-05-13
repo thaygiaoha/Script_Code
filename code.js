@@ -1388,6 +1388,48 @@ function findDuplicateQuestions() {
   for (let i = 0; i < rows.length; i++) {
     if (processedIdx.has(i)) continue;
     
+    // Tạo nhóm trùng lặp tiềm năng
+    let group = { 
+      mainId: rows[i][0], // Cột A: id
+      score: 0, 
+      items: [getRowObj(rows[i], headers, i + 2)] 
+    };
+    
+    for (let j = i + 1; j < rows.length; j++) {
+      if (processedIdx.has(j)) continue;
+      
+      // Gọi hàm tính điểm thông minh dựa trên Type và Trọng số cột
+      let score = calculateSimilarity(rows[i], rows[j]);
+      
+      // Ngưỡng báo trùng (Nên để 70-80 với thuật toán mới này)
+      if (score >= 70) { 
+        group.items.push(getRowObj(rows[j], headers, j + 2));
+        if (score > group.score) group.score = score;
+        processedIdx.add(j);
+      }
+    }
+    
+    // Nếu tìm thấy ít nhất 1 câu trùng với câu đang xét
+    if (group.items.length > 1) {
+      results.push(group);
+      processedIdx.add(i);
+    }
+  }
+  
+  return { status: "success", data: results };
+}
+function findDuplicateQuestions_1() {  
+  const sheet = ss.getSheetByName("nganhang"); 
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const rows = data.slice(1); // Bỏ dòng tiêu đề
+  
+  const results = [];
+  const processedIdx = new Set();
+
+  for (let i = 0; i < rows.length; i++) {
+    if (processedIdx.has(i)) continue;
+    
     let group = { 
       mainId: rows[i][0], 
       score: 0, 
@@ -1906,4 +1948,74 @@ function updateTeacher(e) {
   }
 
   return createResponse("error", "Không tìm thấy GV!");
+}
+// Các hàm hỗ trợ tìm câu trùng
+function calculateSimilarity(row1, row2) {
+  const [id1, tag1, type1, part1, q1, opt1, ans1] = row1;
+  const [id2, tag2, type2, part2, q2, opt2, ans2] = row2;
+
+  // --- BƯỚC 1: KIỂM TRA LOẠI (TYPE) ---
+  const isTF1 = (type1 === 'true-false' || type1 === 'tf');
+  const isTF2 = (type2 === 'true-false' || type2 === 'tf');
+
+  // True-false chỉ xét với True-false
+  if (isTF1 !== isTF2) return 0; 
+
+  let totalScore = 0;
+
+  // --- BƯỚC 2: TÍNH ĐIỂM CHI TIẾT ---
+
+  // 1. So sánh 4 ký tự đầu ClassTag (10%)
+  if (String(tag1).substring(0, 4) === String(tag2).substring(0, 4)) {
+    totalScore += 10;
+  }
+
+  // 2. So sánh Nội dung câu hỏi - Cột E (50%)
+  // Sử dụng hàm cleanText để loại bỏ khoảng trắng, HTML, LaTeX nhiễu
+  if (cleanForCompare(q1) === cleanForCompare(q2)) {
+    totalScore += 50;
+  } else {
+    // Nếu không giống 100%, tính tỉ lệ tương đồng (fuzzy match)
+    totalScore += (textSimilarity(q1, q2) * 0.5); 
+  }
+
+  // 3. So sánh Đáp án - Cột G (30%)
+  if (cleanForCompare(ans1) === cleanForCompare(ans2) && String(ans1) !== "") {
+    totalScore += 30;
+  }
+
+  // 4. So sánh Lựa chọn/Dẫn khác - Cột F & D (10%)
+  if (cleanForCompare(opt1) === cleanForCompare(opt2)) {
+    totalScore += 10;
+  }
+
+  return totalScore;
+}
+
+// Hàm làm sạch văn bản để so sánh chính xác
+function cleanForCompare(txt) {
+  if (!txt) return "";
+  return String(txt).toLowerCase()
+    .replace(/<[^>]*>/g, "") // Bỏ HTML
+    .replace(/\\s/g, "")     // Bỏ khoảng trắng trong LaTeX
+    .replace(/\s+/g, "")     // Bỏ mọi khoảng trắng
+    .trim();
+}
+
+// Hàm tính % tương đồng giữa 2 chuỗi văn bản (Dùng thuật toán Dice's Coefficient đơn giản)
+function textSimilarity(str1, str2) {
+  let s1 = cleanForCompare(str1);
+  let s2 = cleanForCompare(str2);
+  if (s1 === s2) return 100;
+  if (s1.length < 2 || s2.length < 2) return 0;
+
+  let bigrams1 = new Set();
+  for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
+  
+  let intersect = 0;
+  for (let i = 0; i < s2.length - 1; i++) {
+    if (bigrams1.has(s2.substring(i, i + 2))) intersect++;
+  }
+
+  return (2.0 * intersect) / (s1.length + s2.length - 2) * 100;
 }

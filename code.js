@@ -1954,53 +1954,36 @@ function calculateSimilarity(row1, row2) {
   const [id1, tag1, type1, part1, q1, opt1, ans1] = row1;
   const [id2, tag2, type2, part2, q2, opt2, ans2] = row2;
 
-  // 1. Khác loại (Type) thì cho cook luôn, không nói nhiều
+  // 1. Phân loại loại câu hỏi (Giữ nguyên logic cũ)
   const isTF1 = (type1 === 'true-false' || type1 === 'tf');
   const isTF2 = (type2 === 'true-false' || type2 === 'tf');
   if (isTF1 !== isTF2) return 0;
 
-  // 2. Làm sạch nội dung: Bỏ toán, bỏ HTML, chỉ giữ lại CHỮ
-  const getMainText = (txt) => {
-    return String(txt).toLowerCase()
-      .replace(/<[^>]*>/g, "") // Bỏ HTML
-      .replace(/\$[^\$]*\$/g, "") // Bỏ toàn bộ nội dung nằm trong cặp $ $ (toán học)
-      .replace(/[0-9]/g, "") // Bỏ con số (tránh trùng do cùng là số 20, 30...)
-      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, " ") // Bỏ ký hiệu đặc biệt
-      .split(/\s+/)
-      .filter(w => w.length > 1); // Chỉ lấy từ có nghĩa (2 ký tự trở lên)
-  };
-
-  const words1 = getMainText(q1);
-  const words2 = getMainText(q2);
-
-  if (words1.length === 0 || words2.length === 0) return 0;
-
-  // 3. Tính toán trọng số theo yêu cầu của thầy Hà
   let totalScore = 0;
 
-  // A. Trọng số ClassTag (10%): So sánh 4 ký tự đầu
+  // 2. ClassTag (10%): So sánh 4 ký tự đầu
   if (String(tag1).substring(0, 4) === String(tag2).substring(0, 4)) {
     totalScore += 10;
   }
 
-  // B. Trọng số Nội dung (50%): Đếm số từ trùng lặp thực tế
-  const set2 = new Set(words2);
-  const common = words1.filter(w => set2.has(w));
-  const textSimilarity = (common.length / Math.max(words1.length, words2.length)) * 100;
-  totalScore += (textSimilarity * 0.5);
+  // 3. Nội dung Câu hỏi (50%): Dùng thuật toán N-gram 5
+  // Với 2 ví dụ của bạn, phần hàm số khác nhau sẽ làm rớt điểm rất mạnh ở đây
+  let qSim = getNGramSimilarity(q1, q2);
+  totalScore += (qSim * 0.5);
 
-  // C. Trọng số Đáp án (30%): MCQ/SA thì đáp án phải khớp
+  // 4. Đáp án (30%): Dùng N-gram hoặc so sánh trực tiếp
+  // Vì đáp án toán thường ngắn, so sánh trực tiếp sẽ khắt khe hơn
   if (String(ans1).trim() === String(ans2).trim() && String(ans1) !== "") {
     totalScore += 30;
+  } else {
+    // Nếu không giống hệt, kiểm tra xem có tương đồng không (ví dụ chỉ khác dấu $)
+    totalScore += (getNGramSimilarity(ans1, ans2) * 0.3);
   }
 
-  // D. Các phần dẫn khác (10%)
-  if (String(part1) === String(part2) && String(part1) !== "") {
-    totalScore += 10;
-  }
+  // 5. Phần dẫn/Lựa chọn (10%)
+  totalScore += (getNGramSimilarity(opt1, opt2) * 0.1);
 
-  // Trước khi trả về kết quả, hãy làm tròn số
-return Math.round(totalScore);
+  return Math.round(totalScore);
 }
 
 // Hàm làm sạch văn bản để so sánh chính xác
@@ -2029,4 +2012,33 @@ function textSimilarity(str1, str2) {
   }
 
   return (2.0 * intersect) / (s1.length + s2.length - 2) * 100;
+}
+function getNGramSimilarity(str1, str2) {
+  const n = 5; // Độ dài cụm ký tự theo ý bạn
+  const clean = (txt) => String(txt).replace(/\s+/g, ""); // Xóa mọi khoảng trắng để so sánh chính xác
+  
+  let s1 = clean(str1);
+  let s2 = clean(str2);
+  
+  if (s1 === s2) return 100;
+  if (s1.length < n || s2.length < n) return 0;
+
+  // Tạo tập hợp các cụm 5 ký tự của chuỗi 1
+  let nGrams1 = new Set();
+  for (let i = 0; i <= s1.length - n; i++) {
+    nGrams1.add(s1.substring(i, i + n));
+  }
+
+  // Đếm xem chuỗi 2 có bao nhiêu cụm trùng
+  let matches = 0;
+  let totalNGrams2 = s2.length - n + 1;
+  for (let i = 0; i <= s2.length - n; i++) {
+    if (nGrams1.has(s2.substring(i, i + n))) {
+      matches++;
+    }
+  }
+
+  // Tính % trung bình dựa trên cả hai chuỗi
+  let totalNGrams1 = s1.length - n + 1;
+  return (matches * 2) / (totalNGrams1 + totalNGrams2) * 100;
 }

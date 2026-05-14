@@ -60,7 +60,7 @@ const params = e.parameter;
   if (action === "getIdGVAD") {
     const sheet = ssAdmin.getSheetByName("idgv");
     // Lấy giá trị ô H2, ép kiểu chuỗi và cắt khoảng trắng
-    const passAdmiN = sheet.getRange("H2").getValue().toString().trim();
+    const passAdmiN = supper(sheet.getRange("H2"));
 
     // Trả về trực tiếp chuỗi pass, không join gì cả
     return ContentService.createTextOutput(passAdmiN).setMimeType(ContentService.MimeType.TEXT);
@@ -597,7 +597,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     }
 // 6. XÁC MINH ADMIN (verifyAdmin)
     if (action === "verifyAdmin") {      
-      if (data.password.toString().trim() === passAdmin) return resJSON({ status: "success", message: "Chào Admin!" });
+      if (supper(data.password) === suppere(passAdmin)) return resJSON({ status: "success", message: "Chào Admin!" });
       return resJSON({ status: "error", message: "Sai mật khẩu!" });
     }
 // #06 Ma trận
@@ -1852,7 +1852,7 @@ function adminLogin(e) {
     return createResponse("error", "Thiếu dữ liệu!");
   }
 
-  if (id === idadmin && pass === passAdmin) {
+  if (id === idadmin && supper(pass) === supper(passAdmin)) {
     return createResponse("success", "OK");
   }
 

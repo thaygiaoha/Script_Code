@@ -1376,47 +1376,541 @@ function parseQuestionFromCell(text, id) {
   return { id, type: 'mcq', question, o: options, a: options[ansIndex] || '' };
 }
 // tìm câu trùng=========================================================================================================================================
-function findDuplicateQuestions() {  
-  const sheet = ss.getSheetByName("nganhang"); 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0];
-  const rows = data.slice(1); // Bỏ dòng tiêu đề
-  
-  const results = [];
-  const processedIdx = new Set();
+/**
+ * =========================================================
+ * FIND DUPLICATE QUESTIONS - OPTIMIZED VERSION
+ * =========================================================
+ * Sheet columns:
+ * A: idquestion
+ * B: classTag
+ * C: type
+ * D: part
+ * E: question
+ * F: options
+ * G: answer
+ * =========================================================
+ */
 
-  for (let i = 0; i < rows.length; i++) {
-    if (processedIdx.has(i)) continue;
-    
-    // Tạo nhóm trùng lặp tiềm năng
-    let group = { 
-      mainId: rows[i][0], // Cột A: id
-      score: 0, 
-      items: [getRowObj(rows[i], headers, i + 2)] 
+function findDuplicateQuestionsOptimized() {
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("nganhang");
+
+  const data = sheet.getDataRange().getValues();
+
+  if (data.length <= 1) {
+    return {
+      status: "empty"
     };
-    
-    for (let j = i + 1; j < rows.length; j++) {
-      if (processedIdx.has(j)) continue;
-      
-      // Gọi hàm tính điểm thông minh dựa trên Type và Trọng số cột
-      let score = calculateSimilarity(rows[i], rows[j]);
-      
-      // Ngưỡng báo trùng (Nên để 70-80 với thuật toán mới này)
-      if (score >= 70) { 
-        group.items.push(getRowObj(rows[j], headers, j + 2));
-        if (score > group.score) group.score = score;
-        processedIdx.add(j);
-      }
+  }
+
+  const headers = data[0];
+  const rows = data.slice(1);
+
+  // =====================================================
+  // CONFIG
+  // =====================================================
+
+  const DUPLICATE_THRESHOLD = 70;
+
+  // =====================================================
+  // PREPROCESS
+  // =====================================================
+
+  const preparedRows = rows.map((row, idx) => {
+
+    const obj = {
+      rowIndex: idx + 2,
+
+      idquestion: String(row[0] || "").trim(),
+      classTag: String(row[1] || "").trim(),
+      type: String(row[2] || "").trim().toLowerCase(),
+      part: String(row[3] || "").trim(),
+
+      question: String(row[4] || ""),
+      options: String(row[5] || ""),
+      answer: String(row[6] || "")
+    };
+
+    obj.class4 = obj.classTag.substring(0, 4);
+
+    obj.questionNorm = normalizeText(obj.question);
+    obj.optionsNorm = normalizeText(obj.options);
+    obj.answerNorm = normalizeText(obj.answer);
+
+    obj.questionTokens = tokenize(obj.questionNorm);
+    obj.optionTokens = tokenize(obj.optionsNorm);
+
+    obj.formulas = extractLatex(obj.questionNorm);
+
+    obj.lengthGroup = Math.floor(obj.questionNorm.length / 100);
+
+    return obj;
+  });
+
+  // =====================================================
+  // CREATE BUCKETS
+  // =====================================================
+
+  const buckets = {};
+
+  preparedRows.forEach(item => {
+
+    const bucketKey =
+      item.type +
+      "_" +
+      item.class4 +
+      "_" +
+      item.lengthGroup;
+
+    if (!buckets[bucketKey]) {
+      buckets[bucketKey] = [];
     }
-    
-    // Nếu tìm thấy ít nhất 1 câu trùng với câu đang xét
-    if (group.items.length > 1) {
-      results.push(group);
-      processedIdx.add(i);
+
+    buckets[bucketKey].push(item);
+  });
+
+  // =====================================================
+  // UNION FIND
+  // =====================================================
+
+  const parent = {};
+
+  preparedRows.forEach((_, i) => {
+    parent[i] = i;
+  });
+
+  function find(x) {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  }
+
+  function union(a, b) {
+    const pa = find(a);
+    const pb = find(b);
+
+    if (pa !== pb) {
+      parent[pb] = pa;
     }
   }
-  
-  return { status: "success", data: results };
+
+  // =====================================================
+  // COMPARE
+  // =====================================================
+
+  const similarityMap = {};
+
+  Object.keys(buckets).forEach(bucketKey => {
+
+    const bucket = buckets[bucketKey];
+
+    for (let i = 0; i < bucket.length; i++) {
+
+      for (let j = i + 1; j < bucket.length; j++) {
+
+        const a = bucket[i];
+        const b = bucket[j];
+
+        // --------------------------------------------
+        // TYPE FILTER
+        // --------------------------------------------
+
+        if (!canCompareType(a.type, b.type)) {
+          continue;
+        }
+
+        // --------------------------------------------
+        // LENGTH FILTER
+        // --------------------------------------------
+
+        const len1 = a.questionNorm.length;
+        const len2 = b.questionNorm.length;
+
+        const diff = Math.abs(len1 - len2) / Math.max(len1, len2);
+
+        if (diff > 0.35) {
+          continue;
+        }
+
+        // --------------------------------------------
+        // SIMILARITY
+        // --------------------------------------------
+
+        const score = calculateSimilarity(a, b);
+
+        if (score >= DUPLICATE_THRESHOLD) {
+
+          union(
+            preparedRows.indexOf(a),
+            preparedRows.indexOf(b)
+          );
+
+          const key =
+            preparedRows.indexOf(a) +
+            "_" +
+            preparedRows.indexOf(b);
+
+          similarityMap[key] = score;
+        }
+      }
+    }
+  });
+
+  // =====================================================
+  // GROUP RESULTS
+  // =====================================================
+
+  const groups = {};
+
+  preparedRows.forEach((item, idx) => {
+
+    const root = find(idx);
+
+    if (!groups[root]) {
+      groups[root] = [];
+    }
+
+    groups[root].push(item);
+  });
+
+  // =====================================================
+  // BUILD OUTPUT
+  // =====================================================
+
+  const results = [];
+
+  let groupId = 1;
+
+  Object.values(groups).forEach(group => {
+
+    if (group.length <= 1) return;
+
+    let maxScore = 0;
+
+    const items = group.map(item => {
+
+      return {
+        row: item.rowIndex,
+        idquestion: item.idquestion,
+        classTag: item.classTag,
+        type: item.type,
+        answer: item.answer
+      };
+    });
+
+    for (let i = 0; i < group.length; i++) {
+
+      for (let j = i + 1; j < group.length; j++) {
+
+        const idx1 = preparedRows.indexOf(group[i]);
+        const idx2 = preparedRows.indexOf(group[j]);
+
+        const key1 = idx1 + "_" + idx2;
+        const key2 = idx2 + "_" + idx1;
+
+        const score =
+          similarityMap[key1] ||
+          similarityMap[key2] ||
+          0;
+
+        if (score > maxScore) {
+          maxScore = score;
+        }
+      }
+    }
+
+    results.push({
+      groupId: groupId++,
+      similarity: Math.round(maxScore),
+      count: items.length,
+      items: items
+    });
+
+  });
+
+  results.sort((a, b) => b.similarity - a.similarity);
+
+  return {
+    status: "success",
+    totalGroups: results.length,
+    data: results
+  };
+}
+
+/**
+ * =========================================================
+ * TYPE COMPARE
+ * =========================================================
+ */
+
+function canCompareType(type1, type2) {
+
+  type1 = String(type1).toLowerCase();
+  type2 = String(type2).toLowerCase();
+
+  // true-false chỉ so với true-false
+  if (type1 === "true-false" || type2 === "true-false") {
+    return type1 === type2;
+  }
+
+  // mcq và short-answer được compare
+  return true;
+}
+
+/**
+ * =========================================================
+ * MAIN SIMILARITY
+ * =========================================================
+ */
+
+function calculateSimilarity(a, b) {
+
+  let score = 0;
+
+  // =====================================================
+  // CLASS TAG
+  // =====================================================
+
+  if (a.class4 === b.class4) {
+    score += 5;
+  }
+
+  // =====================================================
+  // QUESTION
+  // 55%
+  // =====================================================
+
+  const textSimilarity = jaccardSimilarity(
+    a.questionTokens,
+    b.questionTokens
+  );
+
+  const formulaSimilarity = jaccardSimilarity(
+    a.formulas,
+    b.formulas
+  );
+
+  const questionScore =
+    (textSimilarity * 30) +
+    (formulaSimilarity * 25);
+
+  score += questionScore;
+
+  // =====================================================
+  // OPTIONS
+  // 20%
+  // =====================================================
+
+  if (a.optionsNorm && b.optionsNorm) {
+
+    const optionSimilarity = jaccardSimilarity(
+      a.optionTokens,
+      b.optionTokens
+    );
+
+    score += optionSimilarity * 20;
+  }
+
+  // =====================================================
+  // ANSWER
+  // 20%
+  // =====================================================
+
+  if (a.answerNorm && b.answerNorm) {
+
+    if (a.answerNorm === b.answerNorm) {
+      score += 20;
+    } else {
+
+      const ansSim = stringSimilarity(
+        a.answerNorm,
+        b.answerNorm
+      );
+
+      score += ansSim * 20;
+    }
+  }
+
+  return Math.round(score);
+}
+
+/**
+ * =========================================================
+ * NORMALIZE TEXT
+ * =========================================================
+ */
+
+function normalizeText(text) {
+
+  text = String(text || "");
+
+  // lowercase
+  text = text.toLowerCase();
+
+  // remove html
+  text = text.replace(/<[^>]*>/g, " ");
+
+  // normalize latex
+  text = text
+    .replace(/\\left/g, "")
+    .replace(/\\right/g, "")
+    .replace(/\\dfrac/g, "\\frac")
+    .replace(/\\tfrac/g, "\\frac");
+
+  // remove special chars
+  text = text.replace(/[^\w\s\\{}^_=+\-*/().,:]/g, " ");
+
+  // remove extra spaces
+  text = text.replace(/\s+/g, " ").trim();
+
+  return text;
+}
+
+/**
+ * =========================================================
+ * TOKENIZE
+ * =========================================================
+ */
+
+function tokenize(text) {
+
+  if (!text) return [];
+
+  return text
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * =========================================================
+ * EXTRACT LATEX
+ * =========================================================
+ */
+
+function extractLatex(text) {
+
+  if (!text) return [];
+
+  const regex = /\\[a-zA-Z]+|[a-zA-Z]+\^?[0-9]*/g;
+
+  const matches = text.match(regex);
+
+  return matches || [];
+}
+
+/**
+ * =========================================================
+ * JACCARD SIMILARITY
+ * =========================================================
+ */
+
+function jaccardSimilarity(arr1, arr2) {
+
+  if (!arr1.length || !arr2.length) {
+    return 0;
+  }
+
+  const set1 = new Set(arr1);
+  const set2 = new Set(arr2);
+
+  let intersection = 0;
+
+  set1.forEach(item => {
+    if (set2.has(item)) {
+      intersection++;
+    }
+  });
+
+  const union =
+    set1.size +
+    set2.size -
+    intersection;
+
+  return union === 0
+    ? 0
+    : intersection / union;
+}
+
+/**
+ * =========================================================
+ * SIMPLE STRING SIMILARITY
+ * =========================================================
+ */
+
+function stringSimilarity(a, b) {
+
+  if (!a || !b) return 0;
+
+  if (a === b) return 1;
+
+  const longer =
+    a.length > b.length ? a : b;
+
+  const shorter =
+    a.length > b.length ? b : a;
+
+  const longerLength = longer.length;
+
+  if (longerLength === 0) {
+    return 1;
+  }
+
+  return (
+    longerLength -
+    editDistance(longer, shorter)
+  ) / longerLength;
+}
+
+/**
+ * =========================================================
+ * LEVENSHTEIN
+ * =========================================================
+ */
+
+function editDistance(s1, s2) {
+
+  s1 = s1.toLowerCase();
+  s2 = s2.toLowerCase();
+
+  const costs = [];
+
+  for (let i = 0; i <= s1.length; i++) {
+
+    let lastValue = i;
+
+    for (let j = 0; j <= s2.length; j++) {
+
+      if (i === 0) {
+        costs[j] = j;
+      } else {
+
+        if (j > 0) {
+
+          let newValue = costs[j - 1];
+
+          if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+
+            newValue = Math.min(
+              Math.min(newValue, lastValue),
+              costs[j]
+            ) + 1;
+          }
+
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+    }
+
+    if (i > 0) {
+      costs[s2.length] = lastValue;
+    }
+  }
+
+  return costs[s2.length];
 }
 function findDuplicateQuestions_1() {  
   const sheet = ss.getSheetByName("nganhang"); 
@@ -1456,7 +1950,7 @@ function findDuplicateQuestions_1() {
   return { status: "success", data: results };
 }
 
-function calculateSimilarity(q1, q2) {
+function calculateSimilarity_1(q1, q2) {
   let score = 0;
   // Cột: 0:id, 1:classTag, 4:question, 5:options, 6:answer
   
@@ -1950,41 +2444,6 @@ function updateTeacher(e) {
   return createResponse("error", "Không tìm thấy GV!");
 }
 // Các hàm hỗ trợ tìm câu trùng
-function calculateSimilarity(row1, row2) {
-  const [id1, tag1, type1, part1, q1, opt1, ans1] = row1;
-  const [id2, tag2, type2, part2, q2, opt2, ans2] = row2;
-
-  // 1. Phân loại loại câu hỏi (Giữ nguyên logic cũ)
-  const isTF1 = (type1 === 'true-false' || type1 === 'tf');
-  const isTF2 = (type2 === 'true-false' || type2 === 'tf');
-  if (isTF1 !== isTF2) return 0;
-
-  let totalScore = 0;
-
-  // 2. ClassTag (10%): So sánh 4 ký tự đầu
-  if (String(tag1).substring(0, 4) === String(tag2).substring(0, 4)) {
-    totalScore += 10;
-  }
-
-  // 3. Nội dung Câu hỏi (50%): Dùng thuật toán N-gram 5
-  // Với 2 ví dụ của bạn, phần hàm số khác nhau sẽ làm rớt điểm rất mạnh ở đây
-  let qSim = getNGramSimilarity(q1, q2);
-  totalScore += (qSim * 0.5);
-
-  // 4. Đáp án (30%): Dùng N-gram hoặc so sánh trực tiếp
-  // Vì đáp án toán thường ngắn, so sánh trực tiếp sẽ khắt khe hơn
-  if (String(ans1).trim() === String(ans2).trim() && String(ans1) !== "") {
-    totalScore += 30;
-  } else {
-    // Nếu không giống hệt, kiểm tra xem có tương đồng không (ví dụ chỉ khác dấu $)
-    totalScore += (getNGramSimilarity(ans1, ans2) * 0.3);
-  }
-
-  // 5. Phần dẫn/Lựa chọn (10%)
-  totalScore += (getNGramSimilarity(opt1, opt2) * 0.1);
-
-  return Math.round(totalScore);
-}
 
 // Hàm làm sạch văn bản để so sánh chính xác
 function cleanForCompare(txt) {
@@ -1997,7 +2456,7 @@ function cleanForCompare(txt) {
 }
 
 // Hàm tính % tương đồng giữa 2 chuỗi văn bản (Dùng thuật toán Dice's Coefficient đơn giản)
-function textSimilarity(str1, str2) {
+function textSimilarity_1(str1, str2) {
   let s1 = cleanForCompare(str1);
   let s2 = cleanForCompare(str2);
   if (s1 === s2) return 100;

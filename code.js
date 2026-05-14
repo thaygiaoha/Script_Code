@@ -1391,7 +1391,7 @@ function parseQuestionFromCell(text, id) {
  * =========================================================
  */
 
-function findDuplicateQuestionsOptimized() {
+function findDuplicateQuestions() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("nganhang");

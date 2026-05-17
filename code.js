@@ -4,6 +4,55 @@ function mainDoGet(e) {
 const params = e.parameter;
   const type = params.type;
   const action = params.action || e.parameter.action;  
+  // Xóa ảnh trong cloud của Giaovien
+  // --- DAN NOI TIEP VAO TRONG HAM mainDoGet(e) ---
+if (action === "adminResetCloudImages") {
+  const tId = e.parameter.teacherId;
+  const sId = e.parameter.subjectId;
+  const cName = e.parameter.cloudName;
+  const folderDe = e.parameter.folderDe; 
+  const apiKey = e.parameter.apiKey;
+  const apiSecret = e.parameter.apiSec;
+  
+  // Duong dan folder can quet sach anh: Giaovien/subjectId/teacherId
+  const prefixFolder = folderDe + "/" + sId + "/" + tId;
+  
+  try {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    
+    // Tao chuoi ky xac thuc (Signature) dung chuan API Cloudinary de xoa tai nguyen
+    const stringToSign = "prefix=" + prefixFolder + "&timestamp=" + timestamp + apiSecret;
+    const signature = SHA256_(stringToSign); 
+    
+    // Goi API cua Cloudinary dung phuong thuc DELETE de xoa sach anh trong folder
+    const url = "https://api.cloudinary.com/v1_1/" + cName + "/resources/image/upload";
+    const payload = {
+      "prefix": prefixFolder,
+      "timestamp": timestamp,
+      "api_key": apiKey,
+      "signature": signature
+    };
+    
+    const options = {
+      "method": "delete",
+      "payload": payload,
+      "muteHttpExceptions": true
+    };
+    
+    const response = UrlFetchApp.fetch(url, options);
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      "status": "success",
+      "message": "Da clear anh tren Cloud"
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      "status": "error",
+      "message": err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
   // Admin xóa dữ liệu
   // --- DAN ĐÈ HOẶC THÊM VÀO TRONG HÀM mainDoGet(e) ---
@@ -33,7 +82,60 @@ if (action === "adminResetSheet") {
     "message": "Da xoa sach du lieu sheet [" + sheetName + "] tu dong 2 den het!"
   })).setMimeType(ContentService.MimeType.JSON);                                 
 }
+
+  // Xóa ảnh cloud
+  // --- THÊM NHÁNH NÀY VÀO TRONG HÀM mainDoGet(e) CỦA FILE TỔNG ---
+if (action === "adminResetCloudImages") {
+  const tId = e.parameter.teacherId;
+  const sId = e.parameter.subjectId;
+  const cName = e.parameter.cloudName;
   
+  // 1. Điền thông tin cấu hình Cloudinary của thầy vào đây để hệ thống ký xác thực ngầm
+  const apiKey = "THAY_DIEN_API_KEY_CLOUDINARY_VAO_DAY";
+  const apiSecret = "THAY_DIEN_API_SECRET_CLOUDINARY_VAO_DAY";
+  
+  // Đường dẫn chính xác đến folder cần xóa: Giaovien/subjectId/teacherId
+  const prefixFolder = "Giaovien/" + sId + "/" + tId;
+  
+  try {
+    // Tạo mốc thời gian timestamp bắt buộc của Cloudinary
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    
+    // Tạo chuỗi ký xác thực (Signature) theo chuẩn API Cloudinary để xóa thư mục
+    const stringToSign = "prefix=" + prefixFolder + "&timestamp=" + timestamp + apiSecret;
+    const signature = SHA256_(stringToSign); // Sử dụng hàm băm SHA256 phía dưới
+    
+    // Gọi API Cloudinary xóa tất cả tài nguyên (ảnh) có tiền tố đường dẫn này
+    const url = "https://api.cloudinary.com/v1_1/" + cName + "/resources/image/upload";
+    const payload = {
+      "prefix": prefixFolder,
+      "timestamp": timestamp,
+      "api_key": apiKey,
+      "signature": signature
+    };
+    
+    const options = {
+      "method": "delete",
+      "payload": payload,
+      "muteHttpExceptions": true
+    };
+    
+    const response = UrlFetchApp.fetch(url, options);
+    const resData = JSON.parse(response.getContentText());
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      "status": "success",
+      "message": "Da clear anh tren Cloud",
+      "detail": resData
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      "status": "error",
+      "message": err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}  
   
 //#01
   // Xác minh và đăng nhập Game Show
@@ -2531,4 +2633,18 @@ function getNGramSimilarity(str1, str2) {
   // Tính % trung bình dựa trên cả hai chuỗi
   let totalNGrams1 = s1.length - n + 1;
   return (matches * 2) / (totalNGrams1 + totalNGrams2) * 100;
+}
+
+
+// --- HÀM BỔ TRỢ BĂM SHA256 (Thầy dán hàm này ở cuối file Script tổng) Xóa ảnh cloud ---
+function SHA256_(input) {
+  var rawHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, input, Utilities.Charset.UTF_8);
+  var output = "";
+  for (var i = 0; i < rawHash.length; i++) {
+    var v = rawHash[i];
+    if (v < 0) v += 256;
+    if (v < 16) output += "0";
+    output += v.toString(16);
+  }
+  return output;
 }

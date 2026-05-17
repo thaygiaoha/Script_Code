@@ -497,23 +497,42 @@ const lock = LockService.getScriptLock();
       ).setMimeType(ContentService.MimeType.JSON);
    const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
  // Admin xóa dữ liệu sheet
-    if(action === adminreset) {
-      var data = JSON.parse(e.postData.contents);
-    var sheetName = data.sheet;   
-    var sheet = ss.getSheetByName(sheetName);    
-    if (!sheet) {
-      return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": "Không tìm thấy sheet: " + sheetName}))
-                           .setMimeType(ContentService.MimeType.JSON);
-    }    
-    var lastRow = sheet.getLastRow();
-    var lastColumn = sheet.getLastColumn();    
-    // Nếu có dữ liệu từ dòng 2 trở đi thì tiến hành xóa dữ liệu giữ lại định dạng
-    if (lastRow >= 2 && lastColumn > 0) {
-      sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
-    }    
-    return ContentService.createTextOutput(JSON.stringify({"status": "success", "message": "Đã xóa xong sheet " + sheetName}))
-                         .setMimeType(ContentService.MimeType.JSON);                         
-  } 
+    // --- THÊM NHÁNH NÀY VÀO TRONG HÀM mainDoPost(e) ---
+if (action === "adminResetSheet") {
+  // Nhận mật khẩu Admin từ payload do VBA gửi sang
+  const adminPassInput = (data.password || "").toString().trim();
+  
+  // Xác minh mật khẩu Admin (so sánh với biến passAdmin trong hệ thống của thầy)
+  if (supper(adminPassInput) !== supper(passAdmin)) {
+    return ContentService.createTextOutput(JSON.stringify({
+      "status": "error", 
+      "message": "⚠️ Mật khẩu Admin không chính xác!"
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  const sheetName = data.sheet; // Tên sheet cần xóa: "matran", "exams", hoặc "exam_data"
+  const sheet = ss.getSheetByName(sheetName);   
+  
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      "status": "error", 
+      "message": "Không tìm thấy sheet: " + sheetName
+    })).setMimeType(ContentService.MimeType.JSON);
+  }   
+  
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();   
+  
+  // Tiến hành xóa sạch từ dòng 2 đến dòng cuối cùng nếu có dữ liệu
+  if (lastRow >= 2 && lastColumn > 0) {
+    sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
+  }   
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    "status": "success", 
+    "message": "Đã xóa sạch dữ liệu sheet [" + sheetName + "] từ dòng 2 đến hết!"
+  })).setMimeType(ContentService.MimeType.JSON);                                 
+}
   // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
   if (sheetKq.getLastRow() === 0) {
     sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv", "vipham", "exams.idgv", "exams.sbd.idgv"]);

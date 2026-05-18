@@ -312,10 +312,14 @@ if (action === "adminResetCloudImages") {
     var data = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();   
     for (var i = 0; i < data.length; i++) {
       if (data[i][0].toString().trim() === idTraCuu) {
-        var loigiai = data[i][7] || "";
+        var qloigiai = data[i][7] || "";
+        var randomVersion = Math.floor(Math.random() * 9000) + 1000;
+        if (qLoigiai.indexOf(".png'") !== -1) {
+        qLoigiai = qLoigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+        }
 
         // Ép kiểu về String để đảm bảo không bị lỗi tệp
-        return ContentService.createTextOutput(String(loigiai))
+        return ContentService.createTextOutput(String(qloigiai))
           .setMimeType(ContentService.MimeType.TEXT);
       }
     }
@@ -403,15 +407,27 @@ if (action === "adminResetCloudImages") {
     } catch(e) {
       parsedOptions = null;
     }
+    var qText = String(rows[i][4] || "");
+    var qLoigiai = String(rows[i][7] || "");
+    var randomVersion = Math.floor(Math.random() * 9000) + 1000;
 
+    // [FIX CHỐNG CACHE ẢNH CŨ] Ép các link ảnh cũ đuôi .png' hoặc .png" phải thêm ?v=1
+    // Ảnh mới xuất từ VBA có sẵn dạng .png?v=xxxxx' sẽ tự động bỏ qua không bị ảnh hưởng
+    // Thay thế trực tiếp chuỗi ".png'" cũ thành ".png?v=SốNgẫuNhiên'"
+    if (qText.indexOf(".png'") !== -1) {
+    qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    }
+    if (qLoigiai.indexOf(".png'") !== -1) {
+    qLoigiai = qLoigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    }
     var qObj = {
       id: rows[i][0],
       classTag: rows[i][1] || "",
       type: rows[i][2] || "",
       part: rows[i][3] || "",
-      question: rows[i][4] || "",
+      question: qText,
       a: rows[i][6] || "",
-      loigiai: rows[i][7] || ""
+      loigiai: qLoigiai
     };
 
     if (qObj.type === "mcq") {
@@ -485,10 +501,15 @@ if (action === "adminResetCloudImages") {
     for (let i = 0; i < data.length; i++) {      
       if (supper(data[i][8] || "") === key) {
         try {
+          var qText = String(data[i][4] || "");
+          var randomVersion = Math.floor(Math.random() * 9000) + 1000;
+          if (qText.indexOf(".png'") !== -1) {
+          qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+          }
           // Cột E chứa JSON câu hỏi
-          results.push(JSON.parse(data[i][4]));
+          results.push(JSON.parse(qText));
         } catch (err) {
-          results.push(data[i][4]);
+          results.push(qText);
         }
       }
     }

@@ -649,6 +649,7 @@ const lock = LockService.getScriptLock();
       ).setMimeType(ContentService.MimeType.JSON);
    const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
     // --- CHÈN NHÁNH XỬ LÝ LƯU ẢNH VÀO ĐÂY ---
+    // --- 1. NHÁNH XỬ LÝ LƯU ẢNH TỪ VBA WORD ---
     if (action === "uploadImage") {
       var base64Data = data.fileData; // Chuỗi mã hóa của ảnh
       var fileName = data.fileName;   // Tên file ảnh
@@ -657,7 +658,7 @@ const lock = LockService.getScriptLock();
         return res("error", "Thiếu dữ liệu ảnh hoặc tên file!");
       }
       
-      // Thư mục Drive mục tiêu
+      // Thư mục Drive mục tiêu của thầy
       var folderId = "1Gk_9n0JWveBlwXQDlqwVTpSceYqv_WNI";
       var folder = DriveApp.getFolderById(folderId);
       
@@ -666,7 +667,6 @@ const lock = LockService.getScriptLock();
       var blob = Utilities.newBlob(decodedData, 'image/png', fileName); 
       var file = folder.createFile(blob);
       
-      // Trả về kết quả theo chuẩn cấu hình res(...) hệ thống của thầy
       return res("success", "Đã lưu thành công file: " + fileName, { "fileUrl": file.getUrl() });
     }
     // --- THÊM NHÁNH NÀY VÀO TRONG HÀM mainDoPost(e) ---

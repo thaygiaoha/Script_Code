@@ -641,7 +641,14 @@ function mainDoPost(e) {
 const lock = LockService.getScriptLock();
   lock.tryLock(15000);
   try {
-    const data = JSON.parse(e.postData.contents || "{}");
+    //const data = JSON.parse(e.postData.contents || "{}");
+    // Chấp nhận cả dữ liệu gửi dạng JSON hoặc gửi dạng Form Parameter thông thường
+    var data = {};
+    if (e.postData && e.postData.contents) {
+      try { data = JSON.parse(e.postData.contents); } catch(c) { data = e.parameter; }
+    } else {
+      data = e.parameter;
+    }
     const action = (data.action || e.parameter.action || "").toString();
     const res = (status, message, payload) =>
       ContentService.createTextOutput(
@@ -649,20 +656,20 @@ const lock = LockService.getScriptLock();
       ).setMimeType(ContentService.MimeType.JSON);
    const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
     // --- CHÈN NHÁNH XỬ LÝ LƯU ẢNH VÀO ĐÂY ---
-    // --- 1. NHÁNH XỬ LÝ LƯU ẢNH TỪ VBA WORD ---
     if (action === "uploadImage") {
-      var base64Data = data.fileData; // Chuỗi mã hóa của ảnh
-      var fileName = data.fileName;   // Tên file ảnh
+      var base64Data = data.fileData; 
+      var fileName = data.fileName;   
       
       if (!base64Data || !fileName) {
-        return res("error", "Thiếu dữ liệu ảnh hoặc tên file!");
+        return res("error", "GAS không nhận được dữ liệu fileData hoặc fileName!");
       }
       
-      // Thư mục Drive mục tiêu của thầy
       var folderId = "1Gk_9n0JWveBlwXQDlqwVTpSceYqv_WNI";
       var folder = DriveApp.getFolderById(folderId);
       
-      // Giải mã Base64 thành Blob và tạo file
+      // Khử các khoảng trắng sinh ra do quá trình truyền chuỗi
+      base64Data = base64Data.replace(/ /g, '+');
+      
       var decodedData = Utilities.base64Decode(base64Data);
       var blob = Utilities.newBlob(decodedData, 'image/png', fileName); 
       var file = folder.createFile(blob);

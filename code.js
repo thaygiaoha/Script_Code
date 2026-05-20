@@ -1572,7 +1572,7 @@ function parseQuestionFromCell(text, id) {
  * =========================================================
  */
 
-function findDuplicateQuestions() {
+function findDuplicateQuestions_1() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("nganhang");
@@ -2093,7 +2093,7 @@ function editDistance(s1, s2) {
 
   return costs[s2.length];
 }
-function findDuplicateQuestions_1() {  
+function findDuplicateQuestions() {  
   const sheet = ss.getSheetByName("nganhang"); 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];

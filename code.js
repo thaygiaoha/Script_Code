@@ -314,8 +314,8 @@ if (action === "adminResetCloudImages") {
       if (data[i][0].toString().trim() === idTraCuu) {
         var qloigiai = data[i][7] || "";
         var randomVersion = Math.floor(Math.random() * 9000) + 1000;
-        if (qLoigiai.indexOf(".png'") !== -1) {
-        qLoigiai = qLoigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+        if (qloigiai.indexOf(".png'") !== -1) {
+        qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
         }
 
         // Ép kiểu về String để đảm bảo không bị lỗi tệp
@@ -408,7 +408,7 @@ if (action === "adminResetCloudImages") {
       parsedOptions = null;
     }
     var qText = String(rows[i][4] || "");
-    var qLoigiai = String(rows[i][7] || "");
+    var qloigiai = String(rows[i][7] || "");
     var randomVersion = Math.floor(Math.random() * 9000) + 1000;
 
     // [FIX CHỐNG CACHE ẢNH CŨ] Ép các link ảnh cũ đuôi .png' hoặc .png" phải thêm ?v=1
@@ -417,8 +417,8 @@ if (action === "adminResetCloudImages") {
     if (qText.indexOf(".png'") !== -1) {
     qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
-    if (qLoigiai.indexOf(".png'") !== -1) {
-    qLoigiai = qLoigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    if (qloigiai.indexOf(".png'") !== -1) {
+    qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
     var qObj = {
       id: rows[i][0],
@@ -427,7 +427,7 @@ if (action === "adminResetCloudImages") {
       part: rows[i][3] || "",
       question: qText,
       a: rows[i][6] || "",
-      loigiai: qLoigiai
+      loigiai: qloigiai
     };
 
     if (qObj.type === "mcq") {

@@ -2101,7 +2101,7 @@ function cleanForCompare(txt) {
 }
 
 // Hàm tính % tương đồng giữa 2 chuỗi văn bản (Dùng thuật toán Dice's Coefficient đơn giản)
-function textSimilarity_1(str1, str2) {
+function textSimilarity(str1, str2) {
   let s1 = cleanForCompare(str1);
   let s2 = cleanForCompare(str2);
   if (s1 === s2) return 100;

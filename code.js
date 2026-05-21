@@ -325,11 +325,13 @@ if (action === "adminResetCloudImages") {
     }
     return ContentService.createTextOutput("Không tìm thấy ID này!").setMimeType(ContentService.MimeType.TEXT);
   }
-  // SỬ LÝ CÂU TRÙNG
-  if (action == 'findDuplicateQuestions') {
-    return ContentService.createTextOutput(JSON.stringify(findDuplicateQuestions()))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
+  // Tìm câu trùng
+ if (action === 'findDuplicateQuestions') {
+  const targetTag = e.parameter.targetTag;
+  const res = findDuplicateQuestions(targetTag);
+  return ContentService.createTextOutput(JSON.stringify(res))
+    .setMimeType(ContentService.MimeType.JSON);
+}
   
   if (action == 'deleteQuestionRow') {
     var rowIdx = e.parameter.rowIdx;
@@ -1557,31 +1559,45 @@ function parseQuestionFromCell(text, id) {
   return { id, type: 'mcq', question, o: options, a: options[ansIndex] || '' };
 }
 
-function findDuplicateQuestions() {  
+function findDuplicateQuestions(targetTag) {  
   const sheet = ss.getSheetByName("nganhang"); 
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const rows = data.slice(1); // Bỏ dòng tiêu đề
   
+  // BƯỚC 1: Lọc danh sách câu hỏi theo targetTag và lưu lại số dòng gốc (rowNumber)
+  const filteredRows = [];
+  for (let i = 0; i < rows.length; i++) {
+    const currentTag = String(rows[i][1]).substring(0, 4); // Cột 1 là classTag
+    if (currentTag === targetTag) {
+      filteredRows.push({
+        rowData: rows[i],
+        actualRowIndex: i + 2 // Dòng thực tế trên Sheet (dòng dữ liệu đầu tiên là 2)
+      });
+    }
+  }
+  
   const results = [];
   const processedIdx = new Set();
 
-  for (let i = 0; i < rows.length; i++) {
+  // BƯỚC 2: Quét trùng trên mảng đã lọc chắt lọc
+  for (let i = 0; i < filteredRows.length; i++) {
     if (processedIdx.has(i)) continue;
     
     let group = { 
-      mainId: rows[i][0], 
+      mainId: filteredRows[i].rowData[0], 
       score: 0, 
-      items: [getRowObj(rows[i], headers, i + 2)] 
+      items: [getRowObj(filteredRows[i].rowData, headers, filteredRows[i].actualRowIndex)] 
     };
     
-    for (let j = i + 1; j < rows.length; j++) {
+    for (let j = i + 1; j < filteredRows.length; j++) {
       if (processedIdx.has(j)) continue;
       
-      let score = calculateSimilarity(rows[i], rows[j]);
+      // So sánh dữ liệu câu i và câu j
+      let score = calculateSimilarity(filteredRows[i].rowData, filteredRows[j].rowData);
       
       if (score >= 50) { 
-        group.items.push(getRowObj(rows[j], headers, j + 2));
+        group.items.push(getRowObj(filteredRows[j].rowData, headers, filteredRows[j].actualRowIndex));
         if (score > group.score) group.score = score;
         processedIdx.add(j);
       }
@@ -1608,18 +1624,13 @@ function calculateSimilarity(q1, q2) {
   try {
     const o1 = JSON.parse(q1[5] || "[]").sort().join('|');
     const o2 = JSON.parse(q2[5] || "[]").sort().join('|');
-    if (o1 !== "" && o1 === o2) score += 30;
+    if (o1 !== "" && o1 === o2) score += 35;
   } catch(e) {}
 
   // 3. Question (40%) - Xóa khoảng trắng và chữ hoa/thường
   const txt1 = String(q1[4]).replace(/\s+/g, '').toLowerCase();
   const txt2 = String(q2[4]).replace(/\s+/g, '').toLowerCase();
-  if (txt1 !== "" && txt1 === txt2) score += 40;
-
-  // 4. ClassTag (5%) - So sánh mã xyzt (4 số đầu)
-  const tag1 = String(q1[1]).substring(0, 4);
-  const tag2 = String(q2[1]).substring(0, 4);
-  if (tag1 !== "" && tag1 === tag2) score += 5;
+  if (txt1 !== "" && txt1 === txt2) score += 40; 
 
   if (score >= 95) return 99;
   return score;

@@ -1620,22 +1620,45 @@ function calculateSimilarity(q1, q2) {
   const a2 = String(q2[6]).replace(/\$|\s/g, '');
   if (a1 !== "" && a1 === a2) score += 20;
 
-  // 2. Options (30%) - Parse và so sánh không cần thứ tự
+  // 2. Options (30%) - Parse, làm sạch từng đáp án và so sánh không cần thứ tự
+  const optStr1 = q1[5] ? String(q1[5]).trim() : "";
+  const optStr2 = q2[5] ? String(q2[5]).trim() : "";
+
   try {
-    const o1 = JSON.parse(q1[5] || "[]").sort().join('|');
-    const o2 = JSON.parse(q2[5] || "[]").sort().join('|');
-    if (o1 !== "" && o1 === o2) score += 35;
-  } catch(e) {}
+    if (optStr1 === "" && optStr2 === "") {
+      score += 30; // Cả hai cùng trống (Dạng tự luận/điền số)
+    } else {
+      // Parse ra mảng, ép tất cả phần tử về dạng chuỗi, xóa khoảng trắng/chữ hoa chữ thường và dấu $
+      const arr1 = JSON.parse(optStr1 || "[]").map(function(item) {
+        return String(item).replace(/\$|\s/g, '').toLowerCase();
+      });
+      const arr2 = JSON.parse(optStr2 || "[]").map(function(item) {
+        return String(item).replace(/\$|\s/g, '').toLowerCase();
+      });
+      
+      // Sắp xếp và gộp lại để so sánh không quan trọng thứ tự A, B, C, D
+      const o1 = arr1.sort().join('|');
+      const o2 = arr2.sort().join('|');
+      
+      if (o1 !== "" && o1 === o2) score += 30;
+    }
+  } catch(e) {
+    // Nếu lỗi parse JSON (do chuỗi lỗi), ta cứu bằng cách so sánh chuỗi thuần túy sau khi xóa khoảng trắng
+    const rawO1 = optStr1.replace(/\$|\s/g, '').toLowerCase();
+    const rawO2 = optStr2.replace(/\$|\s/g, '').toLowerCase();
+    if (rawO1 !== "" && rawO1 === rawO2) score += 30;
+  }
 
   // 3. Question (40%) - Xóa khoảng trắng và chữ hoa/thường
   const txt1 = String(q1[4]).replace(/\s+/g, '').toLowerCase();
   const txt2 = String(q2[4]).replace(/\s+/g, '').toLowerCase();
   if (txt1 !== "" && txt1 === txt2) score += 40; 
 
-  if (score >= 95) return 99;
+  // CHẠM TRẦN: Vì đã bỏ điều kiện 4 nên điểm tối đa là 90. 
+  // Nếu đạt từ 85 trở lên coi như trùng tuyệt đối (Trả về 99)
+  if (score >= 85) return 99;
   return score;
 }
-
 function getRowObj(row, headers, rowIdx) {
   let obj = { rowIdx: rowIdx };
   headers.forEach((h, i) => { obj[h] = row[i]; });

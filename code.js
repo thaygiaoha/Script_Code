@@ -327,7 +327,7 @@ if (action === "adminResetCloudImages") {
   }
   // Tìm câu trùng
  if (action === 'findDuplicateQuestions') {
-  const targetTag = e.parameter.targetTag;
+  const targetTag = e.parameter.targetClassTag;
   const res = findDuplicateQuestions(targetTag);
   return ContentService.createTextOutput(JSON.stringify(res))
     .setMimeType(ContentService.MimeType.JSON);

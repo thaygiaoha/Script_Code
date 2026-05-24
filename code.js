@@ -1421,6 +1421,66 @@ if (closeTime && now > closeTime) {
     }
 
 // #08 Chung
+    // Lấy list mã đề của Giáo Viên
+    // Lấy danh sách toàn bộ mã đề của Giáo viên từ cả 2 sheet
+if (action === "getListMade") {
+  const idgv = (data.idgv || "").toString().trim();
+
+  if (!idgv) {
+    return resJSON({ status: "error", message: "Vui lòng nhập IDGV!" });
+  }
+
+  let listResult = []; // Mảng chứa kết quả kết hợp [{ maDe, theLoai }]
+
+  // 1. XỬ LÝ SHEET 'matran'
+  const sheetMatran = ss.getSheetByName("matran");
+  if (sheetMatran) {
+    const lastRowMatran = sheetMatran.getLastRow();
+    if (lastRowMatran >= 2) {
+      const dataMatran = sheetMatran.getRange(2, 1, lastRowMatran - 1, 2).getValues(); // Cột A (1), B (2)
+      for (let i = 0; i < dataMatran.length; i++) {
+        const currentIdgv = (dataMatran[i][0] || "").toString().trim(); // Cột A
+        const currentMaDe = (dataMatran[i][1] || "").toString().trim(); // Cột B
+        
+        if (currentIdgv === idgv && currentMaDe) {
+          listResult.push({
+            maDe: currentMaDe,
+            theLoai: "Ma Trận"
+          });
+        }
+      }
+    }
+  }
+
+  // 2. XỬ LÝ SHEET 'exams'
+  const sheetExams = ss.getSheetByName("exams");
+  if (sheetExams) {
+    const lastRowExams = sheetExams.getLastRow();
+    if (lastRowExams >= 2) {
+      const dataExams = sheetExams.getRange(2, 1, lastRowExams - 1, 16).getValues(); // Lấy từ cột A đến P (16)
+      for (let i = 0; i < dataExams.length; i++) {
+        const currentMaDe = (dataExams[i][0] || "").toString().trim(); // Cột A
+        const currentIdgv = (dataExams[i][1] || "").toString().trim(); // Cột B
+        const valueCotP = (dataExams[i][15] || "").toString().trim();  // Cột P (index 15)
+
+        if (currentIdgv === idgv && currentMaDe) {
+          const loaiDe = valueCotP === "" ? "Word" : "PDF";
+          listResult.push({
+            maDe: currentMaDe,
+            theLoai: loaiDe
+          });
+        }
+      }
+    }
+  }
+
+  // Trả về dữ liệu kết quả tổng hợp
+  return resJSON({
+    status: "success",
+    message: "Lấy danh sách mã đề thành công!",
+    data: listResult
+  });
+}
     // 8. NHÁNH THEO TYPE (quiz, rating, ketqua)
     if (data.type === 'rating') {
       let sheetRate = ss.getSheetByName("danhgia") || ss.insertSheet("danhgia");

@@ -981,10 +981,10 @@ if (action === "getExamLink") {
   // Quét tìm dòng trùng khớp đồng thời cả Mã đề (Cột A) và IDGV (Cột B)
   for (let i = 0; i < examData.length; i++) {
     const currentMaDe = (examData[i][0] || "").toString().trim();   // Cột A (index 0)
-    const currentIdgv = (examData[i][1] || "").toString().trim();   // Cột B (index 1)
+    const currentIdgv = (N9(examData[i][1]) || "").toString().trim();   // Cột B (index 1)
     const currentLink = (examData[i][18] || "").toString().trim();  // Cột S (index 18)
 
-    if (currentMaDe === maDe && currentIdgv === idgv) {
+    if (currentMaDe === maDe && currentIdgv === N9(idgv)) {
       targetLink = currentLink;
       break; 
     }

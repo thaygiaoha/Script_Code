@@ -1052,23 +1052,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // ACTION KHÔNG HỢP LỆ
     // =================================================
 
-    return resJSON({
-      status: "error",
-      message: "Action không hợp lệ!"
-    });
-
-  } catch (err) {
-
-    return resJSON({
-      status: "error",
-      message: err.toString()
-    });
-
-  }
-}
-    
-
-    // =================================================================== TRỘN ĐỀ ===========================================
+   // =================================================================== TRỘN ĐỀ ===========================================
 
     if (action === "studentGetExam") {
       try {

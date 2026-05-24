@@ -950,7 +950,53 @@ if (action === "submitExam" || action === "submitExamMatrix") {
   return resJSON({ status: 'error', message: 'Không tìm thấy ID: ' + targetId });
 }
 
-// #07 Thi lẻ
+// #07 Thi lẻ và PDF
+    // Lấy link thi PDF
+  if (action === "getExamLink") {
+  const idgv = (data.idgv || "").toString().trim();
+  const sbd = (data.sbd || "").toString().trim();
+  const password = (data.password || "").toString().trim(); // Dùng xác thực bổ sung nếu cần
+  const maDe = (data.maDe || "").toString().trim();
+
+  // Kiểm tra dữ liệu đầu vào không được trống
+  if (!idgv || !sbd || !maDe) {
+    return res("error", "Vui lòng nhập đầy đủ IDGV, SBD và Mã đề!");
+  }
+
+  // Lấy dữ liệu cấu hình từ sheet 'exams'
+  const sheetExams = ss.getSheetByName("exams");
+  if (!sheetExams) {
+    return res("error", "Không tìm thấy dữ liệu cấu hình mã đề (sheet: exams)!");
+  }
+
+  const lastRow = sheetExams.getLastRow();
+  if (lastRow < 2) {
+    return res("error", "Chưa có dữ liệu mã đề trong hệ thống!");
+  }
+
+  // Lấy từ cột A (1) đến cột S (19)
+  const examData = sheetExams.getRange(2, 1, lastRow - 1, 19).getValues();
+  let targetLink = "";
+
+  // Quét tìm dòng trùng khớp đồng thời cả Mã đề (Cột A) và IDGV (Cột B)
+  for (let i = 0; i < examData.length; i++) {
+    const currentMaDe = (examData[i][0] || "").toString().trim();   // Cột A (index 0)
+    const currentIdgv = (examData[i][1] || "").toString().trim();   // Cột B (index 1)
+    const currentLink = (examData[i][18] || "").toString().trim();  // Cột S (index 18)
+
+    if (currentMaDe === maDe && currentIdgv === idgv) {
+      targetLink = currentLink;
+      break; 
+    }
+  }
+
+  if (targetLink) {
+    return res("success", "Tìm thấy link đề thi!", { link: targetLink });
+  } else {
+    return res("error", "Không tìm thấy link đề thi hợp lệ ứng với Mã đề và IDGV này!");
+  }
+}
+    
 
     // =================================================================== TRỘN ĐỀ ===========================================
 

@@ -951,27 +951,27 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 }
 
 // #07 Thi lẻ và PDF
-    // Lấy link thi PDF
-  if (action === "getExamLink") {
+// Lấy link thi PDF
+if (action === "getExamLink") {
   const idgv = (data.idgv || "").toString().trim();
   const sbd = (data.sbd || "").toString().trim();
-  const password = (data.password || "").toString().trim(); // Dùng xác thực bổ sung nếu cần
+  const password = (data.password || "").toString().trim(); 
   const maDe = (data.maDe || "").toString().trim();
 
   // Kiểm tra dữ liệu đầu vào không được trống
   if (!idgv || !sbd || !maDe) {
-    return res("error", "Vui lòng nhập đầy đủ IDGV, SBD và Mã đề!");
+    return resJSON({ status: "error", message: "Vui lòng nhập đầy đủ IDGV, SBD và Mã đề!" });
   }
 
   // Lấy dữ liệu cấu hình từ sheet 'exams'
   const sheetExams = ss.getSheetByName("exams");
   if (!sheetExams) {
-    return res("error", "Không tìm thấy dữ liệu cấu hình mã đề (sheet: exams)!");
+    return resJSON({ status: "error", message: "Không tìm thấy dữ liệu cấu hình mã đề (sheet: exams)!" });
   }
 
   const lastRow = sheetExams.getLastRow();
   if (lastRow < 2) {
-    return res("error", "Chưa có dữ liệu mã đề trong hệ thống!");
+    return resJSON({ status: "error", message: "Chưa có dữ liệu mã đề trong hệ thống!" });
   }
 
   // Lấy từ cột A (1) đến cột S (19)
@@ -991,9 +991,10 @@ if (action === "submitExam" || action === "submitExamMatrix") {
   }
 
   if (targetLink) {
-    return res("success", "Tìm thấy link đề thi!", { link: targetLink });
+    // Đóng gói data chuẩn cấu hình resJSON { status, message, data }
+    return resJSON({ status: "success", message: "Tìm thấy link đề thi!", data: { link: targetLink } });
   } else {
-    return res("error", "Không tìm thấy link đề thi hợp lệ ứng với Mã đề và IDGV này!");
+    return resJSON({ status: "error", message: "Không tìm thấy link đề thi hợp lệ ứng với Mã đề và IDGV này!" });
   }
 }
     

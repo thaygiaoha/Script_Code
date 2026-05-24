@@ -952,49 +952,118 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
 // #07 Thi lẻ và PDF
 // Lấy link thi PDF
-if (action === "getExamLink") {
-  const idgv = (data.idgv || "").toString().trim();
-  const sbd = (data.sbd || "").toString().trim();
-  const password = (data.password || "").toString().trim(); 
-  const maDe = (data.maDe || "").toString().trim();
+// #07 Thi lẻ và PDF
+    // =================================================
 
-  // Kiểm tra dữ liệu đầu vào không được trống
-  if (!idgv || !sbd || !maDe) {
-    return resJSON({ status: "error", message: "Vui lòng nhập đầy đủ IDGV, SBD và Mã đề!" });
-  }
+    if (action === "getExamLink") {
 
-  // Lấy dữ liệu cấu hình từ sheet 'exams'
-  const sheetExams = ss.getSheetByName("exams");
-  if (!sheetExams) {
-    return resJSON({ status: "error", message: "Không tìm thấy dữ liệu cấu hình mã đề (sheet: exams)!" });
-  }
+      const idgv = (data.idgv || "")
+        .toString()
+        .replace(/'/g, "")
+        .trim()
+        .toUpperCase();
 
-  const lastRow = sheetExams.getLastRow();
-  if (lastRow < 2) {
-    return resJSON({ status: "error", message: "Chưa có dữ liệu mã đề trong hệ thống!" });
-  }
+      const maDe = (data.maDe || "")
+        .toString()
+        .trim()
+        .toUpperCase();
 
-  // Lấy từ cột A (1) đến cột S (19)
-  const examData = sheetExams.getRange(2, 1, lastRow - 1, 19).getValues();
-  let targetLink = "";
+      const sbd = (data.sbd || "")
+        .toString()
+        .trim();
 
-  // Quét tìm dòng trùng khớp đồng thời cả Mã đề (Cột A) và IDGV (Cột B)
-  for (let i = 0; i < examData.length; i++) {
-    const currentMaDe = (examData[i][0] || "").toString().trim();   // Cột A (index 0)
-    const currentIdgv = (N9(examData[i][1]) || "").toString().trim();   // Cột B (index 1)
-    const currentLink = (examData[i][18] || "").toString().trim();  // Cột S (index 18)
+      const password = (data.password || "")
+        .toString()
+        .trim();
 
-    if (currentMaDe === maDe && currentIdgv === N9(idgv)) {
-      targetLink = currentLink;
-      break; 
+      if (!idgv || !maDe) {
+
+        return resJSON({
+          status: "error",
+          message: "Thiếu IDGV hoặc mã đề!"
+        });
+
+      }
+
+      const sheet = ss.getSheetByName("exams");
+
+      if (!sheet) {
+
+        return resJSON({
+          status: "error",
+          message: "Không tìm thấy sheet exams!"
+        });
+
+      }
+
+      const values = sheet
+        .getDataRange()
+        .getValues();
+
+      let foundLink = "";
+
+      for (let i = 1; i < values.length; i++) {
+
+        const rowMaDe = (values[i][0] || "")
+          .toString()
+          .trim()
+          .toUpperCase();
+
+        const rowIdgv = (values[i][1] || "")
+          .toString()
+          .replace(/'/g, "")
+          .trim()
+          .toUpperCase();
+
+        const rowLink = (values[i][18] || "")
+          .toString()
+          .trim();
+
+        if (
+          rowMaDe === maDe &&
+          rowIdgv === idgv
+        ) {
+
+          foundLink = rowLink;
+          break;
+
+        }
+      }
+
+      if (!foundLink) {
+
+        return resJSON({
+          status: "error",
+          message: "Không tìm thấy link đề!"
+        });
+
+      }
+
+      return resJSON({
+        status: "success",
+        message: "Đã tìm thấy link!",
+        data: {
+          link: foundLink
+        }
+      });
     }
-  }
 
-  if (targetLink) {
-    // Đóng gói data chuẩn cấu hình resJSON { status, message, data }
-    return resJSON({ status: "success", message: "Tìm thấy link đề thi!", data: { link: targetLink } });
-  } else {
-    return resJSON({ status: "error", message: "Không tìm thấy link đề thi hợp lệ ứng với Mã đề và IDGV này!" });
+    // =================================================
+    // ACTION KHÔNG HỢP LỆ
+    // =================================================
+
+    return resJSON({
+      status: "error",
+      message: "Action không hợp lệ!"
+    });
+
+  } catch (err) {
+
+    return resJSON({
+      status: "error",
+      message: err.toString()
+    });
+
   }
 }
     

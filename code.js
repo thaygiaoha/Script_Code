@@ -956,97 +956,54 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // =================================================
 
     if (action === "getExamLink") {
+  const idgv = (data.idgv || "").toString().replace(/'/g, "").trim().toUpperCase();
+  const maDe = (data.maDe || "").toString().trim().toUpperCase();
+  const sbd  = (data.sbd || "").toString().trim().toUpperCase(); // Nên viết hoa luôn SBD đề phòng học sinh nhập chữ thường
+  const pass = (data.password || "").toString().trim();
 
-      const idgv = (data.idgv || "")
-        .toString()
-        .replace(/'/g, "")
-        .trim()
-        .toUpperCase();
+  // Chốt 1: Check thiếu dữ liệu đầu vào
+  if (!idgv || !maDe || !pass || !sbd) {
+    return resJSON({
+      status: "error",
+      message: "Thiếu Số báo danh, IDGV, mã đề hoặc mật khẩu!"
+    });
+  }
+    
+  // Chốt 2: Xác minh học sinh trước
+  const isUserValid = verifyhocsinh(sbd, idgv, pass);
+  if (!isUserValid) {
+    return resJSON({ 
+      status: "fail", 
+      message: "Sai Số báo danh, Mã GV hoặc Mật khẩu học sinh!" 
+    });
+  }
 
-      const maDe = (data.maDe || "")
-        .toString()
-        .trim()
-        .toUpperCase();
+  // Chốt 3: Xác minh kỳ thi và lấy link đề (cột S)
+  const examLink = verifyExams(maDe, idgv);
+  if (examLink === false) {
+    return resJSON({ 
+      status: "fail", 
+      message: "Mã đề thi không hợp lệ hoặc không thuộc giáo viên này!" 
+    });
+  }
+    
+  // Chốt 4: Kiểm tra xem giáo viên đã nhập link ở cột S chưa (Tránh trường hợp ô trống)
+  if (!examLink || examLink.toString().trim() === "") {
+    return resJSON({
+      status: "error",
+      message: "Kỳ thi hợp lệ nhưng Giáo viên chưa cấu hình link đề thi!"
+    });
+  }
 
-      const sbd = (data.sbd || "")
-        .toString()
-        .trim();
-
-      const password = (data.password || "")
-        .toString()
-        .trim();
-
-      if (!idgv || !maDe) {
-
-        return resJSON({
-          status: "error",
-          message: "Thiếu IDGV hoặc mã đề!"
-        });
-
-      }
-
-      const sheet = ss.getSheetByName("exams");
-
-      if (!sheet) {
-
-        return resJSON({
-          status: "error",
-          message: "Không tìm thấy sheet exams!"
-        });
-
-      }
-
-      const values = sheet
-        .getDataRange()
-        .getValues();
-
-      let foundLink = "";
-
-      for (let i = 1; i < values.length; i++) {
-
-        const rowMaDe = (values[i][0] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
-
-        const rowIdgv = (values[i][1] || "")
-          .toString()
-          .replace(/'/g, "")
-          .trim()
-          .toUpperCase();
-
-        const rowLink = (values[i][18] || "")
-          .toString()
-          .trim();
-
-        if (
-          rowMaDe === maDe &&
-          N9(rowIdgv) === N9(idgv)
-        ) {
-
-          foundLink = rowLink;
-          break;
-
-        }
-      }
-
-      if (!foundLink) {
-
-        return resJSON({
-          status: "error",
-          message: "Không tìm thấy link đề!"
-        });
-
-      }
-
-      return resJSON({
-        status: "success",
-        message: "Đã tìm thấy link!",
-        data: {
-          link: foundLink
-        }
-      });
+  // TỰ ĐỘNG CHẠY TIẾP KHI TẤT CẢ ĐỀU ĐÚNG
+  return resJSON({
+    status: "success",
+    message: "Đã tìm thấy link!",
+    data: {
+      link: examLink
     }
+  });
+}
 
     // =================================================
     // ACTION KHÔNG HỢP LỆ
@@ -2354,3 +2311,69 @@ function SHA256_(input) {
   }
   return output;
 }
+// hàm xác minh thông tin học sinh 
+function verifyhocsinh(sbd, idgv, pass) {
+  // 1. Kiểm tra kết nối bảng tính (Giả định biến ss đã được khai báo toàn cục)
+  const sheet = ss.getSheetByName("danhsach");
+  if (!sheet) {
+    return resJSON({
+      status: "error",
+      message: "Không tìm thấy sheet danhsach!"
+    });
+  }
+
+  // 2. Chuẩn hóa dữ liệu đầu vào để so sánh chính xác hơn
+  const cleanSbd = (sbd || "").toString().trim().toUpperCase();
+  const cleanIdgv = (idgv || "").toString().trim().toUpperCase();
+  const cleanPass = (pass || "").toString().trim();
+
+  // 3. Lấy toàn bộ dữ liệu từ sheet
+  const values = sheet.getDataRange().getValues();
+
+  // 4. Duyệt qua từng dòng dữ liệu (bỏ qua dòng tiêu đề i = 0)
+  for (let i = 1; i < values.length; i++) {
+    const rowSbd  = (values[i][0] || "").toString().trim().toUpperCase();
+    const rowIdgv = (values[i][5] || "").toString().replace(/'/g, "").trim().toUpperCase();
+    const rowPass = (values[i][8] || "").toString().replace(/'/g, "").trim();
+
+    // Nếu trùng khớp tất cả điều kiện
+    if (rowPass === cleanPass && rowSbd === cleanSbd && N9(rowIdgv) === N9(cleanIdgv)) {
+      return true; // Khớp thông tin -> Cho phép vào thi và thoát hàm ngay lập tức
+    }
+  }
+
+  // 5. Nếu chạy hết vòng lặp mà không return true -> Thông tin sai
+  return false; 
+}
+// Hàm xác minh exams
+function verifyExams(examcode, idgv) {
+  // 1. Kiểm tra kết nối bảng tính (Giả định biến ss đã được khai báo toàn cục)
+  const sheet = ss.getSheetByName("exams");
+  if (!sheet) {
+    return resJSON({
+      status: "error",
+      message: "Không tìm thấy sheet exams!"
+    });
+  }
+
+  // 2. Chuẩn hóa dữ liệu đầu vào để so sánh chính xác hơn
+  const cleanExamcode = (examcode || "").toString().trim().toUpperCase();
+  const cleanIdgv = (idgv || "").toString().trim().toUpperCase();
+  // 3. Lấy toàn bộ dữ liệu từ sheet
+  const values = sheet.getDataRange().getValues();
+
+  // 4. Duyệt qua từng dòng dữ liệu (bỏ qua dòng tiêu đề i = 0)
+  for (let i = 1; i < values.length; i++) {
+    const rowCode  = (values[i][0] || "").toString().trim().toUpperCase();
+    const rowIdgv = (values[i][1] || "").toString().replace(/'/g, "").trim().toUpperCase();    
+
+    // Nếu trùng khớp tất cả điều kiện
+    if (rowCode === cleanExamcode && N9(rowIdgv) === N9(cleanIdgv)) {
+      return values[i][18]; // Khớp thông tin -> Cho phép vào thi và thoát hàm ngay lập tức
+    }
+  }
+  // 5. Nếu chạy hết vòng lặp mà không return true -> Thông tin sai
+  return false; 
+}
+
+

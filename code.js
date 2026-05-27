@@ -715,7 +715,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
      const vals = sheetKq.getDataRange().getValues();
       let nextRow = -1;
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][1].trim() === "") {
+        const cellValue = vals[i][1] !== undefined && vals[i][1] !== null ? String(vals[i][1]).trim() : "";
+        if (cellValue === "") {
           nextRow = i + 1; break;
         }
       }

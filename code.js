@@ -980,14 +980,14 @@ if (action === "submitExam" || action === "submitExamMatrix") {
   }
 
   // Chốt 3: Xác minh kỳ thi và lấy link đề (cột S)
-  const examLink = verifyExams(maDe, idgv);
-  if (examLink === false) {
+  const examLinkdn = verifyExams(maDe, idgv);
+  if (examLinkdn === false) {
     return resJSON({ 
       status: "fail", 
       message: "Mã đề thi không hợp lệ hoặc không thuộc giáo viên này!" 
     });
   }
-  const examLink_dn = examLink + "sbd=" + sbd + "pass=" + pass;
+  const examLink = examLinkdn + "sbd=" + sbd + "pass=" + pass;
   // Chốt 4: Kiểm tra xem giáo viên đã nhập link ở cột S chưa (Tránh trường hợp ô trống)
   if (!examLinkdn || examLinkdn.toString().trim() === "") {
     return resJSON({
@@ -1001,7 +1001,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     status: "success",
     message: "Đã tìm thấy link!",
     data: {
-      link: examLinkdn
+      link: examLink
     }
   });
 }

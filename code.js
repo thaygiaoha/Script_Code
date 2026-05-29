@@ -987,9 +987,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       message: "Mã đề thi không hợp lệ hoặc không thuộc giáo viên này!" 
     });
   }
-  const examLink = examLink + "&sbd=" + sbd + "&pass=" + pass;
+  const examLink_dn = examLink + "&sbd=" + sbd + "&pass=" + pass;
   // Chốt 4: Kiểm tra xem giáo viên đã nhập link ở cột S chưa (Tránh trường hợp ô trống)
-  if (!examLink || examLink.toString().trim() === "") {
+  if (!examLinkdn || examLinkdn.toString().trim() === "") {
     return resJSON({
       status: "error",
       message: "Kỳ thi hợp lệ nhưng Giáo viên chưa cấu hình link đề thi!"
@@ -1001,7 +1001,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     status: "success",
     message: "Đã tìm thấy link!",
     data: {
-      link: examLink
+      link: examLinkdn
     }
   });
 }

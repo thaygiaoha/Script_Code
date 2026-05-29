@@ -738,8 +738,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       thoiGian,                                           // G           
       "'" + supper(idgv),
       tabCount,
-      supper(exams + "." + idgv),                                    // S
-      supper(exams + "." + sbd + "." + idgv),
+      supper("key" + exams + "." + idgv),                                    // S
+      supper("key" + exams + "." + sbd + "." + idgv),
       theloai,
       data.details || ""  // Cột M
     ];
@@ -1936,7 +1936,7 @@ function getScore(e) {
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
   const idgv = e.parameter.idgv;
-  const key = supper(exams + "." + sbd + "." + idgv);
+  const key = supper("key" + exams + "." + sbd + "." + idgv);
 
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();

@@ -1018,7 +1018,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         const pass = data.pass ? data.pass : "";
         const examCode = data.examCode ? data.examCode : "";
         const idgv = data.idgv ? data.idgv : "";
-        const keyds = supper(sbd + "." + idgv);
+        const keyds = supper("key" + sbd + "." + idgv);
         const keyexams = supper("key" + examCode + "." + idgv);
         const keysbd = supper("key" + examCode + "." + sbd + idgv);
 

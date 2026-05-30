@@ -256,7 +256,7 @@ if (action === "adminResetCloudImages") {
           limittab: data[i][4], 
           taikhoanapp: data[i][6], 
           idnumber: idNumber, 
-          sbd: sbd
+          sbd: "'" + sbd
         });         
       }
     }
@@ -730,16 +730,16 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
-      supper(exams),                                                // B
-      supper(sbd),                                          // C
+      "'" + supper(exams),                                                // B
+      "'" + supper(sbd),                                          // C
       supper(data.name || ""),                             // D
       supper(className),                                                 // E
       diem,                                                // F
       thoiGian,                                           // G           
       "'" + supper(idgv),
       tabCount,
-      supper(exams + "." + idgv),                                    // S
-      supper(exams + "." + sbd + "." + idgv),
+      "'" + supper(exams + "." + idgv),                                    // S
+      "'" + supper(exams + "." + sbd + "." + idgv),
       theloai,
       data.details || ""  // Cột M
     ];
@@ -830,7 +830,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       sheetMatran.getRange("A:A").setNumberFormat("@");
       const rowData = [
         "'" + supper(toStr(data.gvId)), 
-        supper(toStr(data.makiemtra)), 
+        "'" + supper(toStr(data.makiemtra)), 
         toStr(data.name), 
         toJson(data.topics),
         toNum(data.duration), 
@@ -847,7 +847,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toJson(data.saL3), 
         toJson(data.saL4),
          "'" + supper(toStr(data.gvId)), 
-        supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
+        "'" + supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
       ];
       const key = supper(data.gvPass + "." + data.gvId);
       const sheetId = ssAdmin.getSheetByName("idgv");

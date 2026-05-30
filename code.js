@@ -1020,7 +1020,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         const idgv = data.idgv ? data.idgv : "";
         const keyds = supper(sbd + "." + idgv);
         const keyexams = supper(examCode + "." + idgv);
-        const keysbd = supper(examCode + "." + sbd + idgv);
+        const keysbd = supper(examCode + "." + sbd + "." + idgv);
 
         const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");

@@ -246,7 +246,7 @@ if (action === "adminResetCloudImages") {
       }      
     // #vip
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
-    const key = supper(sbd + "." + idNumber);      
+    const key = supper(sbd + "_" + idNumber);      
     for (let i = 0; i < data.length; i++) {
       if ((data[i][7] || "").toString().trim() === key && (data[i][8] || "").toString().trim() === pass.toString().trim()) {
         return createResponse("success", "OK", {
@@ -462,7 +462,7 @@ if (action === "adminResetCloudImages") {
   const examCodeInput = e.parameter.examCode || "";
   const questionIdInput = e.parameter.questionId || "";
   const idgv = e.parameter.idgv || "";
-  const key = supper(examCodeInput + "." + questionIdInput + "." + idgv);
+  const key = supper(examCodeInput + "_" + questionIdInput + "_" + idgv);
 
   const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
@@ -490,7 +490,7 @@ if (action === "adminResetCloudImages") {
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
     const idgv = params.idgv;
-    const key = supper(examCode + "." + idgv);
+    const key = supper(examCode + "_" + idgv);
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
@@ -525,7 +525,7 @@ if (action === "downloadScores") {
     const exams = e.parameter.exams;     
     const sheet = ss.getSheetByName("ketqua");
     
-    const keycheck = (exams + "." + idgv).toUpperCase();
+    const keycheck = (exams + "_" + idgv).toUpperCase();
     
     if (!sheet) return ContentService.createTextOutput("Sheet ketqua không tồn tại").setMimeType(ContentService.MimeType.TEXT);
 
@@ -557,7 +557,7 @@ if (action === "downloadScores") {
 
   // ===== RESET DATA =====
   if (action === "resetData") {
-    const key = supper(e.parameter.password + "." + e.parameter.idgv );
+    const key = supper(e.parameter.password + "_" + e.parameter.idgv );
       const sheetId = ssAdmin.getSheetByName("idgv");
       const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
       let kiemtra = 0;
@@ -738,8 +738,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       thoiGian,                                           // G           
       "'" + supper(idgv),
       tabCount,
-      supper("key" + exams + "." + idgv),                                    // S
-      supper("key" + exams + "." + sbd + "." + idgv),
+      supper(exams + "_" + idgv),                                    // S
+      supper(exams + "_" + sbd + "_" + idgv),
       theloai,
       data.details || ""  // Cột M
     ];
@@ -847,9 +847,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toJson(data.saL3), 
         toJson(data.saL4),
          "'" + supper(toStr(data.gvId)), 
-        supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
+        supper(toStr(data.makiemtra) + "_" + toStr(data.gvId))
       ];
-      const key = supper(data.gvPass + "." + data.gvId);
+      const key = supper(data.gvPass + "_" + data.gvId);
       const sheetId = ssAdmin.getSheetByName("idgv");
       const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
       let kiemtra = 0;
@@ -1018,9 +1018,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         const pass = data.pass ? data.pass : "";
         const examCode = data.examCode ? data.examCode : "";
         const idgv = data.idgv ? data.idgv : "";
-        const keyds = supper("key" + sbd + "." + idgv);
-        const keyexams = supper("key" + examCode + "." + idgv);
-        const keysbd = supper("key" + examCode + "." + sbd + idgv);
+        const keyds = supper(sbd + "_" + idgv);
+        const keyexams = supper(examCode + "_" + idgv);
+        const keysbd = supper(examCode + "_" + sbd + idgv);
 
         const sheetDS = ss.getSheetByName("danhsach");
         const sheetData = ss.getSheetByName("exam_data");
@@ -1186,7 +1186,7 @@ if (closeTime && now > closeTime) {
 
         if (idMatch) {
           const solId = idMatch[1].toString();
-          const key = supper(examCode + "." + solId + "." + idgv)
+          const key = supper(examCode + "_" + solId + "_" + idgv)
           // Dò đúng dòng có Mã đề + ID
           for (let i = 1; i < range.length; i++) {
            
@@ -1259,8 +1259,8 @@ if (closeTime && now > closeTime) {
         finalLG, 
         new Date(),
         "'" + idgv,
-        examCode + "." + idgv,
-        examCode + "." + q.id + "." + idgv
+        examCode + "_" + idgv,
+        examCode + "_" + q.id + "_" + idgv
       ];
       sheet.getRange(rowIdx, 1, 1, 10).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
@@ -1284,8 +1284,8 @@ if (closeTime && now > closeTime) {
     (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
     new Date(),
      "'" + idgv,
-    examCode + "." + idgv,
-    examCode + "." + q.id + "." + idgv
+    examCode + "_" + idgv,
+    examCode + "_" + q.id + "_" + idgv
   ]);
 
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
@@ -1305,8 +1305,8 @@ if (closeTime && now > closeTime) {
       const idgv = (data.idgv || "").toString().trim();
       const passGV = (data.passGV || "").toString().trim();
       const cfg = data.config;
-      const key = supper(passGV + "." + idgv);
-      const keyId = supper(examCode + "." + idgv);
+      const key = supper(passGV + "_" + idgv);
+      const keyId = supper(examCode + "_" + idgv);
       const sheetId = ssAdmin.getSheetByName("idgv");
       const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
       let kiemtra = 0;
@@ -1885,7 +1885,7 @@ function resetData(type, password, mode, exams, idgv) {
   const keyid = N9(idgv);
   const idgvStr = idgv.toString().trim();
   const exam = exams.split(".")[0];
-  const keyexamsid = supper(exam + "." + idgvStr);
+  const keyexamsid = supper(exam + "_" + idgvStr);
 
   let sheetName = "";
   let colums = 0;
@@ -1936,7 +1936,7 @@ function getScore(e) {
   const sbd = e.parameter.sbd;
   const exams = e.parameter.exams;
   const idgv = e.parameter.idgv;
-  const key = supper("key" + exams + "." + sbd + "." + idgv);
+  const key = supper(exams + "_" + sbd + "_" + idgv);
 
   const sheet = ss.getSheetByName("ketqua");
   const data = sheet.getDataRange().getValues();

@@ -1510,6 +1510,7 @@ function getAppConfig() {
   var topics = [];
   var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp
   var maxtotal = dataCD[lastRow - 1][8];
+  var maxcau = (maxtotal || 0) + " Câu";
 
   // Chạy từ dòng 2 (bỏ tiêu đề)
   for (var i = 1; i < dataCD.length; i++) {
@@ -1525,7 +1526,7 @@ function getAppConfig() {
         id: idcd,
         name: namecd,
         total: parseInt(total) || 0,
-        maxtotal: parseInt(maxtotal) || 0
+        maxcau: maxcau || ""
       });
 
       // 2. Thu thập danh sách lớp (để nạp vào CLASS_ID bên React)

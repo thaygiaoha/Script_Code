@@ -1509,8 +1509,8 @@ function getAppConfig() {
 
   var topics = [];
   var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp
-  var maxtotal = dataCD[lastRow - 1][8];
-  var maxcau = "(" + (maxtotal || 0) + " Câu" + ")";
+  var maxtotal = dataCD[lastRow - 1][8] || 0;
+  var maxcau = "(" + maxtotal + " Câu" + ")";
 
   // Chạy từ dòng 2 (bỏ tiêu đề)
   for (var i = 1; i < lastRow - 1; i++) {

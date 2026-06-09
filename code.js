@@ -923,7 +923,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     // 5. CẬP NHẬT CÂU HỎI (updateQuestion)
     if (action === 'updateQuestion') {
   var item = data.data;
-  Logger.log(e.postData.contents);
+  Logger.log(e.postData.contents); 
   var allRows = sheetNH.getDataRange().getValues();
   
   // Kiểm tra ID từ client gửi lên có bị trống không

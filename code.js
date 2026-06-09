@@ -1510,23 +1510,23 @@ function getAppConfig() {
   var topics = [];
   var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp
   var maxtotal = dataCD[lastRow - 1][8];
-  var maxcau = (maxtotal || 0) + " Câu";
+  var maxcau = "(" + (maxtotal || 0) + " Câu" + ")";
 
   // Chạy từ dòng 2 (bỏ tiêu đề)
-  for (var i = 1; i < dataCD.length; i++) {
+  for (var i = 1; i < lastRow - 1; i++) {
     var lop = dataCD[i][0];   // Cột A: lop
     var idcd = dataCD[i][1];  // Cột B: idcd
     var namecd = dataCD[i][2]; // Cột C: namecd
     var total = dataCD[i][8]; // cột I ghi tổng số câu   
 
-    if (lop) {
+    if (lop && lop.trim() !== "") {
       // 1. Đẩy vào danh sách chuyên đề
       topics.push({
         grade: lop,
         id: idcd,
         name: namecd,
-        total: parseInt(total) || 0,
-        maxcau: maxcau || ""
+        total: parseInt(total) || 0
+        
       });
 
       // 2. Thu thập danh sách lớp (để nạp vào CLASS_ID bên React)
@@ -1537,7 +1537,8 @@ function getAppConfig() {
 
   return {
     topics: topics,
-    classes: Object.keys(classesMap).sort(function (a, b) { return a - b; }) // Trả về [9, 10, 11, 12] chẳng hạn
+    classes: Object.keys(classesMap).sort(function (a, b) { return a - b; }),    // Trả về [9, 10, 11, 12] chẳng hạn
+    maxcau: maxcau
   };
 }
 

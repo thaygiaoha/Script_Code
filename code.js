@@ -1505,16 +1505,18 @@ function getAppConfig() {
   var sheetCD = ss.getSheetByName("dangcd");
   // var dataCD = sheetCD.getDataRange().getValues();
   var dataCD = sheetCD.getDataRange().getDisplayValues();
+  const lastRow = sheetCD.getLastRow();
 
   var topics = [];
   var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp
+  var maxtotal = dataCD[lastRow - 1][8];
 
   // Chạy từ dòng 2 (bỏ tiêu đề)
   for (var i = 1; i < dataCD.length; i++) {
     var lop = dataCD[i][0];   // Cột A: lop
     var idcd = dataCD[i][1];  // Cột B: idcd
     var namecd = dataCD[i][2]; // Cột C: namecd
-    var total = dataCD[i][8]; // cột I ghi tổng số câu
+    var total = dataCD[i][8]; // cột I ghi tổng số câu   
 
     if (lop) {
       // 1. Đẩy vào danh sách chuyên đề
@@ -1522,7 +1524,8 @@ function getAppConfig() {
         grade: lop,
         id: idcd,
         name: namecd,
-        total: parseInt(total) || 0
+        total: parseInt(total) || 0,
+        maxtotal: parseInt(maxtotal) || 0
       });
 
       // 2. Thu thập danh sách lớp (để nạp vào CLASS_ID bên React)

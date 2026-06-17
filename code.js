@@ -313,14 +313,19 @@ if (action === "adminResetCloudImages") {
     for (var i = 0; i < data.length; i++) {
       if (data[i][0].toString().trim() === idTraCuu) {
         var qloigiai = data[i][7] || "";
+        var qquestion = data[i][4] || "";
         var randomVersion = Math.floor(Math.random() * 9000) + 1000;
         if (qloigiai.indexOf(".png'") !== -1) {
         qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
         }
 
-        // Ép kiểu về String để đảm bảo không bị lỗi tệp
-        return ContentService.createTextOutput(String(qloigiai))
-          .setMimeType(ContentService.MimeType.TEXT);
+       var resultObj = {
+          question: String(qquestion),
+          loigiai: String(qloigiai)
+        };
+
+        return ContentService.createTextOutput(JSON.stringify(resultObj))
+          .setMimeType(ContentService.MimeType.JSON);
       }
     }
     return ContentService.createTextOutput("Không tìm thấy ID này!").setMimeType(ContentService.MimeType.TEXT);

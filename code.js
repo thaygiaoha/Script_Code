@@ -314,13 +314,20 @@ if (action === "adminResetCloudImages") {
       if (data[i][0].toString().trim() === idTraCuu) {
         var qloigiai = data[i][7] || "";
         var qquestion = data[i][4] || "";
+        var qoption = data[i][5] || "";
+        var qanswer = data[i][6] || "";
         var randomVersion = Math.floor(Math.random() * 9000) + 1000;
         if (qloigiai.indexOf(".png'") !== -1) {
         qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
         }
+        if (qquestion.indexOf(".png'") !== -1) {
+        qquestion = qquestion.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+        }
 
        var resultObj = {
           question: String(qquestion),
+          option: String(qoption),
+          answer: String(qanswer),
           loigiai: String(qloigiai)
         };
 

@@ -228,21 +228,11 @@ if (action === "adminResetCloudImages") {
     var sheet = ss.getSheetByName("dangcd");
     const lastRow = sheet.getLastRow();
     var range = sheet.getDataRange();
-   const range = sheet.getRange(1, 1, lastRow, 9);
-
-const values = range.getValues();
-const backgrounds = range.getBackgrounds();
-
-const data = values.map((row, i) =>
-  row.map((cell, j) => ({
-    value: cell,
-    bg: backgrounds[i][j]
-  }))
-);
-
-return ContentService
-  .createTextOutput(JSON.stringify(data))
-  .setMimeType(ContentService.MimeType.JSON);
+    const values = sheet.getRange(1, 1, lastRow, 9).getValues(); // Lấy toàn bộ hàng và cột
+    
+    return ContentService.createTextOutput(JSON.stringify(values))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   // 6. XÁC MINH THÍ SINH
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
@@ -2404,4 +2394,3 @@ function verifyExams(examcode, idgv) {
   // 5. Nếu chạy hết vòng lặp mà không return true -> Thông tin sai
   return false; 
 }
-

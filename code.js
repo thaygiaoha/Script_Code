@@ -2408,3 +2408,31 @@ function verifyExams(examcode, idgv) {
   // 5. Nếu chạy hết vòng lặp mà không return true -> Thông tin sai
   return false; 
 }
+//** 
+ * Hàm check ngày tháng đóng - mở
+ * Hàm kiểm tra thời gian hiện tại đã vượt qua mốc ngày truyền vào hay chưa.
+ * @param {Date|String} sheetDateVal - Giá trị ô ngày tháng cần kiểm tra.
+ * @param {String} type - Loại ô: 'open' (mở đề) hoặc 'close' (đóng đề).
+ * @return {Boolean} Trả về true nếu thời gian hiện tại ĐÃ VƯỢT QUA mốc truyền vào.
+ *//
+function opencloseDate(sheetDateVal, type) {
+  // Xử lý ô trống theo ý thầy: "Không nhập nghĩa là để thời gian mãi mãi"
+  if (!sheetDateVal || sheetDateVal.toString().trim() === "") {
+    if (type === 'open') return true;   // Ô mở trống -> Coi như ĐÃ vượt qua mốc mở (mở mãi mãi)
+    if (type === 'close') return false; // Ô đóng trống -> Coi như CHƯA vượt qua mốc đóng (mở mãi mãi)
+    return false;
+  }
+  
+  const now = new Date();
+  let targetDate = null;
+  
+  if (sheetDateVal instanceof Date) {
+    targetDate = sheetDateVal;
+  } else {
+    targetDate = new Date(sheetDateVal.toString().trim().replace(' ', 'T'));
+  }
+  
+  if (isNaN(targetDate.getTime())) return false; 
+  
+  return now > targetDate;
+}

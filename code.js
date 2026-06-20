@@ -829,7 +829,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 }
     // 2. NHÁNH MA TRẬN (saveMatrix)
     if (action === "saveMatrix") {
-      
+      var now = new Date();      
       const sheetMatran = ss.getSheetByName("matran") || ss.insertSheet("matran");
       const toStr = (v) => (v != null) ? String(v).trim() : "";
       const toNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
@@ -859,7 +859,10 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toJson(data.saL3), 
         toJson(data.saL4),
          "'" + supper(toStr(data.gvId)), 
-        "'" + supper(toStr(data.makiemtra) + "." + toStr(data.gvId))
+        "'" + supper(toStr(data.makiemtra) + "." + toStr(data.gvId)),
+        "'" + toStr(data.openDate),
+        "'" + toStr(data.closeDate),
+        now        
       ];
       const key = supper(data.gvPass + "." + data.gvId);
       const sheetId = ssAdmin.getSheetByName("idgv");

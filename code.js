@@ -379,35 +379,62 @@ if (action === "adminResetCloudImages") {
 
   // 8. LẤY MA TRẬN ĐỀ
   if (type === 'getExamCodes') {
-    const teacherId = supper(params.idnumber);
-    const sheet = ss.getSheetByName("matran");
-    const lastRow = sheet.getLastRow();
-    if (lastRow < 2) {
+  const teacherId = supper(params.idnumber);
+  const sheet = ss.getSheetByName("matran");
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
     return createResponse("error", "Ma trận trống!");
-      }  
+  }  
 
-    const data = sheet.getRange(2, 1, lastRow - 1, 19).getValues();
-    const results = [];
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
-      if (row[0].toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
-        try {
+  // 🔥 SỬA TỪ 19 THÀNH 21: Quét thêm cột T (openDate - 20) và cột U (closeDate - 21)
+  const data = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
+  const results = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    
+    // Kiểm tra ID giáo viên hoặc tài khoản hệ thống
+    if (row[0].toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
+      try {
+        // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
+        const openDateVal = row[19]; 
+        const closeDateVal = row[20];
+
+        // 🔥 CHẶN THỜI GIAN THEO HÀM opencloseDate CỦA ANH
+        const isPastOpen = opencloseDate(openDateVal, 'open');
+        const isPastClose = opencloseDate(closeDateVal, 'close');
+
+        // Điều kiện: Đã đến giờ mở đề VÀ Chưa vượt quá giờ đóng đề thì mới cho hiện mã đề
+        if (isPastOpen && !isPastClose) {
           results.push({
-            code: row[1].toString(), name: row[2].toString(), topics: JSON.parse(row[3]),
+            code: row[1].toString(), 
+            name: row[2].toString(), 
+            topics: JSON.parse(row[3]),
             fixedConfig: {
-              duration: parseInt(row[4]), numMC: JSON.parse(row[5]), scoreMC: parseFloat(row[6]),
-              mcL3: JSON.parse(row[7]), mcL4: JSON.parse(row[8]), numTF: JSON.parse(row[9]),
-              scoreTF: parseFloat(row[10]), tfL3: JSON.parse(row[11]), tfL4: JSON.parse(row[12]),
-              numSA: JSON.parse(row[13]), scoreSA: parseFloat(row[14]), saL3: JSON.parse(row[15]), saL4: JSON.parse(row[16])
+              duration: parseInt(row[4]), 
+              numMC: JSON.parse(row[5]), 
+              scoreMC: parseFloat(row[6]),
+              mcL3: JSON.parse(row[7]), 
+              mcL4: JSON.parse(row[8]), 
+              numTF: JSON.parse(row[9]),
+              scoreTF: parseFloat(row[10]), 
+              tfL3: JSON.parse(row[11]), 
+              tfL4: JSON.parse(row[12]),
+              numSA: JSON.parse(row[13]), 
+              scoreSA: parseFloat(row[14]), 
+              saL3: JSON.parse(row[15]), 
+              saL4: JSON.parse(row[16])
             }
           });
-        } catch (err) {}
+        }
+      } catch (err) {
+        // Bỏ qua dòng lỗi cấu trúc JSON để vòng lặp tiếp tục chạy
       }
     }
-    return createResponse("success", "OK", results);
   }
-
-  // 9. LẤY TẤT CẢ CÂU HỎI (Hàm này thầy bị trùng, em gom lại bản chuẩn nhất)
+  return createResponse("success", "OK", results);
+}
+  // 9. LẤY TẤT CẢ CÂU HỎI 
   if (action === "getQuestions") {  
   var rows = sheetNH.getDataRange().getValues();
   var questions = [];
@@ -2410,4 +2437,26 @@ function verifyExams(examcode, idgv) {
   }
   // 5. Nếu chạy hết vòng lặp mà không return true -> Thông tin sai
   return false; 
+}
+// Hàm kiểm tra ngày đóng - mở
+function opencloseDate(sheetDateVal, type) {
+  // Xử lý ô trống theo ý thầy: "Không nhập nghĩa là để thời gian mãi mãi"
+  if (!sheetDateVal || sheetDateVal.toString().trim() === "") {
+    if (type === 'open') return true;   // Ô mở trống -> Coi như ĐÃ vượt qua mốc mở (mở mãi mãi)
+    if (type === 'close') return false; // Ô đóng trống -> Coi như CHƯA vượt qua mốc đóng (mở mãi mãi)
+    return false;
+  }
+  
+  const now = new Date();
+  let targetDate = null;
+  
+  if (sheetDateVal instanceof Date) {
+    targetDate = sheetDateVal;
+  } else {
+    targetDate = new Date(sheetDateVal.toString().trim().replace(' ', 'T'));
+  }
+  
+  if (isNaN(targetDate.getTime())) return false; 
+  
+  return now > targetDate;
 }

@@ -883,7 +883,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][0].toString() === toStr(data.gvId) && vals[i][1].toString() === toStr(data.makiemtra)) {
+        if (supper(vals[i][0]) === supper(toStr(data.gvId)) && supper(vals[i][1]) === supper(toStr(data.makiemtra))) {
           rowIndex = i + 1; break;
         }
       }

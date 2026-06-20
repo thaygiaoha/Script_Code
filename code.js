@@ -1702,16 +1702,30 @@ function findDuplicateQuestions(targetTag) {
   const rows = data.slice(1); // Bỏ dòng tiêu đề
   
   // BƯỚC 1: Lọc danh sách câu hỏi theo targetTag và lưu lại số dòng gốc (rowNumber)
-  const filteredRows = [];
+  const filteredRows = [];  
   for (let i = 0; i < rows.length; i++) {
-    const currentTag = String(rows[i][1]).substring(0, 4); // Cột 1 là classTag
-    if (currentTag === targetTag) {
-      filteredRows.push({
-        rowData: rows[i],
-        actualRowIndex: i + 2 // Dòng thực tế trên Sheet (dòng dữ liệu đầu tiên là 2)
-      });
-    }
+  // Lấy 4 số đầu của classTag (Cột 1)
+  const classCode = String(rows[i][1]).substring(0, 4); 
+  
+  // Khai báo let type ở đây để reset giá trị theo từng dòng
+  let type = "mcq"; 
+  if (String(rows[i][2]) === "true-false") {
+    type = "tf";
+  } else if (String(rows[i][2]) === "short-answer") {
+    type = "sa";
   }
+  
+  // Ghép chuẩn mã để so sánh (Ví dụ: "1201.tf")
+  const currentTag = classCode + "." + type;
+  
+  // Dùng hàm supper thầy viết để so sánh không sợ lệch chữ hoa/thường hay khoảng trắng
+  if (supper(currentTag) === supper(targetTag)) {
+    filteredRows.push({
+      rowData: rows[i],
+      actualRowIndex: i + 2 // Dòng thực tế trên Sheet
+    });
+  }
+}
   
   const results = [];
   const processedIdx = new Set();

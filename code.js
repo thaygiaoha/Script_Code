@@ -1552,7 +1552,7 @@ function getAppConfig() {
   var topics = [];
   var classesMap = {}; // Dùng để lọc danh sách lớp không trùng lặp
   var maxtotal = dataCD[lastRow - 1][8] || 0;
-  var maxcau = "(" + "Có = " + maxtotal + " câu hỏi" + ")";
+  var maxcau = "(" + maxtotal + " câu hỏi" + ")";
 
   // Chạy từ dòng 2 (bỏ tiêu đề)
   for (var i = 1; i < lastRow - 1; i++) {

@@ -1746,7 +1746,7 @@ function findDuplicateQuestions(targetTag) {
       // So sánh dữ liệu câu i và câu j
       let score = calculateSimilarity(filteredRows[i].rowData, filteredRows[j].rowData);
       
-      if (score >= 50) { 
+      if (score >= 75) { 
         group.items.push(getRowObj(filteredRows[j].rowData, headers, filteredRows[j].actualRowIndex));
         if (score > group.score) group.score = score;
         processedIdx.add(j);

@@ -1724,85 +1724,45 @@ function parseQuestionFromCell(text, id) {
   const ansIndex = ansLine ? ansLine.replace('=', '').trim().charCodeAt(0) - 65 : -1;
   return { id, type: 'mcq', question, o: options, a: options[ansIndex] || '' };
 }
-function diceSimilarity(str1, str2) {
-  const s1 = String(str1).replace(/\s+/g, "").toLowerCase().normalize("NFC");
-  const s2 = String(str2).replace(/\s+/g, "").toLowerCase().normalize("NFC");
-  
-  if (s1 === s2) return 1.0;
-  if (s1.length < 2 || s2.length < 2) {
-    return s1 === s2 ? 1.0 : 0.0;
-  }
-  
-  const bigrams1 = getBigrams(s1);
-  const bigrams2 = getBigrams(s2);
-  
-  const map1 = {};
-  for (let i = 0; i < bigrams1.length; i++) {
-    const b = bigrams1[i];
-    map1[b] = (map1[b] || 0) + 1;
-  }
-  
-  let intersection = 0;
-  for (let i = 0; i < bigrams2.length; i++) {
-    const b = bigrams2[i];
-    if (map1[b] && map1[b] > 0) {
-      intersection++;
-      map1[b]--;
-    }
-  }
-  
-  return (2.0 * intersection) / (bigrams1.length + bigrams2.length);
-}
-function cleanStr(s) {
-  if (s === undefined || s === null) return "";
-  return String(s).replace(/\s+/g, "").toLowerCase().normalize("NFC");
-}
 
-function cleanMathText(s) {
-  if (s === undefined || s === null) return "";
-  return String(s).replace(/\$|\s/g, "").toLowerCase().normalize("NFC");
-}
-
-function getBigrams(str) {
-  const s = String(str).replace(/\s+/g, "").toLowerCase().normalize("NFC");
-  const bigrams = [];
-  for (let i = 0; i < s.length - 1; i++) {
-    bigrams.push(s.substring(i, i + 2));
-  }
-  return bigrams;
-}
 function findDuplicateQuestions(targetTag) {  
   const sheet = ss.getSheetByName("nganhang"); 
-  if (!sheet) return { status: "error", message: "Không tìm thấy sheet 'nganhang'" };
-  
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
-  const rows = data.slice(1);
+  const rows = data.slice(1); // Bỏ dòng tiêu đề
   
+  // BƯỚC 1: Lọc danh sách câu hỏi theo targetTag và lưu lại số dòng gốc (rowNumber)
   const filteredRows = [];  
-  const targetTagClean = cleanStr(targetTag);
-  
   for (let i = 0; i < rows.length; i++) {
-    const classCode = cleanStr(rows[i][1]).substring(0, 4); 
-    let type = "mcq"; 
-    const cleanT = cleanStr(rows[i][2]);
-    if (cleanT === "true-false" || cleanT === "tf") type = "tf";
-    else if (cleanT === "short-answer" || cleanT === "sa") type = "sa";
-    
-    const currentTag = classCode + "." + type;
-    if (currentTag === targetTagClean) {
-      filteredRows.push({
-        rowData: rows[i],
-        actualRowIndex: i + 2
-      });
-    }
+  // Lấy 4 số đầu của classTag (Cột 1)
+  const classCode = String(rows[i][1]).substring(0, 4); 
+  
+  // Khai báo let type ở đây để reset giá trị theo từng dòng
+  let type = "mcq"; 
+  if (String(rows[i][2]) === "true-false") {
+    type = "tf";
+  } else if (String(rows[i][2]) === "short-answer") {
+    type = "sa";
   }
   
+  // Ghép chuẩn mã để so sánh (Ví dụ: "1201.tf")
+  const currentTag = classCode + "." + type;
+  
+  // Dùng hàm supper thầy viết để so sánh không sợ lệch chữ hoa/thường hay khoảng trắng
+  if (supper(currentTag) === supper(targetTag)) {
+    filteredRows.push({
+      rowData: rows[i],
+      actualRowIndex: i + 2 // Dòng thực tế trên Sheet
+    });
+  }
+}
+  
   const results = [];
-  const processedIdx = {};
+  const processedIdx = new Set();
 
+  // BƯỚC 2: Quét trùng trên mảng đã lọc chắt lọc
   for (let i = 0; i < filteredRows.length; i++) {
-    if (processedIdx[i]) continue;
+    if (processedIdx.has(i)) continue;
     
     let group = { 
       mainId: filteredRows[i].rowData[0], 
@@ -1811,100 +1771,73 @@ function findDuplicateQuestions(targetTag) {
     };
     
     for (let j = i + 1; j < filteredRows.length; j++) {
-      if (processedIdx[j]) continue;
+      if (processedIdx.has(j)) continue;
       
+      // So sánh dữ liệu câu i và câu j
       let score = calculateSimilarity(filteredRows[i].rowData, filteredRows[j].rowData);
-      if (score >= 50) { 
+      
+      if (score >= 75) { 
         group.items.push(getRowObj(filteredRows[j].rowData, headers, filteredRows[j].actualRowIndex));
         if (score > group.score) group.score = score;
-        processedIdx[j] = true;
+        processedIdx.add(j);
       }
     }
     
     if (group.items.length > 1) {
       results.push(group);
-      processedIdx[i] = true;
+      processedIdx.add(i);
     }
   }
   return { status: "success", data: results };
 }
 
 function calculateSimilarity(q1, q2) {
-  let classTagScore = 0;
-  let optionsScore = 0;
-  let answerScore = 0;
-  let questionScore = 0;
+  let score = 0;
+  // Cột: 0:id, 1:classTag, 4:question, 5:options, 6:answer
+  
+  // 1. Answer (20%) - Bỏ latex $, khoảng trắng
+  const a1 = String(q1[6]).replace(/\$|\s/g, '');
+  const a2 = String(q2[6]).replace(/\$|\s/g, '');
+  if (a1 !== "" && a1 === a2) score += 20;
 
-  // 1. Dạng toán & Loại câu hỏi (10%)
-  const code1 = cleanStr(q1[1]).substring(0, 4);
-  const code2 = cleanStr(q2[1]).substring(0, 4);
-  
-  const getType = (t) => {
-    const ct = cleanStr(t);
-    if (ct === "true-false" || ct === "tf") return "tf";
-    if (ct === "short-answer" || ct === "sa") return "sa";
-    return "mcq";
-  };
-  
-  const type1 = getType(q1[2]);
-  const type2 = getType(q2[2]);
-  
-  if (code1 === code2 && type1 === type2) {
-    classTagScore = 10;
-  } else {
-    return 0; // Nếu lệch loại câu hỏi hoặc khác dạng toán gốc thì loại luôn từ đầu
-  }
-
-  // 2. Options (30%)
+  // 2. Options (30%) - Parse, làm sạch từng đáp án và so sánh không cần thứ tự
   const optStr1 = q1[5] ? String(q1[5]).trim() : "";
   const optStr2 = q2[5] ? String(q2[5]).trim() : "";
 
-  if (optStr1 === "" && optStr2 === "") {
-    optionsScore = 30;
-  } else {
-    try {
-      const arr1 = JSON.parse(optStr1 || "[]").map(item => cleanMathText(item));
-      const arr2 = JSON.parse(optStr2 || "[]").map(item => cleanMathText(item));
+  try {
+    if (optStr1 === "" && optStr2 === "") {
+      score += 30; // Cả hai cùng trống (Dạng tự luận/điền số)
+    } else {
+      // Parse ra mảng, ép tất cả phần tử về dạng chuỗi, xóa khoảng trắng/chữ hoa chữ thường và dấu $
+      const arr1 = JSON.parse(optStr1 || "[]").map(function(item) {
+        return String(item).replace(/\$|\s/g, '').toLowerCase();
+      });
+      const arr2 = JSON.parse(optStr2 || "[]").map(function(item) {
+        return String(item).replace(/\$|\s/g, '').toLowerCase();
+      });
       
-      if (arr1.length === 0 && arr2.length === 0) {
-        optionsScore = 30;
-      } else {
-        const o1 = arr1.sort().join('|');
-        const o2 = arr2.sort().join('|');
-        if (o1 !== "" && o1 === o2) {
-          optionsScore = 30;
-        }
-      }
-    } catch (err) {
-      const rawO1 = cleanMathText(optStr1);
-      const rawO2 = cleanMathText(optStr2);
-      if (rawO1 !== "" && rawO1 === rawO2) {
-        optionsScore = 30;
-      }
+      // Sắp xếp và gộp lại để so sánh không quan trọng thứ tự A, B, C, D
+      const o1 = arr1.sort().join('|');
+      const o2 = arr2.sort().join('|');
+      
+      if (o1 !== "" && o1 === o2) score += 30;
     }
+  } catch(e) {
+    // Nếu lỗi parse JSON (do chuỗi lỗi), ta cứu bằng cách so sánh chuỗi thuần túy sau khi xóa khoảng trắng
+    const rawO1 = optStr1.replace(/\$|\s/g, '').toLowerCase();
+    const rawO2 = optStr2.replace(/\$|\s/g, '').toLowerCase();
+    if (rawO1 !== "" && rawO1 === rawO2) score += 30;
   }
 
-  // 3. Answer (30%)
-  const a1 = cleanMathText(q1[6]);
-  const a2 = cleanMathText(q2[6]);
-  if ((a1 !== "" && a1 === a2) || (a1 === "" && a2 === "")) {
-    answerScore = 30;
-  }
+  // 3. Question (40%) - Xóa khoảng trắng và chữ hoa/thường
+  const txt1 = String(q1[4]).replace(/\s+/g, '').toLowerCase();
+  const txt2 = String(q2[4]).replace(/\s+/g, '').toLowerCase();
+  if (txt1 !== "" && txt1 === txt2) score += 40; 
 
-  // 4. Question (30%)
-  const qText1 = q1[4] ? String(q1[4]) : "";
-  const qText2 = q2[4] ? String(q2[4]) : "";
-  
-  const questionSim = diceSimilarity(qText1, qText2);
-  
-  // Guard chống nhiễu trùng ảo của thầy
-  if (questionSim < 0.35) {
-    return 0; 
-  }
-  
-  questionScore = Math.round(questionSim * 30 * 10) / 10;
-  const totalScore = classTagScore + optionsScore + answerScore + questionScore;
-  return Math.min(100, Math.round(totalScore * 10) / 10);
+  // CHẠM TRẦN: Vì đã bỏ điều kiện 4 nên điểm tối đa là 90. 
+  // Nếu đạt từ 85 trở lên coi như trùng tuyệt đối (Trả về 99)
+  if (score >= 85) return 99;
+  return score;
 }
 function getRowObj(row, headers, rowIdx) {
   let obj = { rowIdx: rowIdx };
@@ -1912,48 +1845,10 @@ function getRowObj(row, headers, rowIdx) {
   return obj;
 }
 
-// Hàm phụ trợ tính độ tương đồng giữa 2 chuỗi văn bản (Thuật toán khoảng cách Levenshtein)
-function getTextSimilarityRatio(s1, s2) {
-  if (!s1 || !s2) return 0;
-  if (s1 === s2) return 1;
-  
-  let longer = s1.length > s2.length ? s1 : s2;
-  let shorter = s1.length > s2.length ? s2 : s2;
-  let longerLength = longer.length;
-  
-  if (longerLength === 0) return 1.0;
-  
-  let costs = [];
-  for (let i = 0; i <= s1.length; i++) {
-    let lastValue = i;
-    for (let j = 0; j <= s2.length; j++) {
-      if (i == 0) costs[j] = j;
-      else {
-        if (j > 0) {
-          let newValue = costs[j - 1];
-          if (s1.charAt(i - 1) != s2.charAt(j - 1))
-            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-          costs[j - 1] = lastValue;
-          lastValue = newValue;
-        }
-      }
-    }
-    if (i > 0) costs[s2.length] = lastValue;
-  }
-  
-  let editDistance = costs[s2.length];
-  return (longerLength - editDistance) / longerLength;
-}
-
 function deleteQuestionRow(rowIdx) {
   try {
     const sheet = ss.getSheetByName("nganhang");
-    if (!sheet) return { status: "error", message: "Không tìm thấy sheet 'nganhang'" };
-    
-    const index = parseInt(rowIdx, 10);
-    if (isNaN(index) || index < 1) return { status: "error", message: "Số dòng không hợp lệ: " + rowIdx };
-    
-    sheet.deleteRow(index);
+    sheet.deleteRow(parseInt(rowIdx));
     return { status: "success" };
   } catch(e) {
     return { status: "error", message: e.toString() };

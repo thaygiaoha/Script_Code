@@ -1809,7 +1809,7 @@ function findDuplicateQuestions(targetTag) {
       if (processedIdx[j]) continue;
       
       let score = calculateSimilarity(filteredRows[i].rowData, filteredRows[j].rowData);
-      if (score >= 65) { 
+      if (score >= 50) { 
         group.items.push(getRowObj(filteredRows[j].rowData, headers, filteredRows[j].actualRowIndex));
         if (score > group.score) group.score = score;
         processedIdx[j] = true;

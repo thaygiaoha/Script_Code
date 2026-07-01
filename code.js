@@ -1724,19 +1724,6 @@ function parseQuestionFromCell(text, id) {
   const ansIndex = ansLine ? ansLine.replace('=', '').trim().charCodeAt(0) - 65 : -1;
   return { id, type: 'mcq', question, o: options, a: options[ansIndex] || '' };
 }
-function cleanMathText(s) {
-  if (s === undefined || s === null) return "";
-  return String(s).replace(/\$|\s/g, "").toLowerCase().normalize("NFC");
-}
-
-function getBigrams(str) {
-  const s = String(str).replace(/\s+/g, "").toLowerCase().normalize("NFC");
-  const bigrams = [];
-  for (let i = 0; i < s.length - 1; i++) {
-    bigrams.push(s.substring(i, i + 2));
-  }
-  return bigrams;
-}
 function diceSimilarity(str1, str2) {
   const s1 = String(str1).replace(/\s+/g, "").toLowerCase().normalize("NFC");
   const s2 = String(str2).replace(/\s+/g, "").toLowerCase().normalize("NFC");
@@ -1765,6 +1752,24 @@ function diceSimilarity(str1, str2) {
   }
   
   return (2.0 * intersection) / (bigrams1.length + bigrams2.length);
+}
+function cleanStr(s) {
+  if (s === undefined || s === null) return "";
+  return String(s).replace(/\s+/g, "").toLowerCase().normalize("NFC");
+}
+
+function cleanMathText(s) {
+  if (s === undefined || s === null) return "";
+  return String(s).replace(/\$|\s/g, "").toLowerCase().normalize("NFC");
+}
+
+function getBigrams(str) {
+  const s = String(str).replace(/\s+/g, "").toLowerCase().normalize("NFC");
+  const bigrams = [];
+  for (let i = 0; i < s.length - 1; i++) {
+    bigrams.push(s.substring(i, i + 2));
+  }
+  return bigrams;
 }
 function findDuplicateQuestions(targetTag) {  
   const sheet = ss.getSheetByName("nganhang"); 

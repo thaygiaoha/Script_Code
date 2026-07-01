@@ -1792,57 +1792,95 @@ function findDuplicateQuestions(targetTag) {
 }
 
 function calculateSimilarity(q1, q2) {
-  let score = 0;
-  // Cột: 0:id, 1:classTag, 4:question, 5:options, 6:answer
+  // Mặc định bước này đã cùng 4 ký tự đầu classTag và cùng type -> Thưởng ngay 10% theo ý thầy
+  let score = 10; 
   
-  // 1. Answer (20%) - Bỏ latex $, khoảng trắng
-  const a1 = String(q1[6]).replace(/\$|\s/g, '');
-  const a2 = String(q2[6]).replace(/\$|\s/g, '');
-  if (a1 !== "" && a1 === a2) score += 20;
+  // Cột dữ liệu: 4:question, 5:options, 6:answer
+  
+  // 1. ANSWER (Tối đa 30%)
+  const a1 = String(q1[6]).replace(/\$|\s/g, '').toLowerCase();
+  const a2 = String(q2[6]).replace(/\$|\s/g, '').toLowerCase();
+  if (a1 !== "" && a1 === a2) {
+    score += 30;
+  } else if (a1 === "" && a2 === "") {
+    score += 30; // Cùng trống đáp án
+  }
 
-  // 2. Options (30%) - Parse, làm sạch từng đáp án và so sánh không cần thứ tự
+  // 2. OPTIONS (Tối đa 30%)
   const optStr1 = q1[5] ? String(q1[5]).trim() : "";
   const optStr2 = q2[5] ? String(q2[5]).trim() : "";
 
-  try {
-    if (optStr1 === "" && optStr2 === "") {
-      score += 30; // Cả hai cùng trống (Dạng tự luận/điền số)
-    } else {
-      // Parse ra mảng, ép tất cả phần tử về dạng chuỗi, xóa khoảng trắng/chữ hoa chữ thường và dấu $
-      const arr1 = JSON.parse(optStr1 || "[]").map(function(item) {
-        return String(item).replace(/\$|\s/g, '').toLowerCase();
-      });
-      const arr2 = JSON.parse(optStr2 || "[]").map(function(item) {
-        return String(item).replace(/\$|\s/g, '').toLowerCase();
-      });
+  if (optStr1 === "" && optStr2 === "") {
+    score += 30; // Cùng không có options (Dạng tự luận ngắn)
+  } else if (optStr1 !== "" && optStr2 !== "") {
+    try {
+      const arr1 = JSON.parse(optStr1).map(item => String(item).replace(/\$|\s/g, '').toLowerCase());
+      const arr2 = JSON.parse(optStr2).map(item => String(item).replace(/\$|\s/g, '').toLowerCase());
       
-      // Sắp xếp và gộp lại để so sánh không quan trọng thứ tự A, B, C, D
+      // Sắp xếp tăng dần để nhận diện hoán vị các đáp án A, B, C, D
       const o1 = arr1.sort().join('|');
       const o2 = arr2.sort().join('|');
       
-      if (o1 !== "" && o1 === o2) score += 30;
+      if (o1 === o2) score += 30;
+    } catch(e) {
+      // Fallback nếu chuỗi JSON lỗi
+      const rawO1 = optStr1.replace(/\$|\s/g, '').toLowerCase();
+      const rawO2 = optStr2.replace(/\$|\s/g, '').toLowerCase();
+      if (rawO1 === rawO2) score += 30;
     }
-  } catch(e) {
-    // Nếu lỗi parse JSON (do chuỗi lỗi), ta cứu bằng cách so sánh chuỗi thuần túy sau khi xóa khoảng trắng
-    const rawO1 = optStr1.replace(/\$|\s/g, '').toLowerCase();
-    const rawO2 = optStr2.replace(/\$|\s/g, '').toLowerCase();
-    if (rawO1 !== "" && rawO1 === rawO2) score += 30;
   }
 
-  // 3. Question (40%) - Xóa khoảng trắng và chữ hoa/thường
-  const txt1 = String(q1[4]).replace(/\s+/g, '').toLowerCase();
-  const txt2 = String(q2[4]).replace(/\s+/g, '').toLowerCase();
-  if (txt1 !== "" && txt1 === txt2) score += 40; 
+  // 3. QUESTION (Tối đa 30%) - Tính theo tỉ lệ tương đồng ký tự text Levenshtein
+  const txt1 = String(q1[4]).trim().toLowerCase();
+  const txt2 = String(q2[4]).trim().toLowerCase();
+  
+  if (txt1 === txt2) {
+    score += 30; // Giống tuyệt đối câu hỏi
+  } else {
+    // Tính toán độ tương đồng mờ để tránh việc lệch 1 vài chữ mà bị mất sạch điểm câu hỏi
+    let textSimilarity = getTextSimilarityRatio(txt1, txt2); // trả về từ 0 đến 1
+    score += (textSimilarity * 30);
+  }
 
-  // CHẠM TRẦN: Vì đã bỏ điều kiện 4 nên điểm tối đa là 90. 
-  // Nếu đạt từ 85 trở lên coi như trùng tuyệt đối (Trả về 99)
-  if (score >= 85) return 99;
-  return score;
+  return Math.round(score);
 }
 function getRowObj(row, headers, rowIdx) {
   let obj = { rowIdx: rowIdx };
   headers.forEach((h, i) => { obj[h] = row[i]; });
   return obj;
+}
+
+// Hàm phụ trợ tính độ tương đồng giữa 2 chuỗi văn bản (Thuật toán khoảng cách Levenshtein)
+function getTextSimilarityRatio(s1, s2) {
+  if (!s1 || !s2) return 0;
+  if (s1 === s2) return 1;
+  
+  let longer = s1.length > s2.length ? s1 : s2;
+  let shorter = s1.length > s2.length ? s2 : s2;
+  let longerLength = longer.length;
+  
+  if (longerLength === 0) return 1.0;
+  
+  let costs = [];
+  for (let i = 0; i <= s1.length; i++) {
+    let lastValue = i;
+    for (let j = 0; j <= s2.length; j++) {
+      if (i == 0) costs[j] = j;
+      else {
+        if (j > 0) {
+          let newValue = costs[j - 1];
+          if (s1.charAt(i - 1) != s2.charAt(j - 1))
+            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+    }
+    if (i > 0) costs[s2.length] = lastValue;
+  }
+  
+  let editDistance = costs[s2.length];
+  return (longerLength - editDistance) / longerLength;
 }
 
 function deleteQuestionRow(rowIdx) {

@@ -1730,27 +1730,27 @@ function findDuplicateQuestions(targetTag) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const rows = data.slice(1); // Bỏ dòng tiêu đề
-  const tile = Number(Right(targetTag, 2));
+  const [targetClass, targetType, tileText] = supper(targetTag).split(".");
+  const tile = Number(tileText);
   
   // BƯỚC 1: Lọc danh sách câu hỏi theo targetTag và lưu lại số dòng gốc (rowNumber)
   const filteredRows = [];  
   for (let i = 0; i < rows.length; i++) {
   // Lấy 4 số đầu của classTag (Cột 1)
   const classCode = String(rows[i][1]).substring(0, 4); 
+  const t = String(rows[i][2]).toLowerCase().trim();
   
   // Khai báo let type ở đây để reset giá trị theo từng dòng
   let type = "mcq"; 
-  if (String((rows[i][2]).toLowerCase()) === "true-false" || "tf") {
+  if (t === "true-false" || t === "tf") {
     type = "tf";
-  } else if (String((rows[i][2]).toLowerCase()) === "short-answer" || "sa") {
+  } else if (t === "short-answer" || t === "sa") {
     type = "sa";
-  }
+  }  
   
-  // Ghép chuẩn mã để so sánh (Ví dụ: "1201.tf")
-  const currentTag = classCode + "." + type + "." + tile;
   
   // Dùng hàm supper thầy viết để so sánh không sợ lệch chữ hoa/thường hay khoảng trắng
-  if (supper(currentTag) === supper(targetTag)) {
+  if (supper(classCode) === targetClass && supper(type) === targetType) {
     filteredRows.push({
       rowData: rows[i],
       actualRowIndex: i + 2, // Dòng thực tế trên Sheet      

@@ -1730,6 +1730,7 @@ function findDuplicateQuestions(targetTag) {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const rows = data.slice(1); // Bỏ dòng tiêu đề
+  const tile = Number(Right(targetTag, 2));
   
   // BƯỚC 1: Lọc danh sách câu hỏi theo targetTag và lưu lại số dòng gốc (rowNumber)
   const filteredRows = [];  
@@ -1746,13 +1747,13 @@ function findDuplicateQuestions(targetTag) {
   }
   
   // Ghép chuẩn mã để so sánh (Ví dụ: "1201.tf")
-  const currentTag = classCode + "." + type;
+  const currentTag = classCode + "." + type + "." + tile;
   
   // Dùng hàm supper thầy viết để so sánh không sợ lệch chữ hoa/thường hay khoảng trắng
   if (supper(currentTag) === supper(targetTag)) {
     filteredRows.push({
       rowData: rows[i],
-      actualRowIndex: i + 2 // Dòng thực tế trên Sheet
+      actualRowIndex: i + 2, // Dòng thực tế trên Sheet      
     });
   }
 }
@@ -1776,7 +1777,7 @@ function findDuplicateQuestions(targetTag) {
       // So sánh dữ liệu câu i và câu j
       let score = calculateSimilarity(filteredRows[i].rowData, filteredRows[j].rowData);
       
-      if (score >= 55) { 
+      if (score >= tile) { 
         group.items.push(getRowObj(filteredRows[j].rowData, headers, filteredRows[j].actualRowIndex));
         if (score > group.score) group.score = score;
         processedIdx.add(j);
@@ -2058,6 +2059,10 @@ function jsonOutput(obj) {
 function N9(id) {
   return id.toString().toUpperCase().trim().slice(-9);
 }
+function Right(text, n) {
+  return text.toString().trim().slice(-n);
+}
+
 function supper(text) {
   if (text === null || text === undefined) return "";
    return text.toString().replace(/'/g, "").toUpperCase().trim()

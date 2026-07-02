@@ -1739,9 +1739,9 @@ function findDuplicateQuestions(targetTag) {
   
   // Khai báo let type ở đây để reset giá trị theo từng dòng
   let type = "mcq"; 
-  if (String(rows[i][2]) === "true-false") {
+  if (String((rows[i][2]).toLowerCase()) === "true-false" || "tf") {
     type = "tf";
-  } else if (String(rows[i][2]) === "short-answer") {
+  } else if (String((rows[i][2]).toLowerCase()) === "short-answer" || "sa") {
     type = "sa";
   }
   

@@ -1399,7 +1399,8 @@ if (closeTime && now > closeTime) {
         cfg.close, 
         cfg.open, 
         cfg.maxthi,
-        keyId
+        keyId, "", "", "", "", 
+        "Word"
       ];
       
       if (existingRow !== -1) {

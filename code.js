@@ -387,7 +387,8 @@ if (action === "adminResetCloudImages") {
   }  
 
   // 🔥 SỬA TỪ 19 THÀNH 21: Quét thêm cột T (openDate - 20) và cột U (closeDate - 21)
-  const data = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
+  // Dòng mới: Đọc chính xác từng ký tự hiển thị trên màn hình Sheet!
+const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
   const results = [];
   
   for (let i = 0; i < data.length; i++) {

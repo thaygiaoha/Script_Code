@@ -983,6 +983,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     if (allRows[i][0].toString() === targetId.toString()) {
       // Ghi dữ liệu vào các cột tương ứng (Cột 2: classTag, 5: Question...)
       sheetNH.getRange(i + 1, 2).setValue(item.classTag || "");
+      sheetNH.getRange(i + 1, 3).setValue(item.type || "");
+      sheetNH.getRange(i + 1, 4).setValue(item.part || "");
       sheetNH.getRange(i + 1, 5).setValue(item.question || "");
       sheetNH.getRange(i + 1, 6).setValue(item.options || "");
       sheetNH.getRange(i + 1, 7).setValue(item.answer || "");

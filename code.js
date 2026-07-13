@@ -365,6 +365,7 @@ if (action === "adminResetCloudImages") {
           idquestion: dataNH[i][0], 
           classTag: dataNH[i][1], 
           type: dataNH[i][2],
+          part: dataNH[i][3],
           question: dataNH[i][4],
           options: dataNH[i][5],
           answer: dataNH[i][6],

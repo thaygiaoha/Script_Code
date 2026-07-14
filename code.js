@@ -205,8 +205,7 @@ if (action === "adminResetCloudImages") {
     var val = sheet.getRange("J2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
- // chuẩn hóa ngân hàng
-  if (action === "normalize") {
+ if (action === "normalize") {
     try {
       var result = normalizeQuestionBank();
       return ContentService.createTextOutput(JSON.stringify({
@@ -221,7 +220,6 @@ if (action === "adminResetCloudImages") {
       })).setMimeType(ContentService.MimeType.JSON);
     }
   }
-    
   if (action === "saveLastID") {
     var idMoi = e.parameter.id;  
     // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
@@ -2488,7 +2486,7 @@ function opencloseDate(sheetDateVal, type) {
 }
 // Hàm chuẩn hóa lại ngân hàng
 function normalizeQuestionBank() {
-  //var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Sử dụng ss toàn cục của bạn
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
   var lastRow = sheet.getLastRow();
@@ -2498,92 +2496,94 @@ function normalizeQuestionBank() {
     throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
   }
   
-  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết (bỏ qua dòng tiêu đề)
+  // Đọc toàn bộ dữ liệu từ dòng 2 đến dòng cuối (bỏ qua tiêu đề)
   var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
   var values = range.getValues();
   
   var activeCount = 0;
   var deletedCount = 0;
-  
-  // Mảng lưu lại các dòng cần xóa (duyệt ngược từ dưới lên khi xóa để không lệch index)
   var rowsToDelete = []; 
 
   // Duyệt qua từng dòng dữ liệu
   for (var i = 0; i < values.length; i++) {
     var row = values[i];
-    var actualRowIndex = i + 2; // Vị trí dòng thực tế trên Google Sheets (mảng bắt đầu từ dòng 2)
+    var actualRowIndex = i + 2; // Dòng thực tế trong Google Sheets
     
-    // Nếu dòng trống hoàn toàn thì bỏ qua
+    // Nếu dòng trống hoàn toàn thì bỏ qua không xử lý
     if (!row[0] && row.join("").trim() === "") continue;
     
     var hasChange = false;
     
-    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> trong toàn bộ các cột text
-    for (var c = 0; c < row.length; c++) {
+    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> trong tất cả các cột văn bản
+    for (var c = 1; c < row.length; c++) {
       if (typeof row[c] === "string" && /<\/?[kK][eE][yY][^>]*>/g.test(row[c])) {
-        row[c] = row[c].replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
+        row[c] = cleanKeyTags(row[c]);
         hasChange = true;
       }
     }
     
-    // Thứ tự cột cố định: 
-    // 0: idquestion | 1: classTag | 2: type | 3: part | 4: question | 5: option | 6: sanswer | 7: loigiai | 8: date
+    // Thứ tự cột cố định:
+    // 0: idquestion (A) | 1: classTag (B) | 2: type (C) | 3: part (D) | 4: question (E)
+    // 5: options (F)    | 6: answer (G)   | 7: loigiai (H) | 8: date (I)
     var option = row[5] !== null ? row[5].toString().trim() : "";
-    var sanswer = row[6] !== null ? row[6].toString().trim() : "";
+    var answer = row[6] !== null ? row[6].toString().trim() : "";
     
     var isOptionEmpty = (option === "" || option === "0" || option === "[]");
-    var isSanswerEmpty = (sanswer === "" || sanswer === "0" || sanswer === "[]");
+    var isAnswerEmpty = (answer === "" || answer === "0" || answer === "[]");
     
-    // 2. Nếu cả sanswer và option đều trống -> Đánh dấu để Xóa dòng
-    if (isSanswerEmpty && isOptionEmpty) {
+    // 2. Mục tiêu: Nếu F=G="" thì xóa ngay tại dòng đó trong sheet
+    if (isOptionEmpty && isAnswerEmpty) {
       rowsToDelete.push(actualRowIndex);
       deletedCount++;
       continue;
     }
     
-    // 3. Kiểm tra và cập nhật Type / Part nếu bị sai
     var targetType = "";
     var targetPart = "";
     
-    if (!isSanswerEmpty && isOptionEmpty) {
-      targetType = "short-answer";
-      targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
-    } 
-    else if (!isSanswerEmpty && !isOptionEmpty) {
+    // 3. Phân loại theo đúng logic mục tiêu yêu cầu:
+    if (!isOptionEmpty && !isAnswerEmpty) {
+      // Nếu cột F <> "" và G <> "" -> Cột C = mcq, Cột D = PHẦN I
       targetType = "mcq";
       targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
     } 
-    else if (isSanswerEmpty && !isOptionEmpty) {
-      targetType = "true-false"; 
+    else if (!isOptionEmpty && isAnswerEmpty) {
+      // Nếu cột F <> "" và G == "" -> Cột C = true-false, Cột D = PHẦN II
+      targetType = "true-false";
       targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
+    } 
+    else if (isOptionEmpty && !isAnswerEmpty) {
+      // Nếu cột F == "" và G <> "" -> Cột C = short-answer, Cột D = PHẦN III
+      targetType = "short-answer";
+      targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
     }
     
-    // Nếu giá trị hiện tại khác giá trị chuẩn -> Đánh dấu có thay đổi
+    // Kiểm tra xem type hoặc part hiện tại trên sheet có lệch với chuẩn không
     if (row[2] !== targetType || row[3] !== targetPart) {
       row[2] = targetType;
       row[3] = targetPart;
       hasChange = true;
     }
     
-    // CHỈ GHI LẠI DÒNG NÀY NẾU CÓ THAY ĐỔI (Type/Part sai hoặc chứa thẻ <key>)
+    // Chỉ ghi đè lại đúng dòng này nếu có sự thay đổi
     if (hasChange) {
       sheet.getRange(actualRowIndex, 1, 1, lastColumn).setValues([row]);
       activeCount++;
     }
   }
   
-  // 4. Tiến hành xóa các dòng lỗi (Duyệt ngược từ dưới lên để tránh đảo lộn STT dòng)
+  // 4. Tiến hành xóa các dòng lỗi (duyệt ngược từ dưới lên để tránh lệch chỉ số hàng)
   for (var d = rowsToDelete.length - 1; d >= 0; d--) {
     sheet.deleteRow(rowsToDelete[d]);
   }
   
   return {
-    activeCount: activeCount, // Số dòng được sửa lỗi thành công
-    deletedCount: deletedCount // Số dòng rác bị xóa khỏi hệ thống
+    activeCount: activeCount,
+    deletedCount: deletedCount
   };
 }
 
-// Hàm bổ trợ loại bỏ triệt để các thẻ <key> lỗi
+// Hàm dọn dẹp triệt để các tag <key> lỗi do AI sinh ra
 function cleanKeyTags(text) {
   if (!text) return "";
   return text.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();

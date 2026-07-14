@@ -524,7 +524,7 @@ const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
   const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
   for (let i = 0; i < data.length; i++) {    
-    if (supper(data[i][9] || "") === key) {
+    if (supper(data[i][12] || "") === key) {
 
   return createResponse(
     "success",
@@ -533,8 +533,11 @@ const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
       id: data[i][1],
       classTag: data[i][2],
       type: data[i][3],
-      question: data[i][4],
-      loigiai: data[i][5]
+      part: data[i][4],
+      question: data[i][5],
+      options: data[i][6],
+      answer: data[i][7],
+      loigiai: data[i][8]
     }
   );
 
@@ -554,24 +557,55 @@ const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng trống!");
       }  
-    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    const rows = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
     const results = [];
 
-    for (let i = 0; i < data.length; i++) {      
-      if (supper(data[i][8] || "") === key) {
-        try {
-          var qText = String(data[i][4] || "");
-          var randomVersion = Math.floor(Math.random() * 9000) + 1000;
-          if (qText.indexOf(".png'") !== -1) {
-          qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
-          }
-          // Cột E chứa JSON câu hỏi
-          results.push(JSON.parse(qText));
-        } catch (err) {
-          results.push(qText);
-        }
-      }
+    for (let i = 1; i < data.length; i++) {      
+      if (supper(rows[i][10] || "") === key) {
+        var parsedOptions = null;
+    try {
+      parsedOptions = rows[i][6] ? JSON.parse(rows[i][6]) : null;
+    } catch(e) {
+      parsedOptions = null;
     }
+    var qText = String(rows[i][5] || "");
+    var qloigiai = String(rows[i][8] || "");
+    var randomVersion = Math.floor(Math.random() * 9000) + 1000;
+
+    // [FIX CHỐNG CACHE ẢNH CŨ] Ép các link ảnh cũ đuôi .png' hoặc .png" phải thêm ?v=1
+    // Ảnh mới xuất từ VBA có sẵn dạng .png?v=xxxxx' sẽ tự động bỏ qua không bị ảnh hưởng
+    // Thay thế trực tiếp chuỗi ".png'" cũ thành ".png?v=SốNgẫuNhiên'"
+    if (qText.indexOf(".png'") !== -1) {
+    qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    }
+    if (qloigiai.indexOf(".png'") !== -1) {
+    qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    }
+    var qObj = {
+      id: rows[i][1],
+      classTag: rows[i][2] || "",
+      type: rows[i][3] || "",
+      part: rows[i][4] || "",
+      question: qText,
+      a: rows[i][7] || "",
+      loigiai: qloigiai
+    };
+
+    if (qObj.type === "mcq") {
+      qObj.o = parsedOptions;
+    }
+
+    if (qObj.type === "true-false") {
+      qObj.s = parsedOptions;
+    }
+
+    if (qObj.type === "short-answer") {
+      // không cần options
+    }
+
+    results.push(qObj);
+  }
+
     return createResponse("success", "OK", results);
   }
 

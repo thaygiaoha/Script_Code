@@ -2487,7 +2487,7 @@ function opencloseDate(sheetDateVal, type) {
   return now > targetDate;
 }
 // Hàm chuẩn hóa lại ngân hàng
-unction normalizeQuestionBank() {
+function normalizeQuestionBank() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   

@@ -1284,7 +1284,7 @@ if (closeTime && now > closeTime) {
 
 
 
-    // 2. NHÁNH NẠP CÂU HỎI (Khớp 100% với React ở trên)
+    // 2. NHÁNH NẠP CÂU HỎI LẺ (Khớp 100% với React ở trên)
     if (action === "saveOnlyQuestions") {
   const sheet = ss.getSheetByName("exam_data") || ss.insertSheet("exam_data");
   const qArray = data.questions;
@@ -1295,13 +1295,14 @@ if (closeTime && now > closeTime) {
   if (!Array.isArray(qArray)) return createResponse("error", "questions không phải mảng!");
 
   const fullData = sheet.getDataRange().getValues();
+  const totalColumns = 13; // Tổng số cột mới theo thiết kế cấu trúc sheet
 
-  // --- LOGIC MỚI: KIỂM TRA NẾU LÀ SỬA CÂU LẺ (Mảng chỉ có 1 phần tử) ---
+  // --- LOGIC: KIỂM TRA NẾU LÀ SỬA CÂU LẺ VÀ GHI ĐÈ ---
   if (qArray.length === 1 && !force) {
     const targetId = qArray[0].id.toString();
     let rowIdx = -1;
 
-    // Tìm xem ID câu hỏi này đã nằm ở dòng nào của Mã đề này chưa
+    // Tìm dòng cũ khớp cả Mã đề (cột 1) và ID câu hỏi (cột 2)
     for (let i = 0; i < fullData.length; i++) {
       if ((fullData[i][0] || "").toString() === examCode.toString() && (fullData[i][1] || "").toString() === targetId) {
         rowIdx = i + 1;
@@ -1309,56 +1310,75 @@ if (closeTime && now > closeTime) {
       }
     }
 
-    // Nếu tìm thấy dòng cũ, tiến hành ghi đè đúng dòng đó
+    // Nếu tìm thấy dòng trùng khớp, tiến hành cập nhật đè lên đúng dòng đó
     if (rowIdx !== -1) {
       const q = qArray[0];
       let finalLG = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...";
+      
       const rowToUpdate = [
-        examCode, 
-        q.id || "", 
-        q.classTag || "1001.a", 
-        q.type || "mcq", 
-        q.question || "", 
-        finalLG, 
-        new Date(),
-        "'" + idgv,
-        examCode + "." + idgv,
-        examCode + "." + q.id + "." + idgv
+        examCode,                           // 1. exams
+        q.id || "",                         // 2. idquestion
+        q.classTag || "1001.a",             // 3. classTag
+        q.type || "mcq",                    // 4. type
+        q.part || "",                       // 5. part
+        q.question || "",                   // 6. question
+        q.options || "",                    // 7. options
+        q.answer || "",                     // 8. answer
+        finalLG,                            // 9. loigiai
+        "'" + idgv,                         // 10. idgv
+        examCode + "." + idgv,              // 11. exams.idgv
+        examCode + "." + q.id + "." + idgv, // 12. exams.idq.idgv
+        new Date()                          // 13. date
       ];
-      sheet.getRange(rowIdx, 1, 1, 10).setValues([rowToUpdate]);
-      return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
+      
+      sheet.getRange(rowIdx, 1, 1, totalColumns).setValues([rowToUpdate]);
+      
+      // Tự động căn chữ vừa ô cho các cột nội dung dài câu hỏi/lời giải
+      sheet.getRange("F:I").setWrap(true);
+      
+      return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId} vào mã đề ${examCode}`);
     }
   }
-  // --- LOGIC CŨ CỦA THẦY: LƯU CẢ BỘ ---
+
+  // --- LOGIC: LƯU CẢ BỘ ĐỀ / GHI ĐÈ TOÀN BỘ ĐỀ ---
   const exists = fullData.some(row => row[0].toString() === examCode.toString());
   if (exists && !force) return createResponse("exists", `Mã đề đã có dữ liệu!`);
 
   if (exists && force) {
+    // Xóa tất cả các hàng thuộc mã đề cũ để ghi đè sạch sẽ
     for (let i = fullData.length - 1; i >= 0; i--) {
-      if ((fullData[i][0] || "").toString() === examCode.toString()) sheet.deleteRow(i + 1);
+      if ((fullData[i][0] || "").toString() === examCode.toString()) {
+        sheet.deleteRow(i + 1);
+      }
     }
   }
+
+  // Map mảng câu hỏi thô thành định dạng hàng cột chuẩn
   const rows = qArray.map(q => [
-    examCode, 
-    q.id || "", 
-    q.classTag || "1001.a", 
-    q.type || "mcq", 
-    q.question || "", 
-    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
-    new Date(),
-     "'" + idgv,
-    examCode + "." + idgv,
-    examCode + "." + q.id + "." + idgv
+    examCode,                           // 1. exams
+    q.id || "",                         // 2. idquestion
+    q.classTag || "1001.a",             // 3. classTag
+    q.type || "mcq",                    // 4. type
+    q.part || "",                       // 5. part
+    q.question || "",                   // 6. question
+    q.options || "",                    // 7. options
+    q.answer || "",                     // 8. answer
+    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", // 9. loigiai
+    "'" + idgv,                         // 10. idgv
+    examCode + "." + idgv,              // 11. exams.idgv
+    examCode + "." + q.id + "." + idgv, // 12. exams.idq.idgv
+    new Date()                          // 13. date
   ]);
 
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
-  var lastRow = sheet.getLastRow();
-      sheet.getRange("E:F").setWrap(true);
-
-      // Tự chỉnh chiều cao từ dòng 2 trở xuống
+  // Thực hiện đẩy toàn bộ dữ liệu xuống dòng cuối cùng
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, totalColumns).setValues(rows);
+  
+  // Định dạng tự động xuống dòng cho vùng text lớn
+  sheet.getRange("F:I").setWrap(true);
       
   return createResponse("success", `Đã nạp ${rows.length} câu vào mã ${examCode}`);
 }
+   
 
 
     // 1. LƯU CẤU HÌNH (Ghi về Spreadsheet của GV) =========================================================================

@@ -208,16 +208,12 @@ if (action === "adminResetCloudImages") {
  // chuẩn hóa ngân hàng
   if (action === "normalize") {
     try {
-      // Gọi hàm chuẩn hóa dữ liệu
       var result = normalizeQuestionBank();
-      
-      // Trả kết quả JSON về cho Frontend React hiển thị alert
       return ContentService.createTextOutput(JSON.stringify({
         status: "success",
         activeCount: result.activeCount,
         deletedCount: result.deletedCount
       })).setMimeType(ContentService.MimeType.JSON);
-
     } catch(err) {
       return ContentService.createTextOutput(JSON.stringify({
         status: "error",
@@ -2491,102 +2487,99 @@ function opencloseDate(sheetDateVal, type) {
   return now > targetDate;
 }
 // Hàm chuẩn hóa lại ngân hàng
-function normalizeQuestionBank() {
-  //var ss = SpreadsheetApp.getActiveSpreadsheet();
-  // Lấy sheet có tên 'nganhang', nếu không tìm thấy sẽ lấy sheet đầu tiên
+unction normalizeQuestionBank() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
-  // Đọc toàn bộ dữ liệu của sheet
   var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
   
   if (lastRow < 2) {
-    // FIX 2: Thay thế getUi().alert bằng throw error để gửi thông báo về Web React
     throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
   }
   
-  var range = sheet.getRange(1, 1, lastRow, lastColumn);
+  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết (bỏ qua dòng tiêu đề)
+  var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
   var values = range.getValues();
-  var headers = values[0];
   
-  // Xác định vị trí các cột dựa trên tên tiêu đề (không phân biệt chữ hoa/thường)
-  var colIdx = {};
-  for (var i = 0; i < headers.length; i++) {
-    var headerName = headers[i].toString().toLowerCase().trim();
-    colIdx[headerName] = i;
-  }
+  var activeCount = 0;
+  var deletedCount = 0;
   
-  // Ánh xạ linh hoạt giữa các cách đặt tên cột (options/option, answer/sanswer)
-  var idxId = colIdx["idquestion"];
-  var idxType = colIdx["type"];
-  var idxPart = colIdx["part"];
-  var idxQuestion = colIdx["question"];
-  var idxOption = colIdx["options"] !== undefined ? colIdx["options"] : colIdx["option"];
-  var idxAnswer = colIdx["answer"] !== undefined ? colIdx["answer"] : colIdx["sanswer"];
-  var idxLoigiai = colIdx["loigiai"];
-  
-  if (idxType === undefined || idxPart === undefined || idxOption === undefined || idxAnswer === undefined) {
-    throw new Error("Không tìm thấy đủ các cột bắt buộc: 'type', 'part', 'options', 'answer'. Vui lòng kiểm tra lại dòng tiêu đề!");
-  }
-  
-  var newData = [headers]; // Giữ lại dòng tiêu đề
-  var deleteCount = 0;
-  
-  // Duyệt từ dòng thứ 2 đến hết
-  for (var r = 1; r < values.length; r++) {
-    var row = values[r];
+  // Mảng lưu lại các dòng cần xóa (duyệt ngược từ dưới lên khi xóa để không lệch index)
+  var rowsToDelete = []; 
+
+  // Duyệt qua từng dòng dữ liệu
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var actualRowIndex = i + 2; // Vị trí dòng thực tế trên Google Sheets (mảng bắt đầu từ dòng 2)
     
-    // Bỏ qua nếu dòng hoàn toàn trống (Tránh đọc nhầm dòng rác ở cuối sheet)
-    if (!row[idxId || 0] && row.join("").trim() === "") {
-      continue;
-    }
+    // Nếu dòng trống hoàn toàn thì bỏ qua
+    if (!row[0] && row.join("").trim() === "") continue;
     
-    // 1. Dọn dẹp lỗi thẻ <key> do AI tạo ra trong các cột văn bản
+    var hasChange = false;
+    
+    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> trong toàn bộ các cột text
     for (var c = 0; c < row.length; c++) {
-      if (typeof row[c] === "string") {
-        row[c] = cleanKeyTags(row[c]);
+      if (typeof row[c] === "string" && /<\/?[kK][eE][yY][^>]*>/g.test(row[c])) {
+        row[c] = row[c].replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
+        hasChange = true;
       }
     }
     
-    // Lấy giá trị sau khi đã xóa khoảng trắng thừa
-    var sanswer = row[idxAnswer] !== null ? row[idxAnswer].toString().trim() : "";
-    var option = row[idxOption] !== null ? row[idxOption].toString().trim() : "";
+    // Thứ tự cột cố định: 
+    // 0: idquestion | 1: classTag | 2: type | 3: part | 4: question | 5: option | 6: sanswer | 7: loigiai | 8: date
+    var option = row[5] !== null ? row[5].toString().trim() : "";
+    var sanswer = row[6] !== null ? row[6].toString().trim() : "";
     
-    // Kiểm tra giá trị rỗng hoặc bằng "0"
-    var isSanswerEmpty = (sanswer === "" || sanswer === "0" || sanswer === "[]");
     var isOptionEmpty = (option === "" || option === "0" || option === "[]");
+    var isSanswerEmpty = (sanswer === "" || sanswer === "0" || sanswer === "[]");
     
-    // 2. Các câu không thuộc 3 loại hợp lệ (sanswer và option đều trống) -> XÓA
+    // 2. Nếu cả sanswer và option đều trống -> Đánh dấu để Xóa dòng
     if (isSanswerEmpty && isOptionEmpty) {
-      deleteCount++;
+      rowsToDelete.push(actualRowIndex);
+      deletedCount++;
       continue;
     }
     
-    // 3. Chuẩn hóa Type và Part theo đúng cấu trúc đề thi mới nhất 2026
+    // 3. Kiểm tra và cập nhật Type / Part nếu bị sai
+    var targetType = "";
+    var targetPart = "";
+    
     if (!isSanswerEmpty && isOptionEmpty) {
-      row[idxType] = "short-answer";
-      row[idxPart] = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
+      targetType = "short-answer";
+      targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
     } 
     else if (!isSanswerEmpty && !isOptionEmpty) {
-      row[idxType] = "mcq";
-      row[idxPart] = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
+      targetType = "mcq";
+      targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
     } 
     else if (isSanswerEmpty && !isOptionEmpty) {
-      row[idxType] = "true-false"; 
-      row[idxPart] = "PHẦN II. Câu trắc nghiệm đúng sai";
+      targetType = "true-false"; 
+      targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
     }
     
-    newData.push(row);
+    // Nếu giá trị hiện tại khác giá trị chuẩn -> Đánh dấu có thay đổi
+    if (row[2] !== targetType || row[3] !== targetPart) {
+      row[2] = targetType;
+      row[3] = targetPart;
+      hasChange = true;
+    }
+    
+    // CHỈ GHI LẠI DÒNG NÀY NẾU CÓ THAY ĐỔI (Type/Part sai hoặc chứa thẻ <key>)
+    if (hasChange) {
+      sheet.getRange(actualRowIndex, 1, 1, lastColumn).setValues([row]);
+      activeCount++;
+    }
   }
   
-  // Ghi đè lại toàn bộ dữ liệu mới đã chuẩn hóa lên Sheet
-  sheet.clearContents();
-  sheet.getRange(1, 1, newData.length, newData[0].length).setValues(newData);
+  // 4. Tiến hành xóa các dòng lỗi (Duyệt ngược từ dưới lên để tránh đảo lộn STT dòng)
+  for (var d = rowsToDelete.length - 1; d >= 0; d--) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
   
-  // FIX 3: Bắt buộc return dữ liệu để hàm doPost hứng được kết quả trả về cho React
   return {
-    activeCount: newData.length - 1,
-    deletedCount: deleteCount
+    activeCount: activeCount, // Số dòng được sửa lỗi thành công
+    deletedCount: deletedCount // Số dòng rác bị xóa khỏi hệ thống
   };
 }
 

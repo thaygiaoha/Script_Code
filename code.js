@@ -2470,3 +2470,108 @@ function opencloseDate(sheetDateVal, type) {
   
   return now > targetDate;
 }
+// Hàm chuẩn hóa lại ngân hàng
+function normalizeQuestionBank() {
+  //var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Lấy sheet có tên 'nganhang', nếu không tìm thấy sẽ lấy sheet đầu tiên
+  var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
+  
+  // Đọc toàn bộ dữ liệu của sheet
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+  if (lastRow < 2) {
+    SpreadsheetApp.getUi().alert("Bảng tính không có dữ liệu để chuẩn hóa!");
+    return;
+  }
+  
+  var range = sheet.getRange(1, 1, lastRow, lastColumn);
+  var values = range.getValues();
+  var headers = values[0];
+  
+  // Xác định vị trí các cột dựa trên tên tiêu đề (không phân biệt chữ hoa/thường)
+  var colIdx = {};
+  for (var i = 0; i < headers.length; i++) {
+    var headerName = headers[i].toString().toLowerCase().trim();
+    colIdx[headerName] = i;
+  }
+  
+  // Ánh xạ linh hoạt giữa các cách đặt tên cột (options/option, answer/sanswer)
+  var idxId = colIdx["idquestion"];
+  var idxType = colIdx["type"];
+  var idxPart = colIdx["part"];
+  var idxQuestion = colIdx["question"];
+  var idxOption = colIdx["options"] !== undefined ? colIdx["options"] : colIdx["option"];
+  var idxAnswer = colIdx["answer"] !== undefined ? colIdx["answer"] : colIdx["sanswer"];
+  var idxLoigiai = colIdx["loigiai"];
+  
+  if (idxType === undefined || idxPart === undefined || idxOption === undefined || idxAnswer === undefined) {
+    SpreadsheetApp.getUi().alert("Không tìm thấy đủ các cột bắt buộc: 'type', 'part', 'options'/'option', 'answer'/'sanswer'. Vui lòng kiểm tra lại dòng đầu tiên!");
+    return;
+  }
+  
+  var newData = [headers]; // Giữ lại dòng tiêu đề
+  var deleteCount = 0;
+  
+  // Duyệt từ dòng thứ 2 đến hết
+  for (var r = 1; r < values.length; r++) {
+    var row = values[r];
+    
+    // 1. Dọn dẹp lỗi thẻ <key> do AI tạo ra trong các cột văn bản
+    for (var c = 0; c < row.length; c++) {
+      if (typeof row[c] === "string") {
+        row[c] = cleanKeyTags(row[c]);
+      }
+    }
+    
+    // Lấy giá trị sau khi đã xóa khoảng trắng thừa
+    var sanswer = row[idxAnswer] !== null ? row[idxAnswer].toString().trim() : "";
+    var option = row[idxOption] !== null ? row[idxOption].toString().trim() : "";
+    
+    // Kiểm tra giá trị rỗng hoặc bằng "0"
+    var isSanswerEmpty = (sanswer === "" || sanswer === "0" || sanswer === "[]");
+    var isOptionEmpty = (option === "" || option === "0" || option === "[]");
+    
+    // 2. Các câu không thuộc 3 loại hợp lệ (sanswer và option đều trống) -> XÓA (bỏ qua không nạp vào mảng mới)
+    if (isSanswerEmpty && isOptionEmpty) {
+      deleteCount++;
+      continue;
+    }
+    
+    // 3. Chuẩn hóa Type và Part theo đúng cấu trúc đề thi
+    if (!isSanswerEmpty && isOptionEmpty) {
+      // Có đáp án ngắn, không có danh sách lựa chọn
+      row[idxType] = "short-answer";
+      row[idxPart] = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
+    } 
+    else if (!isSanswerEmpty && !isOptionEmpty) {
+      // Có cả đáp án và lựa chọn trắc nghiệm MCQ
+      row[idxType] = "mcq";
+      row[idxPart] = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
+    } 
+    else if (isSanswerEmpty && !isOptionEmpty) {
+      // Trắc nghiệm đúng sai (Part II): Có dữ liệu options để chấm điểm True/False, cột answer để trống
+      row[idxType] = "true-false"; 
+      row[idxPart] = "PHẦN II. Câu trắc nghiệm đúng sai";
+    }
+    
+    newData.push(row);
+  }
+  
+  // Ghi đè lại toàn bộ dữ liệu mới đã chuẩn hóa lên Sheet
+  sheet.clearContents();
+  sheet.getRange(1, 1, newData.length, newData[0].length).setValues(newData);
+  
+  SpreadsheetApp.getUi().alert(
+    "Chuẩn hóa hoàn tất!\n\n" +
+    "- Số câu hỏi giữ lại và chuẩn hóa: " + (newData.length - 1) + " câu.\n" +
+    "- Số dòng rác bị xóa (sanswer = option = 0): " + deleteCount + " dòng.\n" +
+    "- Đã dọn sạch tất cả các lỗi thẻ <key>."
+  );
+}
+
+// Hàm bổ trợ loại bỏ triệt để các thẻ <key> lỗi
+function cleanKeyTags(text) {
+  if (!text) return "";
+  // Xóa các dạng thẻ đóng/mở <key>, <key123>, </key> bất kể viết hoa viết thường
+  return text.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
+}

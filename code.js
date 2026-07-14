@@ -205,7 +205,27 @@ if (action === "adminResetCloudImages") {
     var val = sheet.getRange("J2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
+ // chuẩn hóa ngân hàng
+  if (action === "normalize") {
+    try {
+      // Gọi hàm chuẩn hóa dữ liệu
+      var result = normalizeQuestionBank();
+      
+      // Trả kết quả JSON về cho Frontend React hiển thị alert
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        activeCount: result.activeCount,
+        deletedCount: result.deletedCount
+      })).setMimeType(ContentService.MimeType.JSON);
 
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: err.toString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+    
   if (action === "saveLastID") {
     var idMoi = e.parameter.id;  
     // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
@@ -2479,9 +2499,10 @@ function normalizeQuestionBank() {
   // Đọc toàn bộ dữ liệu của sheet
   var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
+  
   if (lastRow < 2) {
-    SpreadsheetApp.getUi().alert("Bảng tính không có dữ liệu để chuẩn hóa!");
-    return;
+    // FIX 2: Thay thế getUi().alert bằng throw error để gửi thông báo về Web React
+    throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
   }
   
   var range = sheet.getRange(1, 1, lastRow, lastColumn);
@@ -2505,8 +2526,7 @@ function normalizeQuestionBank() {
   var idxLoigiai = colIdx["loigiai"];
   
   if (idxType === undefined || idxPart === undefined || idxOption === undefined || idxAnswer === undefined) {
-    SpreadsheetApp.getUi().alert("Không tìm thấy đủ các cột bắt buộc: 'type', 'part', 'options'/'option', 'answer'/'sanswer'. Vui lòng kiểm tra lại dòng đầu tiên!");
-    return;
+    throw new Error("Không tìm thấy đủ các cột bắt buộc: 'type', 'part', 'options', 'answer'. Vui lòng kiểm tra lại dòng tiêu đề!");
   }
   
   var newData = [headers]; // Giữ lại dòng tiêu đề
@@ -2515,6 +2535,11 @@ function normalizeQuestionBank() {
   // Duyệt từ dòng thứ 2 đến hết
   for (var r = 1; r < values.length; r++) {
     var row = values[r];
+    
+    // Bỏ qua nếu dòng hoàn toàn trống (Tránh đọc nhầm dòng rác ở cuối sheet)
+    if (!row[idxId || 0] && row.join("").trim() === "") {
+      continue;
+    }
     
     // 1. Dọn dẹp lỗi thẻ <key> do AI tạo ra trong các cột văn bản
     for (var c = 0; c < row.length; c++) {
@@ -2531,25 +2556,22 @@ function normalizeQuestionBank() {
     var isSanswerEmpty = (sanswer === "" || sanswer === "0" || sanswer === "[]");
     var isOptionEmpty = (option === "" || option === "0" || option === "[]");
     
-    // 2. Các câu không thuộc 3 loại hợp lệ (sanswer và option đều trống) -> XÓA (bỏ qua không nạp vào mảng mới)
+    // 2. Các câu không thuộc 3 loại hợp lệ (sanswer và option đều trống) -> XÓA
     if (isSanswerEmpty && isOptionEmpty) {
       deleteCount++;
       continue;
     }
     
-    // 3. Chuẩn hóa Type và Part theo đúng cấu trúc đề thi
+    // 3. Chuẩn hóa Type và Part theo đúng cấu trúc đề thi mới nhất 2026
     if (!isSanswerEmpty && isOptionEmpty) {
-      // Có đáp án ngắn, không có danh sách lựa chọn
       row[idxType] = "short-answer";
       row[idxPart] = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
     } 
     else if (!isSanswerEmpty && !isOptionEmpty) {
-      // Có cả đáp án và lựa chọn trắc nghiệm MCQ
       row[idxType] = "mcq";
       row[idxPart] = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
     } 
     else if (isSanswerEmpty && !isOptionEmpty) {
-      // Trắc nghiệm đúng sai (Part II): Có dữ liệu options để chấm điểm True/False, cột answer để trống
       row[idxType] = "true-false"; 
       row[idxPart] = "PHẦN II. Câu trắc nghiệm đúng sai";
     }
@@ -2561,17 +2583,15 @@ function normalizeQuestionBank() {
   sheet.clearContents();
   sheet.getRange(1, 1, newData.length, newData[0].length).setValues(newData);
   
-  SpreadsheetApp.getUi().alert(
-    "Chuẩn hóa hoàn tất!\n\n" +
-    "- Số câu hỏi giữ lại và chuẩn hóa: " + (newData.length - 1) + " câu.\n" +
-    "- Số dòng rác bị xóa (sanswer = option = 0): " + deleteCount + " dòng.\n" +
-    "- Đã dọn sạch tất cả các lỗi thẻ <key>."
-  );
+  // FIX 3: Bắt buộc return dữ liệu để hàm doPost hứng được kết quả trả về cho React
+  return {
+    activeCount: newData.length - 1,
+    deletedCount: deleteCount
+  };
 }
 
 // Hàm bổ trợ loại bỏ triệt để các thẻ <key> lỗi
 function cleanKeyTags(text) {
   if (!text) return "";
-  // Xóa các dạng thẻ đóng/mở <key>, <key123>, </key> bất kể viết hoa viết thường
   return text.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
 }

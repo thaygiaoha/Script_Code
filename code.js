@@ -237,8 +237,7 @@ if (action === "adminResetCloudImages") {
   if (type === 'verifyStudent') {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
-    const pass = params.pass
-    const passGV = passteacher(idNumber);
+    const pass = params.pass    
     const sheet = ss.getSheetByName("danhsach");
     const lastRow = sheet.getLastRow();
     // #vip
@@ -257,8 +256,7 @@ if (action === "adminResetCloudImages") {
           limittab: data[i][4], 
           taikhoanapp: data[i][6], 
           idnumber: idNumber, 
-          sbd: "'" + sbd,
-          passGV: passGV
+          sbd: "'" + sbd,          
         });         
       }
     }
@@ -782,8 +780,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       "'" + supper(exams + "." + idgv),                                    // S
       "'" + supper(exams + "." + sbd + "." + idgv),
       theloai,
-      data.details || "",  // Cột M
-      data.passGV          // Cột N
+      data.details || ""  // Cột M     
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
@@ -810,22 +807,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       sheetUser.appendRow([new Date(), data.phone, data.pass]);
       return ContentService.createTextOutput("Đã đăng ký thành công");
     }
-// 4. XÁC MINH GIÁO VIÊN (verifyGV)
-    if (action === "verifyGV") {
-      var sheetGV = ssAdmin.getSheetByName("idgv");
-      var rows = sheetGV.getDataRange().getValues();
-      for (var i = 1; i < rows.length; i++) {
-        if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
-          const passGV = rows[i][2].toString().trim()
-          return             
-            resJSON({ status: "success",
-                    message: "Xác thực thành công!",
-                    passGV: passGV;
-        });
-        }
-      }
-      return resJSON({ status: "error", message: "ID hoặc Mật khẩu GV không đúng!" });
-    }
+
 // 6. XÁC MINH ADMIN (verifyAdmin)
     if (action === "verifyAdmin") {      
       if (supper(data.password) === suppere(passAdmin)) return resJSON({ status: "success", message: "Chào Admin!" });

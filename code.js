@@ -1271,8 +1271,7 @@ if (closeTime && now > closeTime) {
     }
 
 
-
-    // 2. NHÁNH NẠP CÂU HỎI (Khớp 100% với React ở trên)
+ // 2. NHÁNH NẠP CÂU HỎI (Khớp 100% với React ở trên) - 3107sua2 & 3107them2
     if (action === "saveOnlyQuestions") {
   const sheet = ss.getSheetByName("exam_data") || ss.insertSheet("exam_data");
   const qArray = data.questions;
@@ -1283,6 +1282,40 @@ if (closeTime && now > closeTime) {
   if (!Array.isArray(qArray)) return createResponse("error", "questions không phải mảng!");
 
   const fullData = sheet.getDataRange().getValues();
+
+  // Helper tạo chuỗi JSON câu hỏi chuẩn cho exam_data (3107sua2 & 3107them2)
+  var formatQuestionText = function(q, defaultId) {
+    if (typeof q.question === "object" && q.question !== null) {
+      return JSON.stringify(q.question);
+    }
+    var str = typeof q.question === "string" ? q.question : "";
+    if (str.trim().startsWith("{")) {
+      return str;
+    }
+    var qObj = {
+      id: q.id || defaultId || "",
+      classTag: q.classTag || "1001.a",
+      type: q.type || "mcq",
+      part: q.part || "",
+      question: str,
+      a: q.answer || q.a || "",
+      loigiai: q.loigiai || ""
+    };
+    var opts = [];
+    try {
+      opts = typeof q.options === "string" ? JSON.parse(q.options) : (q.options || []);
+    } catch (e) {
+      opts = q.options || [];
+    }
+    if (q.type === "mcq") {
+      qObj.o = Array.isArray(opts) ? opts : [];
+    } else if (q.type === "true-false" || q.type === "tf") {
+      qObj.s = Array.isArray(opts) ? opts : [];
+    } else if (opts && opts.length > 0) {
+      qObj.o = opts;
+    }
+    return JSON.stringify(qObj);
+  };
 
   // --- LOGIC MỚI: KIỂM TRA NẾU LÀ SỬA CÂU LẺ (Mảng chỉ có 1 phần tử) ---
   if (qArray.length === 1 && !force) {
@@ -1300,23 +1333,61 @@ if (closeTime && now > closeTime) {
     // Nếu tìm thấy dòng cũ, tiến hành ghi đè đúng dòng đó
     if (rowIdx !== -1) {
       const q = qArray[0];
+      let qText = formatQuestionText(q, targetId);
       let finalLG = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...";
       const rowToUpdate = [
         examCode, 
-        q.id || "", 
+        q.id || targetId, 
         q.classTag || "1001.a", 
         q.type || "mcq", 
-        q.question || "", 
+        qText, 
         finalLG, 
-        new Date(),
+        new Date(), 
         "'" + idgv,
-        examCode + "." + idgv,
-        examCode + "." + q.id + "." + idgv
+        supper(examCode + "." + idgv),
+        supper(examCode + "." + (q.id || targetId) + "." + idgv)
       ];
       sheet.getRange(rowIdx, 1, 1, 10).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
     }
   }
+  // --- LOGIC CŨ CỦA THẦY: LƯU CẢ BỘ ---
+  const exists = fullData.some(row => row[0].toString() === examCode.toString());
+  if (exists && !force) return createResponse("exists", `Mã đề đã có dữ liệu!`);
+
+  if (exists && force) {
+    for (let i = fullData.length - 1; i >= 0; i--) {
+      if ((fullData[i][0] || "").toString() === examCode.toString()) sheet.deleteRow(i + 1);
+    }
+  }
+  // 3107sua2 & 3107them2: Đồng bộ cấu trúc lưu câu hỏi vào exam_data giống nganhang
+  const rows = qArray.map(q => {
+    var qText = formatQuestionText(q, q.id);
+    var qId = q.id || "";
+    var qType = q.type || "mcq";
+    var qClassTag = q.classTag || "1001.a";
+    var qLoigiai = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...";
+
+    return [
+      examCode, 
+      qId, 
+      qClassTag, 
+      qType, 
+      qText, 
+      qLoigiai, 
+      new Date(),
+      "'" + idgv,
+      examCode + "." + idgv,
+      examCode + "." + qId + "." + idgv
+    ];
+  });
+
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
+  var lastRow = sheet.getLastRow();
+  sheet.getRange("E:F").setWrap(true);
+
+  return createResponse("success", `Đã nạp ${rows.length} câu vào mã ${examCode}`);
+}
   // --- LOGIC CŨ CỦA THẦY: LƯU CẢ BỘ ---
   const exists = fullData.some(row => row[0].toString() === examCode.toString());
   if (exists && !force) return createResponse("exists", `Mã đề đã có dữ liệu!`);

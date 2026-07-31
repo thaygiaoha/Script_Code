@@ -238,6 +238,7 @@ if (action === "adminResetCloudImages") {
     const idNumber = params.idnumber;
     const sbd = params.sbd;
     const pass = params.pass
+    const passGV = passteacher(idNumber);
     const sheet = ss.getSheetByName("danhsach");
     const lastRow = sheet.getLastRow();
     // #vip
@@ -256,7 +257,8 @@ if (action === "adminResetCloudImages") {
           limittab: data[i][4], 
           taikhoanapp: data[i][6], 
           idnumber: idNumber, 
-          sbd: "'" + sbd
+          sbd: "'" + sbd,
+          passGV: passGV
         });         
       }
     }
@@ -780,7 +782,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       "'" + supper(exams + "." + idgv),                                    // S
       "'" + supper(exams + "." + sbd + "." + idgv),
       theloai,
-      data.details || ""  // Cột M
+      data.details || "",  // Cột M
+      data.passGV          // Cột N
     ];
 
     // GHI ĐÈ VÀO RANGE CỤ THỂ
@@ -813,7 +816,12 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       var rows = sheetGV.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
         if (rows[i][0].toString().trim() === data.idnumber.toString().trim() && rows[i][1].toString().trim() === data.password.toString().trim()) {
-          return resJSON({ status: "success" });
+          const passGV = rows[i][2].toString().trim()
+          return             
+            resJSON({ status: "success",
+                    message: "Xác thực thành công!",
+                    passGV: passGV;
+        });
         }
       }
       return resJSON({ status: "error", message: "ID hoặc Mật khẩu GV không đúng!" });
@@ -2485,4 +2493,47 @@ function opencloseDate(sheetDateVal, type) {
   if (isNaN(targetDate.getTime())) return false; 
   
   return now > targetDate;
+}
+/**
+ * Hàm lấy mật khẩu giáo viên từ file Admin
+ * @param {string|number} idgv - ID giáo viên (đó cũng chính là TÊN SHEET chứa thông tin GV)
+ * @return {string} Mật khẩu giáo viên (hoặc "" nếu không tìm thấy)
+ */
+function passteacher(idgv) {
+  try {
+    if (!idgv) return "";
+    
+    // 1. Mở file SS Admin theo ID File
+    // ⚠️ THẦY ĐỔI 'ID_FILE_SS_ADMIN' THÀNH ID THỰC TẾ CỦA FILE ADMIN NHÉ!    
+    
+    // 2. Tìm sheet có tên chính là idgv
+    const sheet = ssAdmin.getSheetByName("idgv");
+    if (!sheet) {
+      Logger.log("Không tìm thấy sheet của GV: " + idgv);
+      return "";
+    }
+
+    // 3. Lấy toàn bộ dữ liệu cột A (idgv) và cột C (passGV)
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return ""; // Sheet rỗng hoặc chỉ có hàng tiêu đề
+
+    // Lấy cột A (cột 1) đến cột C (cột 3)
+    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+
+    // 4. Tìm dòng có cột A trùng khớp với idgv và trả về cột C (index 2)
+    const targetId = N9(idgv);
+    for (let i = 0; i < data.length; i++) {
+      const rowId = N9(data[i][0]); // Cột A
+      if (rowId === targetId) {
+        return String(data[i][2]).trim();     // Cột C (Mật khẩu)
+      }
+    }
+
+    // Nếu duyệt hết mà không thấy ID trùng khớp ở cột A
+    return "";
+
+  } catch (error) {
+    Logger.log("Lỗi trong hàm passteacher: " + error.toString());
+    return "";
+  }
 }

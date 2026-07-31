@@ -1964,7 +1964,7 @@ function getExamsList(type, idgv) {
 // Reset chung
 function resetData(type, password, mode, exams, idgv) {  
   const idgvStr = idgv.toString().trim();
-  const exam = exams ? exams.split(".")[0] : "";
+  const exam = exams.toString().trim();
   
   // Chuẩn bị key tìm kiếm
   const keyid = idgvStr; // Truyền chuỗi gốc vào, để deleteFast/deleteFastAll tự xử lý mã hóa

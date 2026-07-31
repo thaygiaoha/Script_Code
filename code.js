@@ -205,21 +205,7 @@ if (action === "adminResetCloudImages") {
     var val = sheet.getRange("J2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
- if (action === "normalize") {
-    try {
-      var result = normalizeQuestionBank();
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "success",
-        activeCount: result.activeCount,
-        deletedCount: result.deletedCount
-      })).setMimeType(ContentService.MimeType.JSON);
-    } catch(err) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: "error",
-        message: err.toString()
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
+
   if (action === "saveLastID") {
     var idMoi = e.parameter.id;  
     // Thêm dòng này để định nghĩa 'sheet' là sheet danhsach
@@ -379,7 +365,6 @@ if (action === "adminResetCloudImages") {
           idquestion: dataNH[i][0], 
           classTag: dataNH[i][1], 
           type: dataNH[i][2],
-          part: dataNH[i][3],
           question: dataNH[i][4],
           options: dataNH[i][5],
           answer: dataNH[i][6],
@@ -402,8 +387,7 @@ if (action === "adminResetCloudImages") {
   }  
 
   // 🔥 SỬA TỪ 19 THÀNH 21: Quét thêm cột T (openDate - 20) và cột U (closeDate - 21)
-  // Dòng mới: Đọc chính xác từng ký tự hiển thị trên màn hình Sheet!
-const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
   const results = [];
   
   for (let i = 0; i < data.length; i++) {
@@ -541,7 +525,7 @@ const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
 
   return createResponse("error", "Không tìm thấy câu hỏi");
 } 
-  // lấy ngân hàng theo idgv
+  // 3107sua2: lấy ngân hàng theo idgv, đồng bộ dữ liệu exam_data
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
     const idgv = params.idgv;
@@ -550,8 +534,8 @@ const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
-    return createResponse("error", "Ngân hàng trống!");
-      }  
+      return createResponse("error", "Ngân hàng trống!");
+    }  
     const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
     const results = [];
 
@@ -561,10 +545,18 @@ const data = sheet.getRange(2, 1, lastRow - 1, 21).getDisplayValues();
           var qText = String(data[i][4] || "");
           var randomVersion = Math.floor(Math.random() * 9000) + 1000;
           if (qText.indexOf(".png'") !== -1) {
-          qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+            qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
           }
           // Cột E chứa JSON câu hỏi
-          results.push(JSON.parse(qText));
+          var parsedObj = JSON.parse(qText);
+          // 3107them2: Đồng bộ bổ sung các thuộc tính nếu JSON chưa có
+          if (!parsedObj.id) parsedObj.id = data[i][1];
+          if (!parsedObj.classTag) parsedObj.classTag = data[i][2];
+          if (!parsedObj.type) parsedObj.type = data[i][3];
+          if (data[i][5] && (!parsedObj.loigiai || parsedObj.loigiai === "Đang cập nhật...")) {
+            parsedObj.loigiai = data[i][5];
+          }
+          results.push(parsedObj);
         } catch (err) {
           results.push(qText);
         }
@@ -589,15 +581,15 @@ if (action === "downloadScores") {
 
     // --- ĐIỀU CHỈNH TẠI ĐÂY ---
     // Lấy header từ cột 1 đến cột 8 (Cột H)
-    const header = sheet.getRange(1, 1, 1, 14).getValues()[0];
+    const header = sheet.getRange(1, 1, 1, 11).getValues()[0];
     
     // Lấy dữ liệu từ dòng 2, cột 1, đến dòng cuối, lấy 10 cột để vẫn lọc được cột I (cột 9)
     // Nhưng chúng ta sẽ dùng slice để cắt bớt trước khi trả về
-    const data = sheet.getRange(2, 1, lastRow - 1, 14).getValues();   
+    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();   
     
     const filteredData = data
       .filter(row => String(row[9]).toUpperCase() === keycheck) // Lọc dựa trên cột I (index 9)
-      .map(row => row.slice(0, 14)); // Cắt bỏ cột J, chỉ lấy từ cột A (index 0) đến I (index 8)
+      .map(row => row.slice(0, 9)); // Cắt bỏ cột J, chỉ lấy từ cột A (index 0) đến I (index 8)
     
     return ContentService.createTextOutput(JSON.stringify({
       header: header,
@@ -762,13 +754,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const thoiGian = data.time || 0;
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
-    const theloaidata = data.theloai;
-    let theloai = "";
-    if (action === "submitExamMatrix") {
-      theloai = theloaidata || "Matran";
-    } else {
-      theloai = theloaidata || "Word";
-    }
+    const theloai = data.theloai;
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();
@@ -1004,8 +990,6 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     if (allRows[i][0].toString() === targetId.toString()) {
       // Ghi dữ liệu vào các cột tương ứng (Cột 2: classTag, 5: Question...)
       sheetNH.getRange(i + 1, 2).setValue(item.classTag || "");
-      sheetNH.getRange(i + 1, 3).setValue(item.type || "");
-      sheetNH.getRange(i + 1, 4).setValue(item.part || "");
       sheetNH.getRange(i + 1, 5).setValue(item.question || "");
       sheetNH.getRange(i + 1, 6).setValue(item.options || "");
       sheetNH.getRange(i + 1, 7).setValue(item.answer || "");
@@ -1342,18 +1326,28 @@ if (closeTime && now > closeTime) {
       if ((fullData[i][0] || "").toString() === examCode.toString()) sheet.deleteRow(i + 1);
     }
   }
-  const rows = qArray.map(q => [
-    examCode, 
-    q.id || "", 
-    q.classTag || "1001.a", 
-    q.type || "mcq", 
-    q.question || "", 
-    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
-    new Date(),
-     "'" + idgv,
-    examCode + "." + idgv,
-    examCode + "." + q.id + "." + idgv
-  ]);
+  // 3107sua2 & 3107them2: Đồng bộ cấu trúc lưu câu hỏi vào exam_data giống nganhang
+  const rows = qArray.map(q => {
+    var qObj = typeof q.question === "object" ? q.question : null;
+    var qText = typeof q.question === "string" ? q.question : JSON.stringify(q.question || q);
+    var qId = q.id || (qObj && qObj.id) || "";
+    var qType = q.type || (qObj && qObj.type) || "mcq";
+    var qClassTag = q.classTag || (qObj && qObj.classTag) || "1001.a";
+    var qLoigiai = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : ((qObj && qObj.loigiai) ? qObj.loigiai : "Đang cập nhật...");
+
+    return [
+      examCode, 
+      qId, 
+      qClassTag, 
+      qType, 
+      qText, 
+      qLoigiai, 
+      new Date(),
+      "'" + idgv,
+      examCode + "." + idgv,
+      examCode + "." + qId + "." + idgv
+    ];
+  });
 
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
   var lastRow = sheet.getLastRow();
@@ -1412,11 +1406,11 @@ if (closeTime && now > closeTime) {
         supper(examCode), 
         "'" + supper(idgv), 
         cfg.numMCQ, 
-        (cfg.scoreMCQ ?? "").toString().replace(",", "."),
+        cfg.scoreMCQ, 
         cfg.numTF, 
-        (cfg.scoreTF ?? "").toString().replace(",", "."),
+        cfg.scoreTF,
         cfg.numSA, 
-        (cfg.scoreSA ?? "").toString().replace(",", "."),
+        cfg.scoreSA, 
         cfg.duration, 
         cfg.mintime, 
         cfg.tab, 
@@ -1916,7 +1910,6 @@ function updateQuestion(payload) {
     return { status: "error", message: "Lỗi hệ thống: " + e.toString() };
   }
 }
-// lọc mã exems chung
 // 3107sua1 - lọc danh sách mã exams theo idgv của giáo viên
 function getExamsList(type, idgv) {
   let sheetName;
@@ -1976,7 +1969,6 @@ function getExamsList(type, idgv) {
   const unique = [...new Set(examsList)];
   return createResponse("success", "OK", unique);
 }
-// Reset chung
 // Reset chung (3107sua1 & 3107them1)
 function resetData(type, password, mode, exams, idgv) {  
   const idgvStr = (idgv || "").toString().trim();
@@ -2121,57 +2113,65 @@ function supper(text) {
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
 
-  function deleteFastAll(text, number, name) {  
-  var sheet = ss.getSheetByName(name);
- if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
-
-  var lastRow = sheet.getLastRow();
-  var lastCol = sheet.getLastColumn();
-
-  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
-
-  // 👉 chỉ lấy data (bỏ header)
-  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
-
-  var key = N9(text);
-
-  var filteredData = data.filter(function(row) {
-    return N9(row[number - 1]) !== key;
-  });
-
-  var deletedCount = data.length - filteredData.length;
-
-  // 👉 clear data cũ
-  sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
-
-  // 👉 ghi lại data mới từ dòng 2
-  if (filteredData.length > 0) {
-    sheet.getRange(2, 1, filteredData.length, lastCol)
-         .setValues(filteredData);
-  }
-
-  return deletedCount;
-}
-
- function deleteFast(text, number, name) {  
+function deleteFastAll(text, colNumber, name) {  
   var sheet = ss.getSheetByName(name);
   if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
+  if (lastRow <= 1) return 0;
 
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
 
-  // text truyền vào là "101.601", tại đây mới mã hóa 1 lần duy nhất thành Chuỗi Hash A
-  var key = supper(text); 
+  var keySupper = supper(text);
+  var keyN9 = N9(text);
 
   var filteredData = data.filter(function(row) {
-    var cell = row[number - 1];
-    var val = cell.toString().trim(); // Cột trên sheet vốn đã là mã hóa Chuỗi Hash A rồi
+    var cellVal = row[colNumber - 1];
+    var cellSupper = supper(cellVal);
+    var cellN9 = N9(cellVal);
 
-    return val !== key;
+    return !(cellSupper === keySupper || cellN9 === keyN9);
+  });
+
+  var deletedCount = data.length - filteredData.length;
+
+  sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+
+  if (filteredData.length > 0) {
+    sheet.getRange(2, 1, filteredData.length, lastCol).setValues(filteredData);
+  }
+
+  return deletedCount;
+}
+
+function deleteFast(text, colNumber, name) {  
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+
+  if (lastRow <= 1) return 0;
+
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
+
+  var keyTarget = supper(text);
+  var keyTargetN9 = "";
+  if (text.indexOf(".") !== -1) {
+    var parts = text.split(".");
+    keyTargetN9 = supper(parts[0] + "." + N9(parts[1]));
+  }
+
+  var filteredData = data.filter(function(row) {
+    var cellVal = row[colNumber - 1];
+    var cellSupper = supper(cellVal);
+
+    if (keyTargetN9) {
+      return !(cellSupper === keyTarget || cellSupper === keyTargetN9);
+    }
+    return cellSupper !== keyTarget;
   });
 
   var deletedCount = data.length - filteredData.length;  
@@ -2503,118 +2503,4 @@ function opencloseDate(sheetDateVal, type) {
   if (isNaN(targetDate.getTime())) return false; 
   
   return now > targetDate;
-}
-// Hàm chuẩn hóa lại ngân hàng
-function normalizeQuestionBank() {
-  // Sử dụng biến ss toàn cục được khai báo ở đầu file của bạn
-  var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
-  
-  var lastRow = sheet.getLastRow();
-  var lastColumn = sheet.getLastColumn();
-  
-  if (lastRow < 2) {
-    throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
-  }
-  
-  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết (bỏ qua dòng tiêu đề số 1)
-  var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
-  var values = range.getValues();
-  
-  var activeCount = 0;
-  var deletedCount = 0;
-  var rowsToDelete = []; // Lưu lại các dòng thực tế cần xóa
-
-  for (var i = 0; i < values.length; i++) {
-    var row = values[i];
-    var actualRowIndex = i + 2; // Số thứ tự dòng thực tế trên Sheet
-    
-    // Nếu dòng trống hoàn toàn (cột ID rỗng và các cột khác không có chữ) thì bỏ qua
-    if (!row[0] && row.join("").trim() === "") continue;
-    
-    var hasChange = false;
-    
-    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> lỗi trong toàn bộ các cột
-    for (var c = 0; c < row.length; c++) {
-      if (row[c] !== null && row[c] !== undefined) {
-        var valStr = row[c].toString();
-        if (/<\/?[kK][eE][yY][^>]*>/g.test(valStr)) {
-          row[c] = valStr.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
-          hasChange = true;
-        }
-      }
-    }
-    
-    // Thứ tự cột cố định:
-    // 0: idquestion (A) | 1: classTag (B) | 2: type (C) | 3: part (D) | 4: question (E)
-    // 5: options (F)    | 6: answer (G)   | 7: loigiai (H) | 8: date (I)
-    var typeRaw = row[2] !== null ? row[2].toString().trim() : "";
-    var optionRaw = row[5];
-    var answerRaw = row[6];
-    
-    // Kiểm tra trống toàn diện
-    var isOptionEmpty = checkValueEmpty(optionRaw);
-    var isAnswerEmpty = checkValueEmpty(answerRaw);
-    
-    // 2. MỤC TIÊU 4: Nếu F rỗng và G rỗng -> XÓA NGAY dòng đó
-    if (isOptionEmpty && isAnswerEmpty) {
-      rowsToDelete.push(actualRowIndex);
-      deletedCount++;
-      continue;
-    }
-    
-    var targetType = "";
-    var targetPart = "";
-    
-    // 3. Phân loại chuẩn theo logic yêu cầu
-    if (!isOptionEmpty && !isAnswerEmpty) {
-      targetType = "mcq";
-      targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
-    } 
-    else if (!isOptionEmpty && isAnswerEmpty) {
-      targetType = "true-false";
-      targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
-    } 
-    else if (isOptionEmpty && !isAnswerEmpty) {
-      targetType = "short-answer";
-      targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
-    }
-    
-    // CHỈ KHI TYPE HIỆN TẠI KHÁC TYPE CHUẨN (HOẶC CÓ THẺ KEY LỖI) THÌ MỚI GHI ĐÈ
-    if (typeRaw !== targetType || hasChange) {
-      row[2] = targetType;
-      row[3] = targetPart;
-      
-      sheet.getRange(actualRowIndex, 1, 1, lastColumn).setValues([row]);
-      activeCount++;
-    }
-  }
-  
-  // 4. Tiến hành xóa các dòng rác (Duyệt ngược từ dưới lên để tránh bị chạy lệch index dòng)
-  for (var d = rowsToDelete.length - 1; d >= 0; d--) {
-    sheet.deleteRow(rowsToDelete[d]);
-  }
-  
-  return {
-    activeCount: activeCount,
-    deletedCount: deletedCount
-  };
-}
-
-// Hàm bổ trợ kiểm tra giá trị thực sự trống trên Google Sheets
-function checkValueEmpty(val) {
-  if (val === null || val === undefined) return true;
-  
-  var str = val.toString().trim();
-  
-  // Các trường hợp được coi là trống trong cấu trúc ngân hàng câu hỏi
-  if (str === "" || str === "0" || str === "[]" || str === "{}" || str === "['']" || str === '[""]') {
-    return true;
-  }
-  return false;
-}
-
-// Hàm dọn dẹp triệt để các tag <key> lỗi do AI sinh ra
-function cleanKeyTags(text) {
-  if (!text) return "";
-  return text.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
 }

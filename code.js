@@ -2072,8 +2072,8 @@ function resetData(type, password, mode, exams, idgv) {
   }
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    colIdgv = 8;        // Cột H (idgv)
-    colExamsIdgv = 9;   // Cột I (exams.idgv)
+    colIdgv = 10;        // Cột H (idgv)
+    colExamsIdgv = 11;   // Cột I (exams.idgv)
   }
   else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 

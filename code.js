@@ -2130,39 +2130,31 @@ function supper(text) {
 
  function deleteFast(text, number, name) {  
   var sheet = ss.getSheetByName(name);
- if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
+  if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
   if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
 
-  // 👉 chỉ lấy data (bỏ header)
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
 
-  var key = supper(text);
+  // text truyền vào là "101.601", tại đây mới mã hóa 1 lần duy nhất thành Chuỗi Hash A
+  var key = supper(text); 
 
- var filteredData = data.filter(function(row, index) {
-  var cell = row[number - 1];
-  var val = supper(cell);
+  var filteredData = data.filter(function(row) {
+    var cell = row[number - 1];
+    var val = cell.toString().trim(); // Cột trên sheet vốn đã là mã hóa Chuỗi Hash A rồi
 
-  if (index < 5) { // chỉ log vài dòng đầu
-    Logger.log("👉 KEY: [" + key + "]");
-    Logger.log("👉 CELL: [" + val + "]");
-  }
-
-  return val !== key;
-});
+    return val !== key;
+  });
 
   var deletedCount = data.length - filteredData.length;  
 
-  // 👉 clear data cũ
   sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
 
-  // 👉 ghi lại data mới từ dòng 2
   if (filteredData.length > 0) {
-    sheet.getRange(2, 1, filteredData.length, lastCol)
-         .setValues(filteredData);
+    sheet.getRange(2, 1, filteredData.length, lastCol).setValues(filteredData);
   }
 
   return deletedCount;

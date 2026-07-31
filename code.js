@@ -762,7 +762,13 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const thoiGian = data.time || 0;
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
-    const theloai = data.theloai;
+    const theloaidata = data.theloai;
+    let theloai = "";
+    if (action === "submitExamMatrix") {
+      theloai = theloaidata || "Matran";
+    } else {
+      theloai = theloaidata || "Word";
+    }
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO (Ép ghi thay vì dùng appendRow)
     // const lastRow = sheetKq.getLastRow();

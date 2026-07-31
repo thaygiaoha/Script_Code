@@ -1894,30 +1894,30 @@ function updateQuestion(payload) {
 }
 // lọc mã exems chung
 function getExamsList(type, idgv) {
-
   let sheetName;
-  let columnIndex;
+  let colIdgv;
+  let colExams;
 
   if (type === "ketqua") {
     sheetName = "ketqua";
-    columnIndex = 10; // cột I
+    colIdgv = 8;     // Cột H (idgv)
+    colExams = 2;    // Cột B (exams)
   }
-
   else if (type === "matran") {
     sheetName = "matran";
-    columnIndex = 19; // cột S
+    colIdgv = 18;    // Cột R (idgv)
+    colExams = 2;    // Cột B (exams)
   }
-
   else if (type === "exams") {
     sheetName = "exams";
-    columnIndex = 16; // cột P
+    colIdgv = 2;     // Cột B (idgv)
+    colExams = 1;    // Cột A (Exams)
   }
-
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    columnIndex = 9; // cột I
+    colIdgv = 8;     // Cột H (idgv)
+    colExams = 1;    // Cột A (exams)
   }
-
   else {
     return createResponse("error", "Type không hợp lệ");
   }
@@ -1928,69 +1928,89 @@ function getExamsList(type, idgv) {
   }
 
   const lastRow = sheet.getLastRow();
-
   if (lastRow <= 1) {
     return createResponse("success", "OK", []);
   }
 
-  const examsColumn = sheet
-    .getRange(2, columnIndex, lastRow - 1, 1)
-    .getValues()
-    .flat()
-    .filter(v => v && v !== "");
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getDisplayValues();
+  const idgvTarget = supper(idgv);
+  const idgvN9 = N9(idgv);
 
-  const unique = [...new Set(examsColumn)];
+  const examsList = [];
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const rowIdgv = row[colIdgv - 1];
+    if (idgv && (supper(rowIdgv) === idgvTarget || N9(rowIdgv) === idgvN9)) {
+      const examVal = row[colExams - 1] ? row[colExams - 1].toString().trim() : "";
+      if (examVal) {
+        examsList.push(examVal);
+      }
+    }
+  }
 
+  const unique = [...new Set(examsList)];
   return createResponse("success", "OK", unique);
 }
-// Reset chung
+// Reset chung (3107sua1 & 3107them1)
 function resetData(type, password, mode, exams, idgv) {  
-  // Chuẩn hóa mã trước khi so sánh
-  const keyid = N9(idgv);
-  const idgvStr = idgv.toString().trim();
-  const exam = exams.split(".")[0];
-  const keyexamsid = supper(exam + "." + idgvStr);
-
+  const idgvStr = (idgv || "").toString().trim();
+  const examStr = (exams || "").toString().trim();
+  
+  let colIdgv = 0;
+  let colExamsIdgv = 0;
   let sheetName = "";
-  let colums = 0;
 
-  // 1. Xác định Sheet và Cột mốc
+  // Cấu hình vị trí cột theo dữ liệu các sheet:
+  // ketqua: Timestamp(1), exams(2), sbd(3), name(4), class(5), tongdiem(6), time(7), idgv(8), Vi phạm(9), exams.idgv(10), exams.sbd.idgv(11), theloai(12)
+  // matran: idgv(1), exams(2), name(3), topics(4), duration(5), numMC(6), scoreMC(7), mcL3(8), mcL4(9), numTF(10), scoreTF(11), tfL3(12), tfL4(13), numSA(14), scoreSA(15), saL3(16), saL4(17), idgv(18), exams.idgv(19), OpenDate(20), CloseDate(21)
+  // exams: Exams(1), idgv(2), MCQ(3), scoremcq(4), TF(5), scoretf(6), SA(7), scoresa(8), fulltime(9), minitime(10), tab(11), open(12), close(13), limit(14), exams.idgv(15), id(16)
+  // exam_data: exams(1), idquestion(2), classTag(3), type(4), question(5), Lời giải(6), datetime(7), idgv(8), exams.idgv(9), exams.idq.idgv(10)
+
   if (type === "ketqua") {
     sheetName = "ketqua";
-    colums = 8;
+    colIdgv = 8;        // Cột H (idgv)
+    colExamsIdgv = 10;  // Cột J (exams.idgv)
   }
   else if (type === "matran") {
     sheetName = "matran";
-    colums = 18;
+    colIdgv = 18;       // Cột R (idgv)
+    colExamsIdgv = 19;  // Cột S (exams.idgv)
   }
   else if (type === "exams") {
     sheetName = "exams";
-    colums = 15;
+    colIdgv = 2;        // Cột B (idgv)
+    colExamsIdgv = 15;  // Cột O (exams.idgv)
   }
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    colums = 8;
+    colIdgv = 8;        // Cột H (idgv)
+    colExamsIdgv = 9;   // Cột I (exams.idgv)
   }
   else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 
   let rowsDeleted = 0;
 
-  // 2. Xử lý xóa theo MODE
+  // 1. Reset tất cả theo idgv
   if (mode === "all") {
-    // Xóa toàn bộ theo IDGV (cột colums)
-    rowsDeleted = deleteFastAll(keyid, colums, sheetName);
+    rowsDeleted = deleteFastAll(idgvStr, colIdgv, sheetName);
     return createResponse("success", "Đã dọn sạch " + rowsDeleted + " dòng trong sheet " + sheetName);
   }
 
+  // 2. Reset theo mã exams (exams.idgv)
   if (mode === "byExams") {
-    if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
+    if (!examStr) return createResponse("error", "Thiếu mã bài tập (exams)");
     
-    // Xóa theo mã cụ thể (cột colums + 1)
-    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
-    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
+    let keyexamsid = "";
+    if (supper(examStr).indexOf("." + supper(idgvStr)) !== -1 || supper(examStr).indexOf("." + N9(idgvStr)) !== -1) {
+      keyexamsid = examStr;
+    } else {
+      keyexamsid = examStr + "." + idgvStr;
+    }
+
+    rowsDeleted = deleteFast(keyexamsid, colExamsIdgv, sheetName);
+    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của " + examStr + " (" + sheetName + ")");
   }
 
-  // 3. Nếu không rơi vào 2 mode trên
   return createResponse("error", "Chế độ (Mode) không hợp lệ");
 }
 // =============================================================Kết thúc Reset chung=========================================================================

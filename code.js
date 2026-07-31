@@ -525,7 +525,7 @@ if (action === "adminResetCloudImages") {
 
   return createResponse("error", "Không tìm thấy câu hỏi");
 } 
-  // 3107sua2: lấy ngân hàng theo idgv, đồng bộ dữ liệu exam_data
+  // lấy ngân hàng theo idgv
   if (action === 'getQuestionsByCode') {
     const examCode = params.examCode;
     const idgv = params.idgv;
@@ -534,8 +534,8 @@ if (action === "adminResetCloudImages") {
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) {
-      return createResponse("error", "Ngân hàng trống!");
-    }  
+    return createResponse("error", "Ngân hàng trống!");
+      }  
     const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
     const results = [];
 
@@ -545,18 +545,10 @@ if (action === "adminResetCloudImages") {
           var qText = String(data[i][4] || "");
           var randomVersion = Math.floor(Math.random() * 9000) + 1000;
           if (qText.indexOf(".png'") !== -1) {
-            qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+          qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
           }
           // Cột E chứa JSON câu hỏi
-          var parsedObj = JSON.parse(qText);
-          // 3107them2: Đồng bộ bổ sung các thuộc tính nếu JSON chưa có
-          if (!parsedObj.id) parsedObj.id = data[i][1];
-          if (!parsedObj.classTag) parsedObj.classTag = data[i][2];
-          if (!parsedObj.type) parsedObj.type = data[i][3];
-          if (data[i][5] && (!parsedObj.loigiai || parsedObj.loigiai === "Đang cập nhật...")) {
-            parsedObj.loigiai = data[i][5];
-          }
-          results.push(parsedObj);
+          results.push(JSON.parse(qText));
         } catch (err) {
           results.push(qText);
         }
@@ -1326,28 +1318,18 @@ if (closeTime && now > closeTime) {
       if ((fullData[i][0] || "").toString() === examCode.toString()) sheet.deleteRow(i + 1);
     }
   }
-  // 3107sua2 & 3107them2: Đồng bộ cấu trúc lưu câu hỏi vào exam_data giống nganhang
-  const rows = qArray.map(q => {
-    var qObj = typeof q.question === "object" ? q.question : null;
-    var qText = typeof q.question === "string" ? q.question : JSON.stringify(q.question || q);
-    var qId = q.id || (qObj && qObj.id) || "";
-    var qType = q.type || (qObj && qObj.type) || "mcq";
-    var qClassTag = q.classTag || (qObj && qObj.classTag) || "1001.a";
-    var qLoigiai = (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : ((qObj && qObj.loigiai) ? qObj.loigiai : "Đang cập nhật...");
-
-    return [
-      examCode, 
-      qId, 
-      qClassTag, 
-      qType, 
-      qText, 
-      qLoigiai, 
-      new Date(),
-      "'" + idgv,
-      examCode + "." + idgv,
-      examCode + "." + qId + "." + idgv
-    ];
-  });
+  const rows = qArray.map(q => [
+    examCode, 
+    q.id || "", 
+    q.classTag || "1001.a", 
+    q.type || "mcq", 
+    q.question || "", 
+    (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
+    new Date(),
+     "'" + idgv,
+    examCode + "." + idgv,
+    examCode + "." + q.id + "." + idgv
+  ]);
 
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
   var lastRow = sheet.getLastRow();
@@ -1910,32 +1892,32 @@ function updateQuestion(payload) {
     return { status: "error", message: "Lỗi hệ thống: " + e.toString() };
   }
 }
-// 3107sua1 - lọc danh sách mã exams theo idgv của giáo viên
+// lọc mã exems chung
 function getExamsList(type, idgv) {
+
   let sheetName;
-  let colIdgv;
-  let colExams;
+  let columnIndex;
 
   if (type === "ketqua") {
     sheetName = "ketqua";
-    colIdgv = 8;     // Cột H (idgv)
-    colExams = 2;    // Cột B (exams)
+    columnIndex = 10; // cột I
   }
+
   else if (type === "matran") {
     sheetName = "matran";
-    colIdgv = 18;    // Cột R (idgv)
-    colExams = 2;    // Cột B (exams)
+    columnIndex = 19; // cột S
   }
+
   else if (type === "exams") {
     sheetName = "exams";
-    colIdgv = 2;     // Cột B (idgv)
-    colExams = 1;    // Cột A (Exams)
+    columnIndex = 16; // cột P
   }
+
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    colIdgv = 8;     // Cột H (idgv)
-    colExams = 1;    // Cột A (exams)
+    columnIndex = 9; // cột I
   }
+
   else {
     return createResponse("error", "Type không hợp lệ");
   }
@@ -1946,89 +1928,69 @@ function getExamsList(type, idgv) {
   }
 
   const lastRow = sheet.getLastRow();
+
   if (lastRow <= 1) {
     return createResponse("success", "OK", []);
   }
 
-  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getDisplayValues();
-  const idgvTarget = supper(idgv);
-  const idgvN9 = N9(idgv);
+  const examsColumn = sheet
+    .getRange(2, columnIndex, lastRow - 1, 1)
+    .getValues()
+    .flat()
+    .filter(v => v && v !== "");
 
-  const examsList = [];
-  for (let i = 0; i < data.length; i++) {
-    const row = data[i];
-    const rowIdgv = row[colIdgv - 1];
-    if (idgv && (supper(rowIdgv) === idgvTarget || N9(rowIdgv) === idgvN9)) {
-      const examVal = row[colExams - 1] ? row[colExams - 1].toString().trim() : "";
-      if (examVal) {
-        examsList.push(examVal);
-      }
-    }
-  }
+  const unique = [...new Set(examsColumn)];
 
-  const unique = [...new Set(examsList)];
   return createResponse("success", "OK", unique);
 }
-// Reset chung (3107sua1 & 3107them1)
+// Reset chung
 function resetData(type, password, mode, exams, idgv) {  
-  const idgvStr = (idgv || "").toString().trim();
-  const examStr = (exams || "").toString().trim();
-  
-  let colIdgv = 0;
-  let colExamsIdgv = 0;
+  // Chuẩn hóa mã trước khi so sánh
+  const keyid = N9(idgv);
+  const idgvStr = idgv.toString().trim();
+  const exam = exams.split(".")[0];
+  const keyexamsid = supper(exam + "." + idgvStr);
+
   let sheetName = "";
+  let colums = 0;
 
-  // Cấu hình vị trí cột theo dữ liệu các sheet:
-  // ketqua: Timestamp(1), exams(2), sbd(3), name(4), class(5), tongdiem(6), time(7), idgv(8), Vi phạm(9), exams.idgv(10), exams.sbd.idgv(11), theloai(12)
-  // matran: idgv(1), exams(2), name(3), topics(4), duration(5), numMC(6), scoreMC(7), mcL3(8), mcL4(9), numTF(10), scoreTF(11), tfL3(12), tfL4(13), numSA(14), scoreSA(15), saL3(16), saL4(17), idgv(18), exams.idgv(19), OpenDate(20), CloseDate(21)
-  // exams: Exams(1), idgv(2), MCQ(3), scoremcq(4), TF(5), scoretf(6), SA(7), scoresa(8), fulltime(9), minitime(10), tab(11), open(12), close(13), limit(14), exams.idgv(15), id(16)
-  // exam_data: exams(1), idquestion(2), classTag(3), type(4), question(5), Lời giải(6), datetime(7), idgv(8), exams.idgv(9), exams.idq.idgv(10)
-
+  // 1. Xác định Sheet và Cột mốc
   if (type === "ketqua") {
     sheetName = "ketqua";
-    colIdgv = 8;        // Cột H (idgv)
-    colExamsIdgv = 10;  // Cột J (exams.idgv)
+    colums = 8;
   }
   else if (type === "matran") {
     sheetName = "matran";
-    colIdgv = 18;       // Cột R (idgv)
-    colExamsIdgv = 19;  // Cột S (exams.idgv)
+    colums = 18;
   }
   else if (type === "exams") {
     sheetName = "exams";
-    colIdgv = 2;        // Cột B (idgv)
-    colExamsIdgv = 15;  // Cột O (exams.idgv)
+    colums = 15;
   }
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    colIdgv = 8;        // Cột H (idgv)
-    colExamsIdgv = 9;   // Cột I (exams.idgv)
+    colums = 8;
   }
   else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 
   let rowsDeleted = 0;
 
-  // 1. Reset tất cả theo idgv
+  // 2. Xử lý xóa theo MODE
   if (mode === "all") {
-    rowsDeleted = deleteFastAll(idgvStr, colIdgv, sheetName);
+    // Xóa toàn bộ theo IDGV (cột colums)
+    rowsDeleted = deleteFastAll(keyid, colums, sheetName);
     return createResponse("success", "Đã dọn sạch " + rowsDeleted + " dòng trong sheet " + sheetName);
   }
 
-  // 2. Reset theo mã exams (exams.idgv)
   if (mode === "byExams") {
-    if (!examStr) return createResponse("error", "Thiếu mã bài tập (exams)");
+    if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
     
-    let keyexamsid = "";
-    if (supper(examStr).indexOf("." + supper(idgvStr)) !== -1 || supper(examStr).indexOf("." + N9(idgvStr)) !== -1) {
-      keyexamsid = examStr;
-    } else {
-      keyexamsid = examStr + "." + idgvStr;
-    }
-
-    rowsDeleted = deleteFast(keyexamsid, colExamsIdgv, sheetName);
-    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của " + examStr + " (" + sheetName + ")");
+    // Xóa theo mã cụ thể (cột colums + 1)
+    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
+    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
   }
 
+  // 3. Nếu không rơi vào 2 mode trên
   return createResponse("error", "Chế độ (Mode) không hợp lệ");
 }
 // =============================================================Kết thúc Reset chung=========================================================================
@@ -2113,73 +2075,73 @@ function supper(text) {
  * Xóa dữ liệu cực nhanh và GIỮ LẠI dòng tiêu đề (Header)
  */
 
-function deleteFastAll(text, colNumber, name) {  
+  function deleteFastAll(text, number, name) {  
   var sheet = ss.getSheetByName(name);
-  if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
+ if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  if (lastRow <= 1) return 0;
+  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
 
+  // 👉 chỉ lấy data (bỏ header)
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
 
-  var keySupper = supper(text);
-  var keyN9 = N9(text);
+  var key = N9(text);
 
   var filteredData = data.filter(function(row) {
-    var cellVal = row[colNumber - 1];
-    var cellSupper = supper(cellVal);
-    var cellN9 = N9(cellVal);
-
-    return !(cellSupper === keySupper || cellN9 === keyN9);
+    return N9(row[number - 1]) !== key;
   });
 
   var deletedCount = data.length - filteredData.length;
 
+  // 👉 clear data cũ
   sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
 
+  // 👉 ghi lại data mới từ dòng 2
   if (filteredData.length > 0) {
-    sheet.getRange(2, 1, filteredData.length, lastCol).setValues(filteredData);
+    sheet.getRange(2, 1, filteredData.length, lastCol)
+         .setValues(filteredData);
   }
 
   return deletedCount;
 }
 
-function deleteFast(text, colNumber, name) {  
+ function deleteFast(text, number, name) {  
   var sheet = ss.getSheetByName(name);
-  if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
+ if (!sheet) return createResponse("exists", "Sheet " + name + " không tồn tại!");
 
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  if (lastRow <= 1) return 0;
+  if (lastRow <= 1) createResponse("exists", "Sheet " + name + " đang trống dữ liệu!");
 
+  // 👉 chỉ lấy data (bỏ header)
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
 
-  var keyTarget = supper(text);
-  var keyTargetN9 = "";
-  if (text.indexOf(".") !== -1) {
-    var parts = text.split(".");
-    keyTargetN9 = supper(parts[0] + "." + N9(parts[1]));
+  var key = supper(text);
+
+ var filteredData = data.filter(function(row, index) {
+  var cell = row[number - 1];
+  var val = supper(cell);
+
+  if (index < 5) { // chỉ log vài dòng đầu
+    Logger.log("👉 KEY: [" + key + "]");
+    Logger.log("👉 CELL: [" + val + "]");
   }
 
-  var filteredData = data.filter(function(row) {
-    var cellVal = row[colNumber - 1];
-    var cellSupper = supper(cellVal);
-
-    if (keyTargetN9) {
-      return !(cellSupper === keyTarget || cellSupper === keyTargetN9);
-    }
-    return cellSupper !== keyTarget;
-  });
+  return val !== key;
+});
 
   var deletedCount = data.length - filteredData.length;  
 
+  // 👉 clear data cũ
   sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
 
+  // 👉 ghi lại data mới từ dòng 2
   if (filteredData.length > 0) {
-    sheet.getRange(2, 1, filteredData.length, lastCol).setValues(filteredData);
+    sheet.getRange(2, 1, filteredData.length, lastCol)
+         .setValues(filteredData);
   }
 
   return deletedCount;

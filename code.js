@@ -1963,31 +1963,37 @@ function getExamsList(type, idgv) {
 }
 // Reset chung
 function resetData(type, password, mode, exams, idgv) {  
-  // Chuẩn hóa mã trước khi so sánh
-  const keyid = N9(idgv);
   const idgvStr = idgv.toString().trim();
-  const exam = exams.split(".")[0];
-  const keyexamsid = supper(exam + "." + idgvStr);
+  const exam = exams ? exams.split(".")[0] : "";
+  
+  // Chuẩn bị key tìm kiếm
+  const keyid = idgvStr; // Truyền chuỗi gốc vào, để deleteFast/deleteFastAll tự xử lý mã hóa
+  const keyexamsid = exam + "." + idgvStr; 
 
+  let colIdgv = 0;
+  let colExamsIdgv = 0;
   let sheetName = "";
-  let colums = 0;
 
-  // 1. Xác định Sheet và Cột mốc
+  // 1. Cấu hình đúng vị trí cột theo thực tế (Cột A=1, B=2, H=8, I=9, J=10, O=15, R=18, S=19)
   if (type === "ketqua") {
     sheetName = "ketqua";
-    colums = 8;
+    colIdgv = 8;        // Cột H
+    colExamsIdgv = 10;  // Cột J
   }
   else if (type === "matran") {
     sheetName = "matran";
-    colums = 18;
+    colIdgv = 18;       // Cột R (hoặc 1 nếu thầy dùng cột A)
+    colExamsIdgv = 19;  // Cột S
   }
   else if (type === "exams") {
     sheetName = "exams";
-    colums = 15;
+    colIdgv = 2;        // Cột B
+    colExamsIdgv = 15;  // Cột O
   }
   else if (type === "exam_data") {
     sheetName = "exam_data";
-    colums = 8;
+    colIdgv = 8;        // Cột H
+    colExamsIdgv = 9;   // Cột I
   }
   else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 
@@ -1995,20 +2001,17 @@ function resetData(type, password, mode, exams, idgv) {
 
   // 2. Xử lý xóa theo MODE
   if (mode === "all") {
-    // Xóa toàn bộ theo IDGV (cột colums)
-    rowsDeleted = deleteFastAll(keyid, colums, sheetName);
+    rowsDeleted = deleteFastAll(keyid, colIdgv, sheetName);
     return createResponse("success", "Đã dọn sạch " + rowsDeleted + " dòng trong sheet " + sheetName);
   }
 
   if (mode === "byExams") {
     if (!exams) return createResponse("error", "Thiếu mã bài tập (exams)");
     
-    // Xóa theo mã cụ thể (cột colums + 1)
-    rowsDeleted = deleteFast(keyexamsid, colums + 1, sheetName);
-    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của  " + exams + " (" + sheetName + ")");
+    rowsDeleted = deleteFast(keyexamsid, colExamsIdgv, sheetName);
+    return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của " + exams + " (" + sheetName + ")");
   }
 
-  // 3. Nếu không rơi vào 2 mode trên
   return createResponse("error", "Chế độ (Mode) không hợp lệ");
 }
 // =============================================================Kết thúc Reset chung=========================================================================

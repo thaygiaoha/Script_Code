@@ -205,6 +205,21 @@ if (action === "adminResetCloudImages") {
     var val = sheet.getRange("J2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
+  if (action === "normalize") {
+    try {
+      var result = normalizeQuestionBank();
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        activeCount: result.activeCount,
+        deletedCount: result.deletedCount
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: err.toString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
 
   if (action === "saveLastID") {
     var idMoi = e.parameter.id;  

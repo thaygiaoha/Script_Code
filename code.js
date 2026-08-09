@@ -3113,13 +3113,20 @@ function normalizeQuestionBank() {
       continue;
     }
     
-    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> trong toàn bộ các cột
+    // 1. Quét sạch tất cả các cụm <key...> VÀ Chuẩn hóa MathJax trên toàn bộ các cột
     for (var c = 0; c < row.length; c++) {
       if (row[c] !== null && row[c] !== undefined) {
         var valStr = row[c].toString();
+        
+        // Sửa cụm <key...>
         if (/<\/?[kK][eE][yY][^>]*>/g.test(valStr)) {
-          row[c] = valStr.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
+          valStr = valStr.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
         }
+        
+        // Chuẩn hóa lỗi thiếu \ trong MathJax
+        valStr = fixMathJaxString(valStr);
+        
+        row[c] = valStr;
       }
     }
     
@@ -3163,7 +3170,6 @@ function normalizeQuestionBank() {
   }
   
   // 4. Ghi đè lại dữ liệu sạch vào Sheet chỉ bằng 1 lần ghi
-  // Xóa vùng dữ liệu cũ từ dòng 2
   sheet.getRange(2, 1, sheet.getMaxRows() - 1, lastColumn).clearContent();
   
   // Ghi mảng dữ liệu mới nếu có dữ liệu
@@ -3175,5 +3181,30 @@ function normalizeQuestionBank() {
     activeCount: activeCount,
     deletedCount: deletedCount
   };
+}
+/**
+ * Hàm sửa các lỗi gõ thiếu dấu \ trong công thức MathJax/LaTeX
+ */
+function fixMathJaxString(str) {
+  if (!str || typeof str !== 'string') return str;
+
+  return str
+    // 1. Sửa vec{a}, overrightarrow{AB}... bị thiếu \ ở đầu
+    .replace(/(^|[^\\])\b(vec|overrightarrow|overleftarrow|hat|bar|tilde|dot|ddot)\{/g, '$1\\$2{')
+
+    // 2. Sửa left{ hoặc left( ... bị thiếu \ ở left
+    .replace(/(^|[^\\])\b(left|right)([\{\}\(\)\[\]\|\.\ \t])/g, '$1\\$2$3')
+
+    // 3. Khắc phục riêng trường hợp \left... thiếu \right. hoặc thiếu dấu . ở cuối right
+    // Chuyển left{ thành \left\{ nếu thiếu \ trước ngoặc nhọn
+    .replace(/\\left\{/g, '\\left\\{')
+    // Nếu có \right bị đứng một mình ở cuối mà không có dấu . hoặc ngoặc đi kèm -> tự động thêm \right.
+    .replace(/\\right(?!\s*[\{\}\(\)\[\]\|\.])/g, '\\right.')
+
+    // 4. Sửa các môi trường bị thiếu \ trước begin / end (ví dụ: begin{aligned}, end{cases})
+    .replace(/(^|[^\\])\b(begin|end)\{/g, '$1\\$2{')
+
+    // 5. Sửa các lệnh toán học thông dụng khác bị gõ thiếu \ ở đầu
+    .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|infty|le|ge|neq|approx|times|div|cdot)\b/g, '$1\\$2');
 }
 

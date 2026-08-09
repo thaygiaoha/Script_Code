@@ -249,34 +249,67 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   }
   // 6. XÁC MINH THÍ SINH
-  if (type === 'verifyStudent') {
-    const idNumber = params.idnumber;
-    const sbd = params.sbd;
-    const pass = params.pass
+  // 6. XÁC MINH THÍ SINH
+if (type === 'verifyStudent') {
+  try {
+    const idNumber = N9(params.idnumber || "");
+    const sbd = supper(params.sbd || "");
+    const pass = String(params.pass || "").trim();
+
+    // Bọc kiểm tra tham số bắt buộc từ client
+    if (!sbd || !idNumber || !pass) {
+      return createResponse("error", "Thiếu thông tin đăng nhập!");
+    }
+
     const sheet = ss.getSheetByName("danhsach");
+    if (!sheet) {
+      return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
+    }
+
     const lastRow = sheet.getLastRow();
-    // #vip
     if (lastRow < 2) {
-    return createResponse("error", "Danh sách thí sinh trống!");
-      }      
-    // #vip
+      return createResponse("error", "Danh sách thí sinh trống!");
+    }
+
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
-    const key = supper(sbd + "." + idNumber);      
+
     for (let i = 0; i < data.length; i++) {
-      if ((data[i][7] || "").toString().trim() === key && (data[i][8] || "").toString().trim() === pass.toString().trim()) {
-        return createResponse("success", "OK", {
-          name: data[i][1], 
-          class: data[i][2], 
-          limit: data[i][3],
-          limittab: data[i][4], 
-          taikhoanapp: data[i][6], 
-          idnumber: idNumber, 
-          sbd: "'" + sbd
-        });         
+      const dbSbd = supper(data[i][0] || "");
+      const dbIdNumber = N9(data[i][5] || "");
+      const dbPass = String(data[i][8] || "").trim();
+
+      // Kiểm tra SBD & ID trước (Short-circuit evaluation)
+      if (dbSbd === sbd && dbIdNumber === idNumber) {
+        
+        // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
+        if (!dbPass) {
+          return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
+        }
+
+        // Kiểm tra mật khẩu
+        if (dbPass === pass) {
+          return createResponse("success", "OK", {
+            name: data[i][1], 
+            class: data[i][2], 
+            limit: data[i][3],
+            limittab: data[i][4], 
+            taikhoanapp: data[i][6], 
+            idnumber: idNumber, 
+            sbd: "'" + sbd
+          });
+        } else {
+          return createResponse("error", "Mật khẩu không chính xác!");
+        }
       }
     }
-    return createResponse("error", sbd + " không tồn tại!");
+
+    // Chạy hết vòng lặp mà không tìm thấy
+    return createResponse("error", "Số báo danh hoặc Số định danh không tồn tại!");
+  } catch (error) {
+    // Bắt toàn bộ lỗi phát sinh hệ thống, tránh sập app
+    return createResponse("error", "Lỗi hệ thống: " + error.toString());
   }
+}
 
 // #02 Thi theo ma trận
 // load ngân hàng đề
@@ -316,42 +349,45 @@ if (action === "adminResetCloudImages") {
     return createResponse("success", "Load thành công", result);
   }
   //=========== Tìm lời giải ========================
-  if (action === 'getLG') {
-    var idTraCuu = supper(params.id);
-    if (!idTraCuu) return ContentService.createTextOutput("Thiếu ID rồi!").setMimeType(ContentService.MimeType.TEXT);
-    const lastRow = sheetNH.getLastRow();
-   
-        if (lastRow < 2) {
-    return createResponse("error", "Ngân hàng đang trống!");
-      }  
-    var data = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();   
-    for (var i = 0; i < data.length; i++) {
-      if (data[i][0].toString().trim() === idTraCuu) {
-        var qloigiai = data[i][7] || "";
-        var qquestion = data[i][4] || "";
-        var qoption = data[i][5] || "";
-        var qanswer = data[i][6] || "";
-        var randomVersion = Math.floor(Math.random() * 9000) + 1000;
-        if (qloigiai.indexOf(".png'") !== -1) {
-        qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
-        }
-        if (qquestion.indexOf(".png'") !== -1) {
-        qquestion = qquestion.replaceAll(".png'", ".png?v=" + randomVersion + "'");
-        }
+if (action === 'getLG') {
+  try {
+    const idTraCuu = supper(params.id || "");
+    if (!idTraCuu) return createResponse("error", "Thiếu ID tra cứu!");
 
-       var resultObj = {
-          question: String(qquestion),
-          option: String(qoption),
-          answer: String(qanswer),
-          loigiai: String(qloigiai)
+    const lastRow = sheetNH.getLastRow();
+    if (lastRow < 2) return createResponse("error", "Ngân hàng đang trống!");
+
+    const data = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
+    const randomVersion = Math.floor(Math.random() * 9000) + 1000;
+
+    for (let i = 0; i < data.length; i++) {
+      const dbId = (data[i][0] || "").toString().trim();
+
+      if (dbId === idTraCuu) {
+        // Ép kiểu String() ngay từ đầu giúp hàm .replace() luôn an toàn 100%
+        let qquestion = String(data[i][4] || "").replace(/\.png(?=['"]|\s|>|$)/g, ".png?v=" + randomVersion);
+        let qoption   = String(data[i][5] || "");
+        let qanswer   = String(data[i][6] || "");
+        let qloigiai  = String(data[i][7] || "").replace(/\.png(?=['"]|\s|>|$)/g, ".png?v=" + randomVersion);
+
+        const resultObj = {
+          question: qquestion,
+          option: qoption,
+          answer: qanswer,
+          loigiai: qloigiai
         };
 
         return ContentService.createTextOutput(JSON.stringify(resultObj))
           .setMimeType(ContentService.MimeType.JSON);
       }
     }
-    return ContentService.createTextOutput("Không tìm thấy ID này!").setMimeType(ContentService.MimeType.TEXT);
+
+    return createResponse("error", "Không tìm thấy ID câu hỏi này!");
+
+  } catch (error) {
+    return createResponse("error", "Lỗi xử lý getLG: " + error.toString());
   }
+}
   // Tìm câu trùng
  if (action === 'findDuplicateQuestions') {
   const targetTag = e.parameter.targetClassTag;
@@ -394,7 +430,7 @@ if (action === "adminResetCloudImages") {
 
   // 8. LẤY MA TRẬN ĐỀ
   if (type === 'getExamCodes') {
-  const teacherId = supper(params.idnumber);
+  const teacherId = supper(params.idnumber || "");
   const sheet = ss.getSheetByName("matran");
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) {
@@ -409,11 +445,11 @@ if (action === "adminResetCloudImages") {
     const row = data[i];
     
     // Kiểm tra ID giáo viên hoặc tài khoản hệ thống
-    if (row[0].toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
+    if ((row[0] || "").toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
       try {
         // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
-        const openDateVal = row[19]; 
-        const closeDateVal = row[20];
+        const openDateVal = row[19] || ""; 
+        const closeDateVal = row[20] || "";
 
         // 🔥 CHẶN THỜI GIAN THEO HÀM opencloseDate CỦA ANH
         const isPastOpen = opencloseDate(openDateVal, 'open');
@@ -542,9 +578,9 @@ if (action === "adminResetCloudImages") {
 } 
   // lấy ngân hàng theo idgv
   if (action === 'getQuestionsByCode') {
-    const examCode = params.examCode;
-    const idgv = params.idgv;
-    const key = supper(examCode + "." + idgv);
+    const examCode = supper(params.examCode || "");
+    const idgv = N9(params.idgv || "");
+    //const key = supper(examCode + "." + idgv);
     const sheet = ss.getSheetByName("exam_data");
     if (!sheet) return createResponse("error", "Chưa có dữ liệu exam_data");
     const lastRow = sheet.getLastRow();
@@ -555,7 +591,7 @@ if (action === "adminResetCloudImages") {
     const results = [];
 
     for (let i = 0; i < data.length; i++) {      
-      if (supper(data[i][8] || "") === key) {
+      if (supper(data[i][0] || "") === examCode && N9(data[i][7] || "") === idgv) {
         try {
           var qText = String(data[i][4] || "");
           var randomVersion = Math.floor(Math.random() * 9000) + 1000;

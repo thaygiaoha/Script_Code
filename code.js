@@ -549,15 +549,15 @@ if (action === 'getLG') {
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng câu hỏi trống!");
       }  
-  const examCodeInput = e.parameter.examCode || "";
-  const questionIdInput = e.parameter.questionId || "";
-  const idgv = e.parameter.idgv || "";
-  const key = supper(examCodeInput + "." + questionIdInput + "." + idgv);
+  const examCodeInput = supper(e.parameter.examCode || "");
+  const questionIdInput = supper(e.parameter.questionId || "");
+  const idgv = N9(e.parameter.idgv || "");
+  //const key = supper(examCodeInput + "." + questionIdInput + "." + idgv);
 
   const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
   for (let i = 0; i < data.length; i++) {    
-    if (supper(data[i][9] || "") === key) {
+    if (supper(data[i][0] || "") === examCodeInput && supper(data[i][1] || "") === questionIdInput && N9(data[i][7] || "") === idgv) {
 
   return createResponse(
     "success",
@@ -611,11 +611,11 @@ if (action === 'getLG') {
 // #04 chung
   // Tải điểm
 if (action === "downloadScores") {
-    const idgv = e.parameter.idgv; 
-    const exams = e.parameter.exams;     
+    const idgv = (e.parameter.idgv || ""); 
+    const exams = (e.parameter.exams || "");     
     const sheet = ss.getSheetByName("ketqua");
     
-    const keycheck = (exams + "." + idgv).toUpperCase();
+    const keycheck = supper(exams + "." + idgv);
     
     if (!sheet) return ContentService.createTextOutput("Sheet ketqua không tồn tại").setMimeType(ContentService.MimeType.TEXT);
 
@@ -631,7 +631,7 @@ if (action === "downloadScores") {
     const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();   
     
     const filteredData = data
-      .filter(row => String(row[9]).toUpperCase() === keycheck) // Lọc dựa trên cột I (index 9)
+      .filter(row => supper(row[9] || "otrong") === keycheck) // Lọc dựa trên cột I (index 9)
       .map(row => row.slice(0, 9)); // Cắt bỏ cột J, chỉ lấy từ cột A (index 0) đến I (index 8)
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -1151,7 +1151,7 @@ for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = supper(dataDS[i][7] || "");  
   
   // So sánh chuẩn cả 2 điều kiện
-  if (rowSBD === keyds && (dataDS[i][8] || "").toString().trim() === pass.toString().trim()) {
+  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === keyds) {
     student = dataDS[i];
     break; // Tìm thấy rồi thì thoát vòng lặp luôn
   }
@@ -2082,39 +2082,72 @@ function resetData(type, password, mode, exams, idgv) {
 
 // xem điểm
 function getScore(e) {
-  const sbd = e.parameter.sbd;
-  const exams = e.parameter.exams;
-  const idgv = e.parameter.idgv;
-  const key = supper(exams + "." + sbd + "." + idgv);
+  try {
+    // 1. Lấy tham số an toàn từ Client
+    const params = (e && e.parameter) ? e.parameter : {};
+    
+    // Bọc chuẩn hóa dữ liệu đầu vào ngay từ đầu
+    const searchExams = supper(params.exams || "");
+    const searchSbd   = supper(params.sbd || "");
+    const searchIdgv  = N9(params.idgv || "");
 
-  const sheet = ss.getSheetByName("ketqua");
-  const data = sheet.getDataRange().getValues();
+    if (!searchExams || !searchSbd || !searchIdgv) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", message: "Thiếu thông tin tra cứu!" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
-  const results = data.slice(1).filter(row =>
-    row[10].toString().trim() === key
-  );
+    const sheet = ss.getSheetByName("ketqua");
+    if (!sheet) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", message: "Không tìm thấy sheet kết quả!" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
-  if (results.length === 0) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "not_found" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. Lấy dữ liệu 8 cột đầu tiên (A -> H: Cột H là cột thứ 8)
+    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+
+    // 3. Vòng lặp so sánh từng cột (Cột B = index 1, Cột C = index 2, Cột H = index 7)
+    for (let i = 0; i < data.length; i++) {
+      const dbExams = supper(data[i][1] || ""); // Cột B
+      const dbSbd   = supper(data[i][2] || ""); // Cột C
+      const dbIdgv  = N9(data[i][7] || "");     // Cột H (Index 7)
+
+      // So sánh dừng sớm (Nếu cột B sai thì bỏ qua luôn Cột C và H)
+      if (dbSbd === searchSbd && dbExams === searchExams && dbIdgv === searchIdgv) {
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            status: "success",
+            data: {
+              exams: data[i][1],
+              sbd: data[i][2],
+              name: data[i][3],
+              class: data[i][4],
+              tongdiem: data[i][5],
+              time: data[i][6]
+            }
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // Duyệt hết bảng mà không khớp
     return ContentService
       .createTextOutput(JSON.stringify({ status: "not_found" }))
       .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", message: "Lỗi hệ thống: " + error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
-
-  const row = results[0];
-
-  return ContentService
-    .createTextOutput(JSON.stringify({
-      status: "success",
-      data: {
-        exams: row[1],
-        sbd: row[2],
-        name: row[3],
-        class: row[4],
-        tongdiem: row[5],
-        time: row[6]
-      }
-    }))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function createResponseW(status, message, data = null) {

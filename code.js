@@ -3,7 +3,48 @@
 function mainDoGet(e) {
 const params = e.parameter;
   const type = params.type;
-  const action = params.action || e.parameter.action;  
+  const action = params.action || e.parameter.action;
+  // ACTION: Lấy dữ liệu đánh giá
+  if (action === "getRating") {
+    const sheetDG = ssAdmin.getSheetByName("danhgia");
+    
+    if (!sheetDG) {
+      return ContentService.createTextOutput(JSON.stringify({
+        avgStars: "5.0", totalReviews: 0, fiveStars: 0, fourStars: 0, threeStars: 0, twoStars: 0, oneStar: 0
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const values = sheetDG.getDataRange().getValues();
+    let count5 = 0, count4 = 0, count3 = 0, count2 = 0, count1 = 0;
+    let totalStars = 0;
+    let totalReviews = 0;
+
+    for (let i = 1; i < values.length; i++) {
+      const rowStar = Number(values[i][1]);
+      if (rowStar >= 1 && rowStar <= 5) {
+        totalReviews++;
+        totalStars += rowStar;
+        if (rowStar === 5) count5++;
+        if (rowStar === 4) count4++;
+        if (rowStar === 3) count3++;
+        if (rowStar === 2) count2++;
+        if (rowStar === 1) count1++;
+      }
+    }
+
+    const avgStars = totalReviews > 0 ? (totalStars / totalReviews).toFixed(1) : "5.0";
+
+    return ContentService.createTextOutput(JSON.stringify({
+      avgStars: avgStars,
+      totalReviews: totalReviews,
+      fiveStars: count5,
+      fourStars: count4,
+      threeStars: count3,
+      twoStars: count2,
+      oneStar: count1
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
   // Xóa ảnh trong cloud của Giaovien
   // --- DAN NOI TIEP VAO TRONG HAM mainDoGet(e) ---
 if (action === "adminResetCloudImages") {
@@ -754,6 +795,69 @@ const lock = LockService.getScriptLock();
       data = e.parameter;
     }
     const action = (data.action || e.parameter.action || "").toString();
+    // ACTION: Lưu đánh giá học sinh
+    if (action === "submitRating" || action === "rate") {
+      let sheetDG = ssAdmin.getSheetByName("danhgia");
+      
+      // Nếu chưa có sheet thì tự tạo và viết Header
+      if (!sheetDG) {
+        sheetDG = ssAdmin.insertSheet("danhgia");
+        sheetDG.appendRow([
+          "Timestamp", "stars", "name", "class", 
+          "idNumber", "account", "comment", 
+          "fullstars", "5stars", "4stars", "3stars", "2stars", "1stars"
+        ]);
+      }
+
+      const timestamp = new Date();
+      const stars = Number(data.stars) || 5;
+      const name = data.name || "";
+      const studentClass = data.class || "";
+      const idNumber = data.idNumber || "";
+      const account = data.account || "";
+      const comment = data.comment || "";
+
+      // Ghi một dòng mới vào Sheet
+      sheetDG.appendRow([
+        timestamp, stars, name, studentClass, 
+        idNumber, account, comment, 
+        "", "", "", "", "", ""
+      ]);
+
+      // Tính toán lại thống kê
+      const values = sheetDG.getDataRange().getValues();
+      let count5 = 0, count4 = 0, count3 = 0, count2 = 0, count1 = 0;
+      let totalStars = 0;
+      let totalReviews = 0;
+
+      for (let i = 1; i < values.length; i++) {
+        const rowStar = Number(values[i][1]);
+        if (rowStar >= 1 && rowStar <= 5) {
+          totalReviews++;
+          totalStars += rowStar;
+          if (rowStar === 5) count5++;
+          if (rowStar === 4) count4++;
+          if (rowStar === 3) count3++;
+          if (rowStar === 2) count2++;
+          if (rowStar === 1) count1++;
+        }
+      }
+
+      const avgStars = totalReviews > 0 ? (totalStars / totalReviews).toFixed(1) : "5.0";
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        stats: {
+          avgStars: avgStars,
+          totalReviews: totalReviews,
+          fiveStars: count5,
+          fourStars: count4,
+          threeStars: count3,
+          twoStars: count2,
+          oneStar: count1
+        }
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     // 3107them5: Route chấm lại bài thi (POST)
     if (action === "regradeExams") {

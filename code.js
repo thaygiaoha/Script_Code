@@ -2280,7 +2280,12 @@ function jsonOutput(obj) {
 }
 
 function N9(id) {
-  return id.toString().toUpperCase().trim().slice(-9);
+  if (id === null || id === undefined) return "";
+  var str = id.toString().replace(/[^0-9a-zA-Z]/g, "").trim();
+  if (str.length > 1) {
+    str = str.toLowerCase().slice(-9);
+  }
+  return str;
 }
 function Right(text, n) {
   return text.toString().trim().slice(-n);

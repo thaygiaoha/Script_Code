@@ -1167,18 +1167,25 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
   // 3. Nếu vượt qua kiểm tra, tiến hành map và lưu toàn bộ
   var rows = data.map(function (item) {
-    return [
-      item.id,
-      item.classTag,
-      item.type,
-      item.part,
-      item.question,
-      item.options || "",
-      item.answer || "",
-      item.loigiai || "",
-      now
-    ];
-  });
+  // Lấy giá trị answer thô, ép về chuỗi an toàn
+  let rawAnswer = item.answer != null ? String(item.answer) : "";
+
+  // Nếu là câu trả lời ngắn: đổi tất cả dấu phẩy thành dấu chấm và xoá khoảng trắng thừa
+  if (item.type === "short-answer") {
+    rawAnswer = rawAnswer.replace(/,/g, '.').trim();
+  }
+  return [
+    item.id,
+    item.classTag,
+    item.type,
+    item.part,
+    item.question,
+    item.options || "",
+    rawAnswer,
+    item.loigiai || "",
+    now
+  ];
+});
 
   sheetNH.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
   sheetNH.getRange("D:H").setWrap(true);

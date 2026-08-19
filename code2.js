@@ -332,8 +332,7 @@ if (action === "adminResetCloudImages") {
     
     return ContentService.createTextOutput(JSON.stringify(values))
       .setMimeType(ContentService.MimeType.JSON);
-  }
-  // 6. XÁC MINH THÍ SINH
+  } 
   // 6. XÁC MINH THÍ SINH
 if (type === 'verifyStudent') {
   try {

@@ -334,57 +334,70 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   } 
   // 6. XÁC MINH THÍ SINH
-// 2. Nhánh xử lý XÁC MINH HỌC SINH
-    if (type === 'verifyStudent') {
-      const idNumber = String(data.idgv || "").trim();
-      const sbd = supper(data.sbd || "");
-      const pass = String(data.pass || "").trim();
-      const reqSheetId = data.sheetId || "";
+if (type === 'verifyStudent') {
+  try {
+    const idNumber = N9(params.idnumber || params.idgv || "");
+    const sbd = supper(params.sbd || "");
+    const pass = String(params.pass || "").trim();
+    const reqSheetId = params.sheetId || "";
 
-      if (!sbd || !idNumber || !pass) {
-        return createResponse("error", "Thiếu thông tin đăng nhập!");
-      }
+    // Bọc kiểm tra tham số bắt buộc từ client
+    if (!sbd || !idNumber || !pass) {
+      return createResponse("error", "Thiếu thông tin đăng nhập!");
+    }
 
-      const ss2 = getSS2(reqSheetId, idNumber);
-      const sheet = ss2.getSheetByName("danhsach");
-      if (!sheet) {
-        return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
-      }
+    const ss2 = getSS2(reqSheetId, idNumber);
+    const sheet = ss2.getSheetByName("danhsach");
+    if (!sheet) {
+      return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
+    }
 
-      const lastRow = sheet.getLastRow();
-      if (lastRow < 2) {
-        return createResponse("error", "Danh sách thí sinh trống!");
-      }
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return createResponse("error", "Danh sách thí sinh trống!");
+    }
 
-      const values = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+    const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
 
-      for (let i = 0; i < values.length; i++) {
-        const dbSbd = supper(values[i][0] || "");
-        const dbPass = String(values[i][8] || "").trim();
+    for (let i = 0; i < data.length; i++) {
+      const dbSbd = supper(data[i][0] || "");
+      const dbIdNumber = N9(data[i][5] || "");
+      const dbPass = String(data[i][8] || "").trim();
 
-        if (!dbSbd || !dbPass) continue;
+      // Kiểm tra SBD & ID trước (Short-circuit evaluation)
+      if (dbSbd === sbd && dbIdNumber === idNumber) {
+        
+        // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
+        if (!dbPass) {
+          return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
+        }
 
-        if (dbSbd === sbd) {
-          if (dbPass.toUpperCase() === pass.toUpperCase()) {
-            const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
-            return createResponse("success", "OK", {
-              name: values[i][1],
-              class: values[i][2],
-              limit: values[i][3],
-              limittab: values[i][4],
-              taikhoanapp: values[i][6],
-              idnumber: idNumber,
-              sbd: "'" + sbd,
-              sheetId: matchedSheetId
-            });
-          } else {
-            return createResponse("error", "Mật khẩu không chính xác!");
-          }
+        // Kiểm tra mật khẩu
+        if (dbPass === pass) {
+          const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
+          return createResponse("success", "OK", {
+            name: data[i][1], 
+            class: data[i][2], 
+            limit: data[i][3],
+            limittab: data[i][4], 
+            taikhoanapp: data[i][6], 
+            idnumber: idNumber, 
+            sbd: "'" + sbd,
+            sheetId: matchedSheetId
+          });
+        } else {
+          return createResponse("error", "Mật khẩu không chính xác!");
         }
       }
-
-      return createResponse("error", "Số báo danh không tồn tại trên hệ thống!");
     }
+
+    // Chạy hết vòng lặp mà không tìm thấy
+    return createResponse("error", "Số báo danh hoặc Số định danh không tồn tại!");
+  } catch (error) {
+    // Bắt toàn bộ lỗi phát sinh hệ thống, tránh sập app
+    return createResponse("error", "Lỗi hệ thống: " + error.toString());
+  }
+}
 
 // #02 Thi theo ma trận
 // load ngân hàng đề

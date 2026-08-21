@@ -334,7 +334,8 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   } 
   // 6. XÁC MINH THÍ SINH
-if (type === 'verifyStudent') {
+// 2. Nhánh xử lý XÁC MINH HỌC SINH
+    if (type === 'verifyStudent') {
       const idNumber = String(data.idgv || "").trim();
       const sbd = supper(data.sbd || "");
       const pass = String(data.pass || "").trim();
@@ -363,9 +364,7 @@ if (type === 'verifyStudent') {
 
         if (!dbSbd || !dbPass) continue;
 
-        // Bước 1: Khớp SBD
         if (dbSbd === sbd) {
-          // Bước 2: So sánh mật khẩu (không phân biệt hoa/thường để tránh lỗi Caps Lock)
           if (dbPass.toUpperCase() === pass.toUpperCase()) {
             const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
             return createResponse("success", "OK", {

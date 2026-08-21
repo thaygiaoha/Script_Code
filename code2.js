@@ -336,7 +336,7 @@ if (action === "adminResetCloudImages") {
   // 6. XÁC MINH THÍ SINH
 if (type === 'verifyStudent') {
   try {
-    const idNumber = String(params.idnumber || params.idgv || "").trim();
+    const idNumber = N9(params.idnumber || params.idgv || "");
     const sbd = supper(params.sbd || "");
     const pass = String(params.pass || "").trim();
     const reqSheetId = params.sheetId || "";
@@ -360,17 +360,19 @@ if (type === 'verifyStudent') {
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
 
     for (let i = 0; i < data.length; i++) {
-      const dbSbd = supper(data[i][0] || "");      
+      const dbSbd = supper(data[i][0] || "");
+      const dbIdNumber = N9(data[i][5] || "");
       const dbPass = String(data[i][8] || "").trim();
 
-      // Nếu dòng này thiếu SBD hoặc Mật khẩu thì bỏ qua, duyệt tiếp dòng sau (không return ngắt)
-      if (!dbSbd || !dbPass) {
-        continue; 
-      }
+      // Kiểm tra SBD & ID trước (Short-circuit evaluation)
+      if (dbSbd === sbd && dbIdNumber === idNumber) {
+        
+        // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
+        if (!dbPass) {
+          return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
+        }
 
-      // STEP 1: Tìm đúng Học sinh theo SBD trước
-      if (dbSbd === sbd) {
-        // STEP 2: Khi đã đúng SBD, mới kiểm tra Mật khẩu
+        // Kiểm tra mật khẩu
         if (dbPass === pass) {
           const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
           return createResponse("success", "OK", {
@@ -384,15 +386,13 @@ if (type === 'verifyStudent') {
             sheetId: matchedSheetId
           });
         } else {
-          // Đúng SBD nhưng sai mật khẩu -> Dừng và báo lỗi rõ ràng
           return createResponse("error", "Mật khẩu không chính xác!");
         }
       }
     }
 
-    // Chạy hết cả vòng lặp mà không có dòng nào trùng dbSbd === sbd
-    return createResponse("error", "Số báo danh không tồn tại trên hệ thống!");
-
+    // Chạy hết vòng lặp mà không tìm thấy
+    return createResponse("error", "Số báo danh hoặc Số định danh không tồn tại!");
   } catch (error) {
     // Bắt toàn bộ lỗi phát sinh hệ thống, tránh sập app
     return createResponse("error", "Lỗi hệ thống: " + error.toString());
@@ -537,7 +537,7 @@ if (action === 'getLG') {
     const row = data[i];
     
     // Kiểm tra ID giáo viên hoặc tài khoản hệ thống
-    if ((row[1]) {
+    if ((row[0] || "").toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
       try {
         // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
         const openDateVal = row[19] || ""; 
@@ -646,7 +646,7 @@ if (action === 'getLG') {
   const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
   for (let i = 0; i < data.length; i++) {    
-    if (supper(data[i][0] || "") === examCodeInput && supper(data[i][1] || "") === questionIdInput) {
+    if (supper(data[i][0] || "") === examCodeInput && supper(data[i][1] || "") === questionIdInput && N9(data[i][7] || "") === idgv) {
 
   return createResponse(
     "success",
@@ -680,7 +680,7 @@ if (action === 'getLG') {
     const results = [];
 
     for (let i = 0; i < data.length; i++) {      
-      if (supper(data[i][0] || "") === examCode) {
+      if (supper(data[i][0] || "") === examCode && N9(data[i][7] || "") === idgv) {
         try {
           var qText = String(data[i][4] || "");
           var randomVersion = Math.floor(Math.random() * 9000) + 1000;
@@ -700,10 +700,11 @@ if (action === 'getLG') {
   // Tải điểm
 if (action === "downloadScores") {
     const idgv = (e.parameter.idgv || ""); 
-    const exams = supper(e.parameter.exams || "");     
+    const exams = (e.parameter.exams || "");     
     const ss2 = getSS2(e.parameter.sheetId, idgv);
-    const sheet = ss2.getSheetByName("ketqua");  
+    const sheet = ss2.getSheetByName("ketqua");
     
+    const keycheck = supper(exams + "." + idgv);
     
     if (!sheet) return ContentService.createTextOutput("Sheet ketqua không tồn tại").setMimeType(ContentService.MimeType.TEXT);
 
@@ -719,7 +720,7 @@ if (action === "downloadScores") {
     const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();   
     
     const filteredData = data
-      .filter(row => supper(row[1] || "otrong") === exams) // Lọc dựa trên cột I (index 9)
+      .filter(row => supper(row[9] || "otrong") === keycheck) // Lọc dựa trên cột I (index 9)
       .map(row => row.slice(0, 9)); // Cắt bỏ cột J, chỉ lấy từ cột A (index 0) đến I (index 8)
     
     return ContentService.createTextOutput(JSON.stringify({

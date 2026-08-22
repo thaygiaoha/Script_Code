@@ -336,10 +336,10 @@ if (action === "adminResetCloudImages") {
   // 6. XÁC MINH THÍ SINH
 if (type === 'verifyStudent') {
   try {
-    const idNumber = N9(params.idnumber || params.idgv || "");
-    const sbd = supper(params.sbd || "");
-    const pass = supper(params.pass || "").trim();
-    const reqSheetId = params.sheetId || "";
+    const idNumber = N9(data.idnumber || data.idgv || params.idnumber || params.idgv || "");
+    const sbd = supper(data.sbd || params.sbd || "");
+    const pass = supper(data.pass || params.pass || "").trim();
+    const reqSheetId = data.sheetId || params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
     if (!sbd || !idNumber || !pass) {

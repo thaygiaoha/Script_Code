@@ -334,15 +334,12 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   } 
   // 6. XÁC MINH THÍ SINH
-if (action === 'verifyStudent' || type === 'verifyStudent') {
+if (type === 'verifyStudent') {
   try {
-    const idNumber = N9(data.idgv || data.idnumber || params.idnumber || params.idgv || "");
-    const sbd = normalizeStr(data.sbd || params.sbd || "");
-    // Loại bỏ tất cả khoảng trắng (kể cả khoảng trắng không ngắt \u00A0)
-    const clean = (str) => String(str || "").replace(/\s+/g, ''); 
-
-    const pass = normalizeStr(clean(data.pass || params.pass || ""));   
-    const reqSheetId = data.sheetId || params.sheetId || "";
+    const idNumber = N9(params.idnumber || params.idgv || "");
+    const sbd = supper(params.sbd || "");
+    const pass = supper(params.pass || "").trim();
+    const reqSheetId = params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
     if (!sbd || !idNumber || !pass) {
@@ -359,10 +356,13 @@ if (action === 'verifyStudent' || type === 'verifyStudent') {
     if (lastRow < 2) {
       return createResponse("error", "Danh sách thí sinh trống!");
     }
+
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+
     for (let i = 0; i < data.length; i++) {
-      const dbSbd = normalizeStr(data[i][0] || "");      
-      const dbPass = normalizeStr(clean(data[i][8] || ""));
+      const dbSbd = supper(data[i][0] || "");
+      const dbIdNumber = N9(data[i][5] || "");
+      const dbPass = supper(data[i][8] || "").trim();
 
       // Kiểm tra SBD & ID trước (Short-circuit evaluation)
       if (dbSbd === sbd) {
@@ -3389,12 +3389,4 @@ function fixMathJaxString(str) {
 
     // 5. Sửa các lệnh toán học thông dụng khác bị gõ thiếu \ ở đầu
     .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|infty|le|ge|neq|approx|times|div|cdot)\b/g, '$1\\$2');
-}
-// Viết Hoa 
-function normalizeStr(str) {
-  return String(str || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Xóa dấu tiếng Việt
-    .replace(/[^a-zA-Z0-9]/g, "")    // Bỏ sạch khoảng trắng & ký tự đặc biệt/ký tự ẩn Unikey
-    .toUpperCase();
 }

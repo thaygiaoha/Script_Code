@@ -1372,7 +1372,7 @@ var student = null;
 for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = supper(dataDS[i][0] || "");  
   
-  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === supper(sbd) {
+  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === supper(sbd)) {
     student = dataDS[i];
     break;
   }
@@ -1446,7 +1446,7 @@ if (closeTime && now > closeTime) {
         if (!sheetData) return createResponseW("error", "Không tìm thấy sheet exam_data!");
         const allRows = sheetData.getDataRange().getValues();
         const filteredQuestions = allRows.slice(1)
-          .filter(r => supper(r[]) === supper(examCode)
+          .filter(r => supper(r[0]) === supper(examCode))
           .map(r => {
             let raw = r[4];
             if (!raw) return null;
@@ -2394,12 +2394,17 @@ function deleteFastAll(text, colNumber, name, targetSS) {
 
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
   var keyN9 = N9(text);
+  var keySupper = supper(text);
   var filteredData = data.filter(function(row) {
     var cellVal = row[colNumber - 1];
     
     var cellN9 = N9(cellVal);
+    var cellSupper = supper(cellVal);
 
-    return !(cellN9 === keyN9);
+    if (text) {
+      return !(cellN9 === keyN9 || (keySupper && cellSupper === keySupper));
+    }
+    return false;
   });
 
   var deletedCount = data.length - filteredData.length;
@@ -2946,11 +2951,9 @@ function regradeExams(idgv, password, examCode, sheetId) {
     var sheetExamData = ss2.getSheetByName("exam_data");
     if (sheetExamData && sheetExamData.getLastRow() >= 2) {
       var dataEd = sheetExamData.getRange(2, 1, sheetExamData.getLastRow() - 1, 10).getValues();
-      var keyEd = supper(examStr + "." + idgvStr);
       for (var edIdx = 0; edIdx < dataEd.length; edIdx++) {
         var edRow = dataEd[edIdx];
-        var rowEdKey = supper(String(edRow[8] || edRow[0] + "." + edRow[7]));
-        if (rowEdKey === keyEd || (supper(edRow[0]) === targetExamSupper && (supper(edRow[7]) === targetIdgvSupper || N9(edRow[7]) === targetIdgvN9))) {
+        if (supper(String(edRow[0])) === targetExamSupper) {
           var rawQ = String(edRow[4] || "");
           if (rawQ) {
             try {

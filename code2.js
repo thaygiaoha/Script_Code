@@ -1,6 +1,6 @@
 // --- FILE TỔNG TRÊN GITHUB ---07/07/26
 
-// Lấy sheetId từ cột J (cột 10) của sheet 'idgv' trong ssAdmin theo idgv
+// Lấy sheetId từ sheet 'idgv' trong ssAdmin theo idgv (hỗ trợ cột J, K hoặc quét tự động)
 function getSheetIdByIdgv(idgv) {
   if (!idgv) return "";
   try {
@@ -8,15 +8,26 @@ function getSheetIdByIdgv(idgv) {
     if (!sheet) return "";
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return "";
-    var data = sheet.getRange(2, 1, lastRow - 1, 10).getValues(); // Cột A -> J
-    var targetStr = String(idgv).trim().toUpperCase();
+    var lastCol = sheet.getLastColumn();
+    var data = sheet.getRange(2, 1, lastRow - 1, Math.max(lastCol, 15)).getValues();
+    var targetStr = String(idgv).replace(/'/g, "").trim().toUpperCase();
     var targetN9 = N9(idgv);
     for (var i = 0; i < data.length; i++) {
-      var colAStr = String(data[i][0] || "").trim().toUpperCase();
+      var colAStr = String(data[i][0] || "").replace(/'/g, "").trim().toUpperCase();
       var colAN9 = N9(data[i][0] || "");
-      if (colAStr === targetStr || (targetN9 && colAN9 === targetN9) || supper(colAStr) === supper(targetStr)) {
-        var sid = String(data[i][9] || "").trim(); // Cột J là index 9
-        if (sid) return sid;
+      if (colAStr === targetStr || (targetN9 && colAN9 === targetN9) || (targetStr && supper(colAStr) === targetStr)) {
+        // Ưu tiên kiểm tra cột J (index 9) và cột K (index 10)
+        var sidJ = String(data[i][9] || "").replace(/'/g, "").trim();
+        if (sidJ && sidJ.length >= 25 && sidJ.indexOf(" ") === -1) return sidJ;
+        var sidK = String(data[i][10] || "").replace(/'/g, "").trim();
+        if (sidK && sidK.length >= 25 && sidK.indexOf(" ") === -1) return sidK;
+        // Quét tất cả các cột trong dòng này để tìm ID Google Sheet hợp lệ
+        for (var col = 1; col < data[i].length; col++) {
+          var val = String(data[i][col] || "").replace(/'/g, "").trim();
+          if (val.length >= 25 && val.indexOf(" ") === -1 && !val.startsWith("http") && val.indexOf("/") === -1) {
+            return val;
+          }
+        }
       }
     }
   } catch (err) {
@@ -27,7 +38,7 @@ function getSheetIdByIdgv(idgv) {
 
 // Mở Spreadsheet của Giáo viên (ss2) theo sheetId hoặc tự động tra cứu từ idgv
 function getSS2(sheetId, idgv) {
-  var sid = (sheetId || "").toString().trim();
+  var sid = (sheetId || "").toString().replace(/'/g, "").trim();
   if (!sid && idgv) {
     sid = getSheetIdByIdgv(idgv);
   }
@@ -334,19 +345,19 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   } 
   // 6. XÁC MINH THÍ SINH
-if (type === 'verifyStudent') {
+if (type === 'verifyStudent' || action === 'verifyStudent') {
   try {
-    const idNumber = N9(data.idnumber || data.idgv || params.idnumber || params.idgv || "");
-    const sbd = supper(data.sbd || params.sbd || "");
-    const pass = supper(data.pass || params.pass || "").trim();
-    const reqSheetId = data.sheetId || params.sheetId || "";
+    const rawIdgv = (params.idnumber || params.idgv || "").toString().trim();
+    const sbd = supper(params.sbd || "");
+    const pass = supper(params.pass || "").trim();
+    const reqSheetId = params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
-    if (!sbd || !idNumber || !pass) {
+    if (!sbd || !rawIdgv || !pass) {
       return createResponse("error", "Thiếu thông tin đăng nhập!");
     }
 
-    const ss2 = getSS2(reqSheetId, idNumber);
+    const ss2 = getSS2(reqSheetId, rawIdgv);
     const sheet = ss2.getSheetByName("danhsach");
     if (!sheet) {
       return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
@@ -357,13 +368,13 @@ if (type === 'verifyStudent') {
       return createResponse("error", "Danh sách thí sinh trống!");
     }
 
-    const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+    const listData = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
 
-    for (let i = 0; i < data.length; i++) {
-      const dbSbd = supper(data[i][0] || "");      
-      const dbPass = supper(data[i][8] || "").trim();
+    for (let i = 0; i < listData.length; i++) {
+      const dbSbd = supper(listData[i][0] || "");      
+      const dbPass = supper(listData[i][8] || "").trim();
 
-      // Kiểm tra SBD & ID trước (Short-circuit evaluation)
+      // Kiểm tra SBD trước
       if (dbSbd === sbd) {
         
         // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
@@ -373,14 +384,14 @@ if (type === 'verifyStudent') {
 
         // Kiểm tra mật khẩu
         if (dbPass === pass) {
-          const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
+          const matchedSheetId = reqSheetId || getSheetIdByIdgv(rawIdgv);
           return createResponse("success", "OK", {
-            name: data[i][1], 
-            class: data[i][2], 
-            limit: data[i][3],
-            limittab: data[i][4], 
-            taikhoanapp: data[i][6], 
-            idnumber: idNumber, 
+            name: listData[i][1], 
+            class: listData[i][2], 
+            limit: listData[i][3],
+            limittab: listData[i][4], 
+            taikhoanapp: listData[i][6], 
+            idnumber: rawIdgv, 
             sbd: "'" + sbd,
             sheetId: matchedSheetId
           });
@@ -852,16 +863,16 @@ const lock = LockService.getScriptLock();
     // 2208them1: Xử lý xác minh thí sinh qua POST (không phụ thuộc URL searchParams)
     if (action === "verifyStudent" || data.type === "verifyStudent") {
       try {
-        const idNumber = N9(data.idnumber || data.idgv || "");
-        const sbd = supper(data.sbd || "");
-        const pass = String(data.pass || "").trim();
-        const reqSheetId = data.sheetId || "";
+        const rawIdgv = (data.idnumber || data.idgv || e.parameter.idnumber || e.parameter.idgv || "").toString().trim();
+        const sbd = supper(data.sbd || e.parameter.sbd || "");
+        const pass = supper(data.pass || e.parameter.pass || "").trim();
+        const reqSheetId = data.sheetId || e.parameter.sheetId || "";
 
-        if (!sbd || !idNumber || !pass) {
+        if (!sbd || !rawIdgv || !pass) {
           return createResponse("error", "Vui lòng nhập đủ ID Giáo viên, SBD và Mật khẩu!");
         }
 
-        const ss2 = getSS2(reqSheetId, idNumber);
+        const ss2 = getSS2(reqSheetId, rawIdgv);
         const sheet = ss2.getSheetByName("danhsach");
         if (!sheet) {
           return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
@@ -876,21 +887,21 @@ const lock = LockService.getScriptLock();
 
         for (let i = 0; i < listData.length; i++) {
           const dbSbd = supper(listData[i][0] || "");          
-          const dbPass = String(listData[i][8] || "").trim();
+          const dbPass = supper(listData[i][8] || "").trim();
 
           if (dbSbd === sbd) {
             if (!dbPass) {
               return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
             }
             if (dbPass === pass) {
-              const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
+              const matchedSheetId = reqSheetId || getSheetIdByIdgv(rawIdgv);
               return createResponse("success", "OK", {
                 name: listData[i][1], 
                 class: listData[i][2], 
                 limit: listData[i][3],
                 limittab: listData[i][4], 
                 taikhoanapp: listData[i][6], 
-                idnumber: idNumber, 
+                idnumber: rawIdgv, 
                 sbd: "'" + sbd,
                 sheetId: matchedSheetId
               });
@@ -900,7 +911,7 @@ const lock = LockService.getScriptLock();
           }
         }
 
-        return createResponse("error", "Số báo danh hoặc Số định danh không tồn tại!");
+        return createResponse("error", "Số báo danh không tồn tại trong danh sách!");
       } catch (error) {
         return createResponse("error", "Lỗi hệ thống: " + error.toString());
       }
@@ -1372,7 +1383,7 @@ var student = null;
 for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = supper(dataDS[i][0] || "");  
   
-  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === supper(sbd)) {
+  if (supper(dataDS[i][8] || "").trim() === supper(pass).trim() && rowSBD === supper(sbd)) {
     student = dataDS[i];
     break;
   }

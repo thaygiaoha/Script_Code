@@ -338,7 +338,10 @@ if (action === 'verifyStudent' || type === 'verifyStudent') {
   try {
     const idNumber = N9(data.idgv || data.idnumber || params.idnumber || params.idgv || "");
     const sbd = supper(data.sbd || params.sbd || "");
-    const pass = String(data.pass || params.pass || "").trim();
+    // Loại bỏ tất cả khoảng trắng (kể cả khoảng trắng không ngắt \u00A0)
+    const clean = (str) => String(str || "").replace(/\s+/g, ''); 
+
+    const pass = clean(data.pass || params.pass || "");   
     const reqSheetId = data.sheetId || params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
@@ -359,7 +362,7 @@ if (action === 'verifyStudent' || type === 'verifyStudent') {
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
     for (let i = 0; i < data.length; i++) {
       const dbSbd = supper(data[i][0] || "");      
-      const dbPass = String(data[i][8] || "").trim();
+      const dbPass = clean(data[i][8] || "");
 
       // Kiểm tra SBD & ID trước (Short-circuit evaluation)
       if (dbSbd === sbd) {

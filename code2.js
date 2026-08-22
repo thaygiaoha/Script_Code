@@ -533,20 +533,21 @@ if (action === 'getLG') {
     return createResponse("error", "Ma trận trống!");
   }  
 
-  // 🔥 SỬA TỪ 19 THÀNH 21: Quét thêm cột T (openDate - 20) và cột U (closeDate - 21)
-  const data = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
+  // 2208sua1: Quét 23 cột (từ cột A đến cột W - lớp áp dụng)
+  const data = sheet.getRange(2, 1, lastRow - 1, 23).getValues();
   const results = [];
   
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
-    const rowTId = (row[0] || "").toString().trim();
     
     // Kiểm tra ID giáo viên hoặc tài khoản hệ thống
-    if (rowTId === teacherId || supper(rowTId) === teacherId || N9(rowTId) === N9(teacherId) || rowTId === "SYSTEM") {
+    if ((row[0] || "").toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
       try {
         // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
         const openDateVal = row[19] || ""; 
         const closeDateVal = row[20] || "";
+        // 2208them1: Đọc lớp từ cột W (chỉ số mảng 22)
+        const targetClass = (row[22] || "").toString().trim();
 
         // 🔥 CHẶN THỜI GIAN THEO HÀM opencloseDate CỦA ANH
         const isPastOpen = opencloseDate(openDateVal, 'open');
@@ -558,6 +559,7 @@ if (action === 'getLG') {
             code: row[1].toString(), 
             name: row[2].toString(), 
             topics: JSON.parse(row[3]),
+            targetClass: targetClass, // 2208them1: Lớp dành cho mã đề
             fixedConfig: {
               duration: parseInt(row[4]), 
               numMC: JSON.parse(row[5]), 
@@ -1232,7 +1234,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         "'" + supper(toStr(data.makiemtra) + "." + toStr(data.gvId)),
         "'" + toStr(data.openDate),
         "'" + toStr(data.closeDate),
-        now        
+        now,
+        "'" + supper(toStr(data.lop || data.class || data.targetClass || ""))
       ];
       const key = supper(data.gvPass + "." + data.gvId);
       const sheetId = ssAdmin.getSheetByName("idgv");

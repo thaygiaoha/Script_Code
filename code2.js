@@ -1036,6 +1036,14 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
     const theloai = data.theloai;
+    // KIỂM TRA THỜI GIAN TỐI THIỂU (600 Giây)
+    const MIN_TIME_SECONDS = 600; 
+    if (Number(thoiGian) < MIN_TIME_SECONDS) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "error", 
+        message: "Thời gian làm bài tối thiểu là 10 phút. Bạn chưa đủ điều kiện nộp bài!" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     // 3. TÌM HÀNG TRỐNG TIẾP THEO
      const vals = sheetKq.getDataRange().getValues();

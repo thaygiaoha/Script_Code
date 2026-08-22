@@ -337,10 +337,10 @@ if (action === "adminResetCloudImages") {
   // 2308sua1: Bắt cả type và action cho verifyStudent trong mainDoGet, hỗ trợ so khớp cả SBD/IDGV lẫn khóa H (sbd.idgv)
 if (type === 'verifyStudent' || action === 'verifyStudent') {
   try {
-    const idNumber = N9(data.idgv || data.idnumber || params.idnumber || params.idgv || "");
-    const sbd = supper(data.sbd || params.sbd || "");
-    const pass = String(data.pass || params.pass || "").trim();
-    const reqSheetId = data.sheetId || params.sheetId || "";
+    const idNumber = N9(params.idnumber || params.idgv || "");
+    const sbd = supper(params.sbd || "");
+    const pass = String(params.pass || "").trim();
+    const reqSheetId = params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
     if (!sbd || !idNumber || !pass) {
@@ -359,7 +359,7 @@ if (type === 'verifyStudent' || action === 'verifyStudent') {
     }
 
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
-    //const keyds = supper(sbd + "." + idNumber);
+    const keyds = supper(sbd + "." + idNumber);
 
     for (let i = 0; i < data.length; i++) {
       const dbSbd = supper(data[i][0] || "");
@@ -368,7 +368,7 @@ if (type === 'verifyStudent' || action === 'verifyStudent') {
       const dbPass = String(data[i][8] || "").trim();
 
       // Kiểm tra SBD & ID hoặc khóa ghép (Short-circuit evaluation)
-      if ((dbSbd === sbd) {
+      if ((dbSbd === sbd && (dbIdNumber === idNumber || supper(data[i][5] || "") === supper(params.idgv || ""))) || dbSbdKey === keyds) {
         
         // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
         if (!dbPass) {
@@ -520,6 +520,7 @@ if (action === 'getLG') {
   }
 
   // 8. LẤY MA TRẬN ĐỀ
+  // 2308sua1: Hỗ trợ cả type và action cho getExamCodes, so khớp teacherId linh hoạt
   if (type === 'getExamCodes' || action === 'getExamCodes') {
   const teacherId = supper(params.idnumber || params.idgv || "");
   const ss2 = getSS2(params.sheetId, teacherId);
@@ -538,9 +539,10 @@ if (action === 'getLG') {
   
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
+    const rowTId = (row[0] || "").toString().trim();
     
     // Kiểm tra ID giáo viên hoặc tài khoản hệ thống
-    if ((row[0] || "").toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
+    if (rowTId === teacherId || supper(rowTId) === teacherId || N9(rowTId) === N9(teacherId) || rowTId === "SYSTEM") {
       try {
         // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
         const openDateVal = row[19] || ""; 
@@ -844,11 +846,12 @@ const lock = LockService.getScriptLock();
     // Chấp nhận cả dữ liệu gửi dạng JSON hoặc gửi dạng Form Parameter thông thường
     var data = {};
     if (e.postData && e.postData.contents) {
-      try { data = JSON.parse(e.postData.contents); } catch(c) { data = e.parameter; }
+      try { data = JSON.parse(e.postData.contents); } catch(c) { data = e.parameter || {}; }
     } else {
-      data = e.parameter;
+      data = e.parameter || {};
     }
-    const action = (data.action || e.parameter.action || "").toString();
+    const action = (data.action || (e.parameter && e.parameter.action) || data.type || (e.parameter && e.parameter.type) || "").toString();
+
     // 2308them1: Bổ sung xử lý action "verifyStudent" trong mainDoPost để học sinh xác minh qua POST không bị lỗi "Không khớp lệnh nào!"
     if (action === "verifyStudent" || data.type === "verifyStudent") {
       try {
@@ -963,6 +966,7 @@ const lock = LockService.getScriptLock();
         return createResponse("error", "Lỗi lấy mã đề: " + err.toString());
       }
     }
+
     // ACTION: Lưu đánh giá học sinh
     if (action === "submitRating" || action === "rate") {
       let sheetDG = ssAdmin.getSheetByName("danhgia");
@@ -1026,7 +1030,6 @@ const lock = LockService.getScriptLock();
         }
       })).setMimeType(ContentService.MimeType.JSON);
     }
-    
 
     // 3107them5: Route chấm lại bài thi (POST)
     if (action === "regradeExams") {
@@ -1392,6 +1395,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
   });
 }
 
+    // 2308sua1: Sửa studentGetExam để so khớp linh hoạt SBD, IDGV và mã đề theo cả khóa ghép H/O lẫn từng cột A/F
     if (action === "studentGetExam") {
       try {
         const sbd = data.sbd ? data.sbd : "";
@@ -1418,19 +1422,22 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 var student = null;
 for (var i = 1; i < dataDS.length; i++) {
   var rowSBD = supper(dataDS[i][7] || "");  
+  var colSbd = supper(dataDS[i][0] || "");
+  var colIdgv = N9(dataDS[i][5] || "");
+  var rowPass = (dataDS[i][8] || "").toString().trim();
   
-  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === keyds) {
+  if (rowPass === pass.toString().trim() && (rowSBD === keyds || (colSbd === supper(sbd) && (colIdgv === N9(idgv) || supper(dataDS[i][5] || "") === supper(idgv))))) {
     student = dataDS[i];
     break;
   }
 }
 
 if (!student) {
-  return createResponse("error", "SBD hoặc IDGV không chính xác!");
+  return createResponse("error", "SBD hoặc Mật khẩu học sinh không chính xác!");
 }
 if (!sheetExam) return createResponseW("error", "Không tìm thấy sheet exams!");
 const exRow = sheetExam.getDataRange().getValues().find(r => 
-  supper(r[14]) === keyexams
+  supper(r[14] || "") === keyexams || (supper(r[0] || "") === supper(examCode) && (N9(r[1] || "") === N9(idgv) || supper(r[1] || "") === supper(idgv)))
 );
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode + " / GV: " + idgv);
 const now = new Date();
@@ -1493,7 +1500,7 @@ if (closeTime && now > closeTime) {
         if (!sheetData) return createResponseW("error", "Không tìm thấy sheet exam_data!");
         const allRows = sheetData.getDataRange().getValues();
         const filteredQuestions = allRows.slice(1)
-          .filter(r => supper(r[8]) === keyexams)
+          .filter(r => supper(r[8] || "") === keyexams || (supper(r[0] || "") === supper(examCode) && (N9(r[7] || "") === N9(idgv) || supper(r[7] || "") === supper(idgv))))
           .map(r => {
             let raw = r[4];
             if (!raw) return null;
@@ -2749,56 +2756,54 @@ function SHA256_(input) {
   }
   return output;
 }
-// hàm xác minh thông tin học sinh 
+// 2308sua1: Sửa verifyhocsinh trả về boolean chuẩn và so khớp linh hoạt SBD/IDGV/Khóa ghép H
 function verifyhocsinh(sbd, idgv, pass, sheetId) {
   const ss2 = getSS2(sheetId, idgv);
   const sheet = ss2.getSheetByName("danhsach");
   if (!sheet) {
-    return resJSON({
-      status: "error",
-      message: "Không tìm thấy sheet danhsach!"
-    });
+    return false;
   }
 
   const cleanSbd = (sbd || "").toString().trim().toUpperCase();
   const cleanIdgv = (idgv || "").toString().trim().toUpperCase();
   const cleanPass = (pass || "").toString().trim();
+  const keyds = supper(cleanSbd + "." + cleanIdgv);
 
   const values = sheet.getDataRange().getValues();
 
   for (let i = 1; i < values.length; i++) {
     const rowSbd  = (values[i][0] || "").toString().trim().toUpperCase();
     const rowIdgv = (values[i][5] || "").toString().replace(/'/g, "").trim().toUpperCase();
+    const rowSbdKey = (values[i][7] || "").toString().trim().toUpperCase();
     const rowPass = (values[i][8] || "").toString().replace(/'/g, "").trim();
 
-    if (rowPass === cleanPass && rowSbd === cleanSbd && N9(rowIdgv) === N9(cleanIdgv)) {
+    if (rowPass === cleanPass && ((rowSbd === cleanSbd && (N9(rowIdgv) === N9(cleanIdgv) || rowIdgv === cleanIdgv)) || rowSbdKey === keyds)) {
       return true;
     }
   }
 
   return false; 
 }
-// Hàm xác minh exams
+// 2308sua1: Sửa verifyExams trả về boolean/link chuẩn và so khớp linh hoạt mã đề/IDGV/Khóa ghép O
 function verifyExams(examcode, idgv, sheetId) {
   const ss2 = getSS2(sheetId, idgv);
   const sheet = ss2.getSheetByName("exams");
   if (!sheet) {
-    return resJSON({
-      status: "error",
-      message: "Không tìm thấy sheet exams!"
-    });
+    return false;
   }
 
   const cleanExamcode = (examcode || "").toString().trim().toUpperCase();
   const cleanIdgv = (idgv || "").toString().trim().toUpperCase();
+  const keyexams = supper(cleanExamcode + "." + cleanIdgv);
   const values = sheet.getDataRange().getValues();
 
   for (let i = 1; i < values.length; i++) {
     const rowCode  = (values[i][0] || "").toString().trim().toUpperCase();
     const rowIdgv = (values[i][1] || "").toString().replace(/'/g, "").trim().toUpperCase();    
+    const rowExamKey = (values[i][14] || "").toString().trim().toUpperCase();
 
-    if (rowCode === cleanExamcode && N9(rowIdgv) === N9(cleanIdgv)) {
-      return values[i][18];
+    if (((rowCode === cleanExamcode && (N9(rowIdgv) === N9(cleanIdgv) || rowIdgv === cleanIdgv)) || rowExamKey === keyexams)) {
+      return values[i][18] || true;
     }
   }
   return false; 

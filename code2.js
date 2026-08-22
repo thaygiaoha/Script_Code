@@ -334,12 +334,13 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   } 
   // 6. XÁC MINH THÍ SINH
-if (type === 'verifyStudent') {
+  // 2308sua1: Bắt cả type và action cho verifyStudent trong mainDoGet, hỗ trợ so khớp cả SBD/IDGV lẫn khóa H (sbd.idgv)
+if (type === 'verifyStudent' || action === 'verifyStudent') {
   try {
-    const idNumber = N9(params.idnumber || params.idgv || "");
-    const sbd = supper(params.sbd || "");
-    const pass = String(params.pass || "").trim();
-    const reqSheetId = params.sheetId || "";
+    const idNumber = N9(data.idgv || data.idnumber || params.idnumber || params.idgv || "");
+    const sbd = supper(data.sbd || params.sbd || "");
+    const pass = String(data.pass || params.pass || "").trim();
+    const reqSheetId = data.sheetId || params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
     if (!sbd || !idNumber || !pass) {
@@ -358,14 +359,16 @@ if (type === 'verifyStudent') {
     }
 
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+    //const keyds = supper(sbd + "." + idNumber);
 
     for (let i = 0; i < data.length; i++) {
       const dbSbd = supper(data[i][0] || "");
       const dbIdNumber = N9(data[i][5] || "");
+      const dbSbdKey = supper(data[i][7] || "");
       const dbPass = String(data[i][8] || "").trim();
 
-      // Kiểm tra SBD & ID trước (Short-circuit evaluation)
-      if (dbSbd === sbd && dbIdNumber === idNumber) {
+      // Kiểm tra SBD & ID hoặc khóa ghép (Short-circuit evaluation)
+      if ((dbSbd === sbd) {
         
         // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
         if (!dbPass) {
@@ -517,7 +520,7 @@ if (action === 'getLG') {
   }
 
   // 8. LẤY MA TRẬN ĐỀ
-  if (type === 'getExamCodes') {
+  if (type === 'getExamCodes' || action === 'getExamCodes') {
   const teacherId = supper(params.idnumber || params.idgv || "");
   const ss2 = getSS2(params.sheetId, teacherId);
   const sheet = ss2.getSheetByName("matran");
@@ -846,6 +849,120 @@ const lock = LockService.getScriptLock();
       data = e.parameter;
     }
     const action = (data.action || e.parameter.action || "").toString();
+    // 2308them1: Bổ sung xử lý action "verifyStudent" trong mainDoPost để học sinh xác minh qua POST không bị lỗi "Không khớp lệnh nào!"
+    if (action === "verifyStudent" || data.type === "verifyStudent") {
+      try {
+        const idNumber = N9(data.idnumber || data.idgv || "");
+        const sbd = supper(data.sbd || "");
+        const pass = String(data.pass || "").trim();
+        const reqSheetId = data.sheetId || "";
+
+        if (!sbd || !idNumber || !pass) {
+          return createResponse("error", "Thiếu thông tin đăng nhập!");
+        }
+
+        const ss2 = getSS2(reqSheetId, idNumber);
+        const sheet = ss2.getSheetByName("danhsach");
+        if (!sheet) {
+          return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
+        }
+
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 2) {
+          return createResponse("error", "Danh sách thí sinh trống!");
+        }
+
+        const dataRows = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+        const keyds = supper(sbd + "." + idNumber);
+
+        for (let i = 0; i < dataRows.length; i++) {
+          const dbSbd = supper(dataRows[i][0] || "");
+          const dbIdNumber = N9(dataRows[i][5] || "");
+          const dbSbdKey = supper(dataRows[i][7] || "");
+          const dbPass = String(dataRows[i][8] || "").trim();
+
+          if ((dbSbd === sbd && (dbIdNumber === idNumber || supper(dataRows[i][5] || "") === supper(data.idgv || ""))) || dbSbdKey === keyds) {
+            if (!dbPass) {
+              return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
+            }
+
+            if (dbPass === pass) {
+              const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
+              return createResponse("success", "OK", {
+                name: dataRows[i][1], 
+                class: dataRows[i][2], 
+                limit: dataRows[i][3],
+                limittab: dataRows[i][4], 
+                taikhoanapp: dataRows[i][6], 
+                idnumber: idNumber, 
+                sbd: "'" + sbd,
+                sheetId: matchedSheetId
+              });
+            } else {
+              return createResponse("error", "Mật khẩu không chính xác!");
+            }
+          }
+        }
+        return createResponse("error", "Số báo danh hoặc ID Giáo viên không chính xác!");
+      } catch (err) {
+        return createResponse("error", "Lỗi xác minh học sinh: " + err.toString());
+      }
+    }
+
+    // 2308them1: Bổ sung xử lý action "getExamCodes" trong mainDoPost
+    if (action === "getExamCodes" || data.type === "getExamCodes") {
+      try {
+        const teacherId = supper(data.idnumber || data.idgv || "");
+        const ss2 = getSS2(data.sheetId, teacherId);
+        const sheet = ss2.getSheetByName("matran");
+        if (!sheet) {
+          return createResponse("error", "Ma trận trống!");
+        }
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 2) {
+          return createResponse("error", "Ma trận trống!");
+        }
+        const mdata = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
+        const results = [];
+        for (let i = 0; i < mdata.length; i++) {
+          const row = mdata[i];
+          const rowTId = (row[0] || "").toString().trim();
+          if (rowTId === teacherId || supper(rowTId) === teacherId || N9(rowTId) === N9(teacherId) || rowTId === "SYSTEM") {
+            try {
+              const openDateVal = row[19] || "";
+              const closeDateVal = row[20] || "";
+              const isPastOpen = opencloseDate(openDateVal, 'open');
+              const isPastClose = opencloseDate(closeDateVal, 'close');
+              if (isPastOpen && !isPastClose) {
+                results.push({
+                  code: row[1].toString(),
+                  name: row[2].toString(),
+                  topics: JSON.parse(row[3]),
+                  fixedConfig: {
+                    duration: parseInt(row[4]),
+                    numMC: JSON.parse(row[5]),
+                    scoreMC: parseFloat(row[6]),
+                    mcL3: JSON.parse(row[7]),
+                    mcL4: JSON.parse(row[8]),
+                    numTF: JSON.parse(row[9]),
+                    scoreTF: parseFloat(row[10]),
+                    tfL3: JSON.parse(row[11]),
+                    tfL4: JSON.parse(row[12]),
+                    numSA: JSON.parse(row[13]),
+                    scoreSA: parseFloat(row[14]),
+                    saL3: JSON.parse(row[15]),
+                    saL4: JSON.parse(row[16])
+                  }
+                });
+              }
+            } catch (err) {}
+          }
+        }
+        return createResponse("success", "OK", results);
+      } catch (err) {
+        return createResponse("error", "Lỗi lấy mã đề: " + err.toString());
+      }
+    }
     // ACTION: Lưu đánh giá học sinh
     if (action === "submitRating" || action === "rate") {
       let sheetDG = ssAdmin.getSheetByName("danhgia");
@@ -909,6 +1026,7 @@ const lock = LockService.getScriptLock();
         }
       })).setMimeType(ContentService.MimeType.JSON);
     }
+    
 
     // 3107them5: Route chấm lại bài thi (POST)
     if (action === "regradeExams") {

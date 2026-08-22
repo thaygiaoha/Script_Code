@@ -285,7 +285,7 @@ if (action === "adminResetCloudImages") {
     var ss2 = getSS2(e.parameter.sheetId, e.parameter.idgv || e.parameter.idnumber);
     var sheet = ss2.getSheetByName("danhsach"); 
     if (!sheet) return ContentService.createTextOutput("");
-    var val = sheet.getRange("J2").getValue();
+    var val = sheet.getRange("K2").getValue();
     return ContentService.createTextOutput(val.toString());
   }
   if (action === "normalize") {
@@ -309,7 +309,7 @@ if (action === "adminResetCloudImages") {
     var ss2 = getSS2(e.parameter.sheetId, e.parameter.idgv || e.parameter.idnumber);
     var sheet = ss2.getSheetByName("danhsach"); 
     if (sheet) {
-      sheet.getRange("J2").setValue("'" + idMoi); 
+      sheet.getRange("K2").setValue("'" + idMoi); 
       SpreadsheetApp.flush(); 
     }
     return ContentService.createTextOutput("Success");
@@ -360,8 +360,7 @@ if (type === 'verifyStudent') {
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
 
     for (let i = 0; i < data.length; i++) {
-      const dbSbd = supper(data[i][0] || "");
-      const dbIdNumber = N9(data[i][5] || "");
+      const dbSbd = supper(data[i][0] || "");      
       const dbPass = supper(data[i][8] || "").trim();
 
       // Kiểm tra SBD & ID trước (Short-circuit evaluation)
@@ -535,9 +534,9 @@ if (action === 'getLG') {
   
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
-    
+    const exams = String(row[1] || "");
     // Kiểm tra ID giáo viên hoặc tài khoản hệ thống
-    if ((row[0] || "").toString().trim() === teacherId || row[0].toString() === "SYSTEM") {
+    if (exams !== "") {
       try {
         // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
         const openDateVal = row[19] || ""; 
@@ -649,7 +648,7 @@ if (action === 'getLG') {
   const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
 
   for (let i = 0; i < data.length; i++) {    
-    if (supper(data[i][0] || "") === examCodeInput && supper(data[i][1] || "") === questionIdInput && N9(data[i][7] || "") === idgv) {
+    if (supper(data[i][0] || "") === examCodeInput && supper(data[i][1] || "") === questionIdInput) {
 
   return createResponse(
     "success",
@@ -683,7 +682,7 @@ if (action === 'getLG') {
     const results = [];
 
     for (let i = 0; i < data.length; i++) {      
-      if (supper(data[i][0] || "") === examCode && N9(data[i][7] || "") === idgv) {
+      if (supper(data[i][0] || "") === examCode) {
         try {
           var qText = String(data[i][4] || "");
           var randomVersion = Math.floor(Math.random() * 9000) + 1000;
@@ -703,11 +702,11 @@ if (action === 'getLG') {
   // Tải điểm
 if (action === "downloadScores") {
     const idgv = (e.parameter.idgv || ""); 
-    const exams = (e.parameter.exams || "");     
+    const exams = supper(e.parameter.exams || "");     
     const ss2 = getSS2(e.parameter.sheetId, idgv);
     const sheet = ss2.getSheetByName("ketqua");
     
-    const keycheck = supper(exams + "." + idgv);
+    //const keycheck = supper(exams + "." + idgv);
     
     if (!sheet) return ContentService.createTextOutput("Sheet ketqua không tồn tại").setMimeType(ContentService.MimeType.TEXT);
 
@@ -723,7 +722,7 @@ if (action === "downloadScores") {
     const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();   
     
     const filteredData = data
-      .filter(row => supper(row[9] || "otrong") === keycheck) // Lọc dựa trên cột I (index 9)
+      .filter(row => supper(row[1] || "otrong") === exams) // Lọc dựa trên cột B (index 2)
       .map(row => row.slice(0, 9)); // Cắt bỏ cột J, chỉ lấy từ cột A (index 0) đến I (index 8)
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -876,11 +875,10 @@ const lock = LockService.getScriptLock();
         const listData = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
 
         for (let i = 0; i < listData.length; i++) {
-          const dbSbd = supper(listData[i][0] || "");
-          const dbIdNumber = N9(listData[i][5] || "");
+          const dbSbd = supper(listData[i][0] || "");          
           const dbPass = String(listData[i][8] || "").trim();
 
-          if (dbSbd === sbd && dbIdNumber === idNumber) {
+          if (dbSbd === sbd) {
             if (!dbPass) {
               return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
             }
@@ -1069,8 +1067,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       thoiGian,                                           // G           
       "'" + supper(idgv),
       tabCount,
-      "'" + supper(exams + "." + idgv),                                    // S
-      "'" + supper(exams + "." + sbd + "." + idgv),
+      "",                                    // S
+      "",
       theloai,
       data.details || ""  // Cột M
     ];
@@ -1179,7 +1177,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         toJson(data.saL3), 
         toJson(data.saL4),
          "'" + supper(toStr(data.gvId)), 
-        "'" + supper(toStr(data.makiemtra) + "." + toStr(data.gvId)),
+        "",
         "'" + toStr(data.openDate),
         "'" + toStr(data.closeDate),
         now,
@@ -1205,7 +1203,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       const vals = sheetMatran.getDataRange().getValues();
       let rowIndex = -1;
       for (let i = 1; i < vals.length; i++) {
-        if (supper(vals[i][0]) === supper(toStr(data.gvId)) && supper(vals[i][1]) === supper(toStr(data.makiemtra))) {
+        if (supper(vals[i][1]) === supper(toStr(data.makiemtra))) {
           rowIndex = i + 1; break;
         }
       }
@@ -1354,9 +1352,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         const examCode = data.examCode ? data.examCode : "";
         const idgv = data.idgv ? data.idgv : "";
         const reqSheetId = data.sheetId || "";
-        const keyds = supper(sbd + "." + idgv);
-        const keyexams = supper(examCode + "." + idgv);
-        const keysbd = supper(examCode + "." + sbd + "." + idgv);
+        //const keyds = supper(sbd + "." + idgv);
+        //const keyexams = supper(examCode + "." + idgv);
+        //const keysbd = supper(examCode + "." + sbd + "." + idgv);
 
         const ss2 = getSS2(reqSheetId, idgv);
 
@@ -1372,9 +1370,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
 
 var student = null;
 for (var i = 1; i < dataDS.length; i++) {
-  var rowSBD = supper(dataDS[i][7] || "");  
+  var rowSBD = supper(dataDS[i][0] || "");  
   
-  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === keyds) {
+  if ((dataDS[i][8] || "").toString().trim() === pass.toString().trim() && rowSBD === supper(sbd) {
     student = dataDS[i];
     break;
   }
@@ -1385,7 +1383,7 @@ if (!student) {
 }
 if (!sheetExam) return createResponseW("error", "Không tìm thấy sheet exams!");
 const exRow = sheetExam.getDataRange().getValues().find(r => 
-  supper(r[14]) === keyexams
+  supper(r[0]) === supper(examCode)
 );
         if (!exRow) return createResponseW("error", "Không tìm thấy mã đề: " + examCode + " / GV: " + idgv);
 const now = new Date();
@@ -1405,7 +1403,7 @@ const closeTime = exRow[11] instanceof Date
         exRowKq = sheetKQ.getRange(2, 1, sheetKQ.getLastRow()-1, 11).getValues();
           }
         const currentAttempts = exRowKq.filter(r => 
-      r[10].toString().trim() === keysbd).length;
+      supper(r[1] || "") === supper(examCode) && supper(r[2] || "") === supper(sbd)) .length;
 
     if (sbd !== "8888") {       
       if (openTime && now < openTime) {
@@ -1448,7 +1446,7 @@ if (closeTime && now > closeTime) {
         if (!sheetData) return createResponseW("error", "Không tìm thấy sheet exam_data!");
         const allRows = sheetData.getDataRange().getValues();
         const filteredQuestions = allRows.slice(1)
-          .filter(r => supper(r[8]) === keyexams)
+          .filter(r => supper(r[]) === supper(examCode)
           .map(r => {
             let raw = r[4];
             if (!raw) return null;
@@ -1513,10 +1511,10 @@ if (closeTime && now > closeTime) {
 
         if (idMatch) {
           const solId = idMatch[1].toString();
-          const key = supper(examCode + "." + solId + "." + idgv)
+          //const key = supper(examCode + "." + solId + "." + idgv)
           for (let i = 1; i < range.length; i++) {
            
-            if (range[i][9].toString() === key) {
+            if (supper(range[i][0] || "") === supper(examCode) && String(range[i][1] || "") === String(solId)) {
               sheet.getRange(i + 1, 6).setValue(solText);
               range[i][5] = solText;
               updatedCount++;
@@ -1580,8 +1578,8 @@ if (closeTime && now > closeTime) {
         finalLG, 
         new Date(),
         "'" + idgv,
-        examCode + "." + idgv,
-        examCode + "." + q.id + "." + idgv
+        "",
+        ""
       ];
       sheet.getRange(rowIdx, 1, 1, 10).setValues([rowToUpdate]);
       return createResponse("success", `Đã cập nhật riêng câu ID: ${targetId}`);
@@ -1604,8 +1602,8 @@ if (closeTime && now > closeTime) {
     (q.loigiai && q.loigiai.trim() !== "") ? q.loigiai : "Đang cập nhật...", 
     new Date(),
      "'" + idgv,
-    examCode + "." + idgv,
-    examCode + "." + q.id + "." + idgv
+    "",
+    ""
   ]);
 
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 10).setValues(rows);
@@ -1625,7 +1623,7 @@ if (closeTime && now > closeTime) {
       const passGV = (data.passGV || "").toString().trim();
       const cfg = data.config;
       const key = supper(passGV + "." + idgv);
-      const keyId = supper(examCode + "." + idgv);
+      //const keyId = supper(examCode + "." + idgv);
       const sheetId = ssAdmin.getSheetByName("idgv");
       const datapass = sheetId.getRange("F2:F" + sheetId.getLastRow()).getValues();
       let kiemtra = 0;
@@ -1647,7 +1645,7 @@ if (closeTime && now > closeTime) {
       const vals = sheetExamsGV.getDataRange().getValues();
       let existingRow = -1;
       for (let i = 1; i < vals.length; i++) {
-        if (vals[i][14] && vals[i][14].toString().trim() === keyId) {
+        if (vals[i][0] && supper(vals[i][0]) === supper(examCode)) {
           existingRow = i + 1;
           break;
         }
@@ -1672,7 +1670,7 @@ if (closeTime && now > closeTime) {
         cfg.close, 
         cfg.open, 
         cfg.maxthi,
-        keyId, "", "", "", "", 
+        "", "", "", "", "", 
         "Word"
       ];
       
@@ -1710,11 +1708,10 @@ if (action === "getListMade") {
     const lastRowMatran = sheetMatran.getLastRow();
     if (lastRowMatran >= 2) {
       const dataMatran = sheetMatran.getRange(2, 1, lastRowMatran - 1, 2).getValues();
-      for (let i = 0; i < dataMatran.length; i++) {
-        const currentIdgv = (N9(dataMatran[i][0]) || "").toString().trim();
+      for (let i = 0; i < dataMatran.length; i++) {        
         const currentMaDe = (dataMatran[i][1] || "").toString().trim();
         
-        if (currentIdgv === idgv && currentMaDe) {
+        if (currentMaDe) {
           listResult.push({
             maDe: currentMaDe,
             theLoai: "Ma Trận"
@@ -1731,11 +1728,10 @@ if (action === "getListMade") {
     if (lastRowExams >= 2) {
       const dataExams = sheetExams.getRange(2, 1, lastRowExams - 1, 16).getValues();
       for (let i = 0; i < dataExams.length; i++) {
-        const currentMaDe = (dataExams[i][0] || "").toString().trim();
-        const currentIdgv = (N9(dataExams[i][1]) || "").toString().trim();
+        const currentMaDe = (dataExams[i][0] || "").toString().trim();        
         const valueCotP = (dataExams[i][15] || "").toString().trim();
 
-        if (currentIdgv === idgv && currentMaDe) {
+        if (currentMaDe) {
           const loaiDe = valueCotP === "" ? "Word" : "PDF";
           listResult.push({
             maDe: currentMaDe,
@@ -2236,22 +2232,22 @@ function resetData(type, password, mode, exams, idgv, sheetId) {
   if (type === "ketqua") {
     sheetName = "ketqua";
     colIdgv = 8;        // Cột H (idgv)
-    colExamsIdgv = 10;  // Cột J (exams.idgv)
+    colExamsIdgv = 2;  // Cột B (exams)
   }
   else if (type === "matran") {
     sheetName = "matran";
     colIdgv = 18;       // Cột R (idgv)
-    colExamsIdgv = 19;  // Cột S (exams.idgv)
+    colExamsIdgv = 2;  // Cột B (exams)
   }
   else if (type === "exams") {
     sheetName = "exams";
     colIdgv = 2;        // Cột B (idgv)
-    colExamsIdgv = 15;  // Cột O (exams.idgv)
+    colExamsIdgv = 1;  // Cột A (exams)
   }
   else if (type === "exam_data") {
     sheetName = "exam_data";
     colIdgv = 8;        // Cột H (idgv)
-    colExamsIdgv = 9;   // Cột I (exams.idgv)
+    colExamsIdgv = 1;   // Cột A (exams)
   }
   else return createResponse("error", "Loại dữ liệu (Type) không hợp lệ");
 
@@ -2264,16 +2260,8 @@ function resetData(type, password, mode, exams, idgv, sheetId) {
   }
 
   if (mode === "byExams") {
-    if (!examStr) return createResponse("error", "Thiếu mã bài tập (exams)");
-    
-    let keyexamsid = "";
-    if (supper(examStr).indexOf("." + supper(idgvStr)) !== -1 || supper(examStr).indexOf("." + N9(idgvStr)) !== -1) {
-      keyexamsid = examStr;
-    } else {
-      keyexamsid = examStr + "." + idgvStr;
-    }
-
-    rowsDeleted = deleteFast(keyexamsid, colExamsIdgv, sheetName, ss2);
+    if (!examStr) return createResponse("error", "Thiếu mã bài tập (exams)");   
+    rowsDeleted = deleteFast(examStr, colExamsIdgv, sheetName, ss2);
     return createResponse("success", "Đã xóa " + rowsDeleted + " dòng của " + examStr + " (" + sheetName + ")");
   }
 
@@ -2316,10 +2304,8 @@ function getScore(e) {
 
     for (let i = 0; i < data.length; i++) {
       const dbExams = supper(data[i][1] || "");
-      const dbSbd   = supper(data[i][2] || "");
-      const dbIdgv  = N9(data[i][7] || "");
-
-      if (dbSbd === searchSbd && dbExams === searchExams && dbIdgv === searchIdgv) {
+      const dbSbd   = supper(data[i][2] || ""); 
+      if (dbSbd === searchSbd && dbExams === searchExams) {
         return ContentService
           .createTextOutput(JSON.stringify({
             status: "success",
@@ -2407,16 +2393,13 @@ function deleteFastAll(text, colNumber, name, targetSS) {
   if (lastRow <= 1) return 0;
 
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
-
-  var keySupper = supper(text);
   var keyN9 = N9(text);
-
   var filteredData = data.filter(function(row) {
     var cellVal = row[colNumber - 1];
-    var cellSupper = supper(cellVal);
+    
     var cellN9 = N9(cellVal);
 
-    return !(cellSupper === keySupper || (cellN9 && cellN9 === keyN9));
+    return !(cellN9 === keyN9);
   });
 
   var deletedCount = data.length - filteredData.length;
@@ -2444,18 +2427,12 @@ function deleteFast(text, colNumber, name, targetSS) {
   var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getDisplayValues();
 
   var keyTarget = supper(text);
-  var keyTargetN9 = "";
-  if (text && text.indexOf(".") !== -1) {
-    var parts = text.split(".");
-    keyTargetN9 = supper(parts[0] + "." + N9(parts[1]));
-  }
-
   var filteredData = data.filter(function(row) {
     var cellVal = row[colNumber - 1];
     var cellSupper = supper(cellVal);
 
-    if (keyTargetN9) {
-      return !(cellSupper === keyTarget || cellSupper === keyTargetN9);
+    if (keyTarget) {
+      return !(cellSupper === keyTarget);
     }
     return cellSupper !== keyTarget;
   });
@@ -2715,8 +2692,7 @@ function verifyhocsinh(sbd, idgv, pass, sheetId) {
     });
   }
 
-  const cleanSbd = (sbd || "").toString().trim().toUpperCase();
-  const cleanIdgv = (idgv || "").toString().trim().toUpperCase();
+  const cleanSbd = (sbd || "").toString().trim().toUpperCase(); 
   const cleanPass = (pass || "").toString().trim();
 
   const values = sheet.getDataRange().getValues();
@@ -2726,7 +2702,7 @@ function verifyhocsinh(sbd, idgv, pass, sheetId) {
     const rowIdgv = (values[i][5] || "").toString().replace(/'/g, "").trim().toUpperCase();
     const rowPass = (values[i][8] || "").toString().replace(/'/g, "").trim();
 
-    if (rowPass === cleanPass && rowSbd === cleanSbd && N9(rowIdgv) === N9(cleanIdgv)) {
+    if (rowPass === cleanPass && rowSbd === cleanSbd) {
       return true;
     }
   }
@@ -2750,9 +2726,9 @@ function verifyExams(examcode, idgv, sheetId) {
 
   for (let i = 1; i < values.length; i++) {
     const rowCode  = (values[i][0] || "").toString().trim().toUpperCase();
-    const rowIdgv = (values[i][1] || "").toString().replace(/'/g, "").trim().toUpperCase();    
+    
 
-    if (rowCode === cleanExamcode && N9(rowIdgv) === N9(cleanIdgv)) {
+    if (rowCode === cleanExamcode) {
       return values[i][18];
     }
   }
@@ -2864,20 +2840,16 @@ function getRegradeExamsList(idgv, sheetId) {
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "OK", []);
 
-    var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
-    var targetIdgv = supper(idgv);
-    var targetN9 = N9(idgv);
+    var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();    
     var examsList = [];
 
     for (var i = 0; i < data.length; i++) {
       var row = data[i];
       var rowIdgv = row[7] ? String(row[7]).trim() : "";
-      var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
-
-      var matchesIdgv = (targetIdgv && (supper(rowIdgv) === targetIdgv || N9(rowIdgv) === targetN9));
+      var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";      
       var isTargetTheloai = (theloai === "matran" || theloai === "word" || theloai === "ma trận");
 
-      if (matchesIdgv && isTargetTheloai) {
+      if (isTargetTheloai) {
         var examCode = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
         if (examCode) {
           examsList.push(examCode);
@@ -2916,25 +2888,19 @@ function regradeExams(idgv, password, examCode, sheetId) {
     var lastRowKq = sheetKq.getLastRow();
     if (lastRowKq < 2) return createResponse("error", "Sheet ketqua không có dữ liệu!");
 
-    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 14).getValues();
-    var targetIdgvSupper = supper(idgvStr);
-    var targetIdgvN9 = N9(idgvStr);
+    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 14).getValues();    
     var targetExamSupper = supper(examStr);
-
     var matchingRowIndices = [];
     var matchingDetails = [];
 
     for (var i = 0; i < dataKq.length; i++) {
       var row = dataKq[i];
-      var rowExams = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
-      var rowIdgv = row[7] ? String(row[7]).trim() : "";
-      var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
-
-      var matchesId = (supper(rowIdgv) === targetIdgvSupper || N9(rowIdgv) === targetIdgvN9);
+      var rowExams = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";      
+      var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";     
       var matchesExam = (supper(rowExams) === targetExamSupper);
       var isWordOrMatran = (theloai === "matran" || theloai === "word" || theloai === "ma trận");
 
-      if (matchesId && matchesExam && isWordOrMatran) {
+      if (matchesExam && isWordOrMatran) {
         matchingRowIndices.push(i + 2);
         matchingDetails.push(row[12]);
       }
@@ -2943,20 +2909,17 @@ function regradeExams(idgv, password, examCode, sheetId) {
     if (matchingRowIndices.length === 0) {
       return createResponse("error", "Không tìm thấy bài làm nào của mã đề " + examStr + "!");
     }
-
     var scMCQ = 0.25;
     var scTF = 1.0;
     var scSA = 0.5;
     var questions = [];
-
     var sheetExams = ss2.getSheetByName("exams");
-    if (sheetExams && sheetExams.getLastRow() >= 2) {
-      var keyCheckExams = supper(examStr + "." + idgvStr);
+    if (sheetExams && sheetExams.getLastRow() >= 2) {      
       var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, 16).getValues();
       for (var eIdx = 0; eIdx < dataExams.length; eIdx++) {
         var exRow = dataExams[eIdx];
-        var rowExKey = supper(String(exRow[14] || exRow[0] + "." + exRow[1]));
-        if (rowExKey === keyCheckExams || (supper(exRow[0]) === targetExamSupper && (supper(exRow[1]) === targetIdgvSupper || N9(exRow[1]) === targetIdgvN9))) {
+        var rowExams = supper(String(exRow[0]));
+        if (rowExams === targetExamSupper) {
           if (parseFloat(exRow[3]) > 0) scMCQ = parseFloat(exRow[3]);
           if (parseFloat(exRow[5]) > 0) scTF = parseFloat(exRow[5]);
           if (parseFloat(exRow[7]) > 0) scSA = parseFloat(exRow[7]);
@@ -2970,8 +2933,8 @@ function regradeExams(idgv, password, examCode, sheetId) {
       var dataMatran = sheetMatran.getRange(2, 1, sheetMatran.getLastRow() - 1, 19).getValues();
       for (var mIdx = 0; mIdx < dataMatran.length; mIdx++) {
         var mtRow = dataMatran[mIdx];
-        var rowMtKey = supper(String(mtRow[18] || mtRow[1] + "." + mtRow[0]));
-        if (rowMtKey === supper(examStr + "." + idgvStr) || (supper(mtRow[1]) === targetExamSupper && (supper(mtRow[0]) === targetIdgvSupper || N9(mtRow[0]) === targetIdgvN9))) {
+        var rowMtKey = supper(String(mtRow[1]));
+        if (rowMtKey === supper(examStr)) {
           if (parseFloat(mtRow[6]) > 0) scMCQ = parseFloat(mtRow[6]);
           if (parseFloat(mtRow[10]) > 0) scTF = parseFloat(mtRow[10]);
           if (parseFloat(mtRow[14]) > 0) scSA = parseFloat(mtRow[14]);

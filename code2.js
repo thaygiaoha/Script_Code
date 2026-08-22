@@ -334,12 +334,12 @@ if (action === "adminResetCloudImages") {
       .setMimeType(ContentService.MimeType.JSON);
   } 
   // 6. XÁC MINH THÍ SINH
-if (type === 'verifyStudent') {
+if (action === 'verifyStudent' || type === 'verifyStudent') {
   try {
-    const idNumber = N9(params.idnumber || params.idgv || "");
-    const sbd = supper(params.sbd || "");
-    const pass = String(params.pass || "").trim();
-    const reqSheetId = params.sheetId || "";
+    const idNumber = N9(data.idgv || data.idnumber || params.idnumber || params.idgv || "");
+    const sbd = supper(data.sbd || params.sbd || "");
+    const pass = String(data.pass || params.pass || "").trim();
+    const reqSheetId = data.sheetId || params.sheetId || "";
 
     // Bọc kiểm tra tham số bắt buộc từ client
     if (!sbd || !idNumber || !pass) {
@@ -356,16 +356,13 @@ if (type === 'verifyStudent') {
     if (lastRow < 2) {
       return createResponse("error", "Danh sách thí sinh trống!");
     }
-
     const data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
-
     for (let i = 0; i < data.length; i++) {
-      const dbSbd = supper(data[i][0] || "");
-      const dbIdNumber = N9(data[i][5] || "");
+      const dbSbd = supper(data[i][0] || "");      
       const dbPass = String(data[i][8] || "").trim();
 
       // Kiểm tra SBD & ID trước (Short-circuit evaluation)
-      if (dbSbd === sbd && dbIdNumber === idNumber) {
+      if (dbSbd === sbd) {
         
         // Ngăn chặn trường hợp Mật khẩu trong Sheet bị bỏ trống
         if (!dbPass) {

@@ -1097,7 +1097,15 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
     const theloai = data.theloai;
-
+     // KIỂM TRA THỜI GIAN TỐI THIỂU (600 Giây)
+    const MIN_TIME_SECONDS = 600; 
+    if (Number(thoiGian) < MIN_TIME_SECONDS) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "error", 
+        message: "Thời gian làm bài tối thiểu là 10 phút. Bạn chưa đủ điều kiện nộp bài!" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }    
+ const nx = layNhanXet(diem);
     // 3. TÌM HÀNG TRỐNG TIẾP THEO
      const vals = sheetKq.getDataRange().getValues();
       let nextRow = -1;
@@ -1125,7 +1133,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
       "'" + supper(exams + "." + idgv),                                    // S
       "'" + supper(exams + "." + sbd + "." + idgv),
       theloai,
-      data.details || ""  // Cột M
+      data.details || "",  // Cột M
+      nx           // cột N
     ];
 
     sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
@@ -3450,4 +3459,32 @@ function fixMathJaxString(str) {
 
     // 5. Sửa các lệnh toán học thông dụng khác bị gõ thiếu \ ở đầu
     .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|infty|le|ge|neq|approx|times|div|cdot)\b/g, '$1\\$2');
+}
+function layNhanXet(diem) {
+  const nx1 = "🌟 Bài làm rất tốt, cần tiếp tục phát huy nhé";
+  const nx2 = "👍 Bài làm tương đối tốt, nắm khá chắc kiến thức cơ bản. Cần cố gắng và chăm chỉ hơn nữa";
+  const nx3 = "🙂 Bài làm mới đạt ở mức trung bình, cần cố gắng nhiều me hơn nữa";
+  const nx4 = "⚠️ Bài làm chưa được tốt, báo động nhẹ. Cần phải xem lại thái độ học tập";
+  const nx5 = "🚨 Kết quả rất báo động, có vẻ như em chưa thực sự chú ý đến việc học hoặc chưa có phương pháp học hiệu quả. Hãy chia sẻ để mình tốt hơn nhé";
+  const nx6 = "🚨🚨Kết quả rất báo động, nếu còn tiếp diễn có thể em sẽ bị loại khỏi cuộc chơi";
+  let nx = "";
+
+  if (diem >= 8.5) {
+    nx = nx1;
+  } else if (diem > 7) {
+    // 7 < diem < 8.5
+    nx = nx2;
+  } else if (diem >= 6) {
+    // 6 <= diem <= 7
+    nx = nx3;
+  } else if (diem >= 5) {
+    // 5 <= diem < 6
+    nx = nx4;
+  } else if (diem >= 3) {
+    
+  } else {
+    nx = nx5;
+  }
+
+  return nx;
 }

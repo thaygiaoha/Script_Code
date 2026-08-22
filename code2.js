@@ -529,8 +529,8 @@ if (action === 'getLG') {
     return createResponse("error", "Ma trận trống!");
   }  
 
-  // 🔥 SỬA TỪ 19 THÀNH 21: Quét thêm cột T (openDate - 20) và cột U (closeDate - 21)
-  const data = sheet.getRange(2, 1, lastRow - 1, 21).getValues();
+  // 2208sua1: Quét 23 cột (từ cột A đến cột W - lớp áp dụng)
+  const data = sheet.getRange(2, 1, lastRow - 1, 23).getValues();
   const results = [];
   
   for (let i = 0; i < data.length; i++) {
@@ -542,6 +542,8 @@ if (action === 'getLG') {
         // 🔥 ĐỌC GIÁ TRỊ NGÀY GIỜ TỪ CỘT T VÀ U (Chỉ số mảng là 19 và 20)
         const openDateVal = row[19] || ""; 
         const closeDateVal = row[20] || "";
+        // 2208them1: Đọc lớp từ cột W (chỉ số mảng 22)
+        const targetClass = (row[22] || "").toString().trim();
 
         // 🔥 CHẶN THỜI GIAN THEO HÀM opencloseDate CỦA ANH
         const isPastOpen = opencloseDate(openDateVal, 'open');
@@ -553,6 +555,7 @@ if (action === 'getLG') {
             code: row[1].toString(), 
             name: row[2].toString(), 
             topics: JSON.parse(row[3]),
+            targetClass: targetClass, // 2208them1: Lớp dành cho mã đề
             fixedConfig: {
               duration: parseInt(row[4]), 
               numMC: JSON.parse(row[5]), 
@@ -846,6 +849,65 @@ const lock = LockService.getScriptLock();
       data = e.parameter;
     }
     const action = (data.action || e.parameter.action || "").toString();
+
+    // 2208them1: Xử lý xác minh thí sinh qua POST (không phụ thuộc URL searchParams)
+    if (action === "verifyStudent" || data.type === "verifyStudent") {
+      try {
+        const idNumber = N9(data.idnumber || data.idgv || "");
+        const sbd = supper(data.sbd || "");
+        const pass = String(data.pass || "").trim();
+        const reqSheetId = data.sheetId || "";
+
+        if (!sbd || !idNumber || !pass) {
+          return createResponse("error", "Vui lòng nhập đủ ID Giáo viên, SBD và Mật khẩu!");
+        }
+
+        const ss2 = getSS2(reqSheetId, idNumber);
+        const sheet = ss2.getSheetByName("danhsach");
+        if (!sheet) {
+          return createResponse("error", "Không tìm thấy dữ liệu danh sách!");
+        }
+
+        const lastRow = sheet.getLastRow();
+        if (lastRow < 2) {
+          return createResponse("error", "Danh sách thí sinh trống!");
+        }
+
+        const listData = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+
+        for (let i = 0; i < listData.length; i++) {
+          const dbSbd = supper(listData[i][0] || "");
+          const dbIdNumber = N9(listData[i][5] || "");
+          const dbPass = String(listData[i][8] || "").trim();
+
+          if (dbSbd === sbd && dbIdNumber === idNumber) {
+            if (!dbPass) {
+              return createResponse("error", "Tài khoản chưa được thiết lập mật khẩu!");
+            }
+            if (dbPass === pass) {
+              const matchedSheetId = reqSheetId || getSheetIdByIdgv(idNumber);
+              return createResponse("success", "OK", {
+                name: listData[i][1], 
+                class: listData[i][2], 
+                limit: listData[i][3],
+                limittab: listData[i][4], 
+                taikhoanapp: listData[i][6], 
+                idnumber: idNumber, 
+                sbd: "'" + sbd,
+                sheetId: matchedSheetId
+              });
+            } else {
+              return createResponse("error", "Mật khẩu không chính xác!");
+            }
+          }
+        }
+
+        return createResponse("error", "Số báo danh hoặc Số định danh không tồn tại!");
+      } catch (error) {
+        return createResponse("error", "Lỗi hệ thống: " + error.toString());
+      }
+    }
+
     // ACTION: Lưu đánh giá học sinh
     if (action === "submitRating" || action === "rate") {
       let sheetDG = ssAdmin.getSheetByName("danhgia");
@@ -1089,6 +1151,7 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         return s.startsWith("[") ? s : "[" + s + "]";
       };
       sheetMatran.getRange("A:A").setNumberFormat("@");
+      // 2208sua1: Cấu hình lưu ma trận gồm 23 cột, trong đó cột W (cột 23) lưu lớp áp dụng
       const rowData = [
         "'" + supper(toStr(data.gvId)), 
         "'" + supper(toStr(data.makiemtra)), 
@@ -1111,7 +1174,9 @@ if (action === "submitExam" || action === "submitExamMatrix") {
         "'" + supper(toStr(data.makiemtra) + "." + toStr(data.gvId)),
         "'" + toStr(data.openDate),
         "'" + toStr(data.closeDate),
-        now        
+        now,
+        // 2208them1: Lưu lớp áp dụng vào Cột W (index 22)
+        "'" + supper(toStr(data.lop || data.class || data.targetClass || ""))
       ];
       const key = supper(data.gvPass + "." + data.gvId);
       const sheetId = ssAdmin.getSheetByName("idgv");

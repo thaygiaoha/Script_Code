@@ -1114,9 +1114,9 @@ const lock = LockService.getScriptLock();
 if (action === "submitExam" || action === "submitExamMatrix") {
   try {
     // 1. LẤY SHEET TẢI ĐIỂM (Tự động mở Sheet riêng của GV nếu có, nếu không thì lấy Sheet hiện tại)
-    var idgv = data.idgv || "";
-    var sheetId2 = getSheetIdByIdgv(idgv);
-    var targetSS = getSS2(sheetId2, idgv);
+    var idgv2 = data.idgv || "";
+    var sheetId2 = getSheetIdByIdgv(idgv2);
+    var targetSS = getSS2(sheetId2, idgv2);
     if (!targetSS) {
       return ContentService.createTextOutput(JSON.stringify({ 
         status: "error", 

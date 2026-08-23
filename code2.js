@@ -1079,7 +1079,7 @@ const lock = LockService.getScriptLock();
       ContentService.createTextOutput(
         JSON.stringify({ status, message, data: payload || null })
       ).setMimeType(ContentService.MimeType.JSON);
-   //const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
+    //2308sua3: Xử lý lưu ảnh an toàn
     // --- CHÈN NHÁNH XỬ LÝ LƯU ẢNH VÀO ĐÂY ---
     if (action === "uploadImage") {
       var base64Data = data.fileData; 
@@ -1101,100 +1101,115 @@ const lock = LockService.getScriptLock();
       
       return res("success", "Đã lưu thành công file: " + fileName, { "fileUrl": file.getUrl() });
     }
-    // --- THÊM NHÁNH NÀY VÀO TRONG HÀM mainDoPost(e) ---
 
-  // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo
-  if (sheetKq.getLastRow() === 0) {
-    sheetKq.appendRow(["Timestamp", "exams", "sbd", "name", "class", "tongdiem", "time", "idgv", "vipham", "exams.idgv", "exams.sbd.idgv"]);
-  }
+    //2308them3: Bắt toàn bộ các action submit đề thi (Word và Ma Trận), khắc phục hoàn toàn lỗi sheetKq is not defined
+    if (action === "submitExam" || action === "submitExamMatrix" || action === "submitMatrix" || action === "submit" || (data && (data.type === "submitExam" || data.type === "submitExamMatrix" || data.type === "submitMatrix"))) {
+      try {
+        // 1. LẤY SHEET TẢI ĐIỂM (Mở Sheet riêng của GV nếu có, nếu không lấy Sheet hiện tại)
+        var idgv2 = (data.idgv || data.idnumber || "").toString().trim();
+        var reqSheetId = (data.sheetId || "").toString().trim();
+        var sheetId2 = (typeof getSheetIdByIdgv === "function" && idgv2) ? getSheetIdByIdgv(idgv2) : "";
+        var finalSheetId = sheetId2 || reqSheetId;
+        var targetSS = (typeof getSS2 === "function") ? getSS2(finalSheetId, idgv2) : null;
+        
+        if (!targetSS) {
+          targetSS = (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet(); // Fallback an toàn
+        }
 
-  // LOGIC CHUNG CHO CẢ 2 LOẠI (Vì cấu trúc cột ghi là giống nhau)
-  // Tìm đến đoạn xử lý kết quả và thay bằng đoạn này:
-// Thay thế đoạn xử lý submit trong mainDoPost
-if (action === "submitExam" || action === "submitExamMatrix") {
-  try {
-    // 1. LẤY SHEET TẢI ĐIỂM (Mở Sheet riêng của GV nếu có, nếu không lấy Sheet hiện tại)
-    var idgv2 = data.idgv || "";
-    var sheetId2 = (typeof getSheetIdByIdgv === "function") ? getSheetIdByIdgv(idgv2) : "";
-    var targetSS = (typeof getSS2 === "function") ? getSS2(sheetId2, idgv2) : null;
-    
-    if (!targetSS) {
-      targetSS = SpreadsheetApp.getActiveSpreadsheet(); // Fallback an toàn nếu không tìm thấy Sheet
-    }
+        var sheetKq = targetSS.getSheetByName("ketqua") || targetSS.getSheetByName("KetQua");    
+        if (!sheetKq) {
+          sheetKq = targetSS.insertSheet("ketqua");
+        }
+        
+        // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo hoặc trống
+        if (sheetKq.getLastRow() === 0) {
+          sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv", "Thể loại", "Detail", "Nhận xét"]);
+        }
 
-    let sheetKq = targetSS.getSheetByName("ketqua") || targetSS.getSheetByName("KetQua");    
-    if (!sheetKq) {
-      sheetKq = targetSS.insertSheet("ketqua");
-      sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv", "Thể loại", "Detail", "Nhận xét"]);
-    }
+        // 2. CHUẨN HÓA DỮ LIỆU
+        var exams = (data.exams || data.examCode || "").toString().toUpperCase();
+        var idgv = idgv2;
+        var rawScore = data.tongdiem !== undefined ? data.tongdiem : (data.score !== undefined ? data.score : 0);
+        var diem = rawScore;
+        var className = (data.class || data.className || "Tự do").toString();
+        var thoiGian = (data.time !== undefined && data.time !== null) ? data.time : (data.totalTime || 0);
+        var sbd = (data.sbd || "").toString().trim();
+        var tabCount = data.tabSwitches !== undefined ? data.tabSwitches : (data.vipham !== undefined ? data.vipham : (data.tabCount || 0));
+        var theloai = data.theloai || (action === "submitExamMatrix" || action === "submitMatrix" ? "Matrix" : "Word");
+        
+        // Tính điểm dạng số để lấy nhận xét chuẩn xác
+        var numericScore = typeof rawScore === 'number' ? rawScore : (parseFloat(String(rawScore).replace(',', '.')) || 0);
+        var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Không có nhận xét nào";
 
-    // 2. CHUẨN HÓA DỮ LIỆU
-    const exams = (data.exams || data.examCode || "").toString().toUpperCase();
-    const idgv = (data.idgv || "").toString();
-    const diem = data.tongdiem !== undefined ? data.tongdiem : (data.score || 0);
-    const className = (data.class || data.className || "Tự do").toString();
-    const thoiGian = data.time || 0;
-    const sbd = data.sbd || "";
-    const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
-    const theloai = data.theloai || "Matrix";
-    const nx = (typeof layNhanXet === "function") ? layNhanXet(diem) : "Không có nhận xét nào";
+        // Xử lý chuỗi chi tiết an toàn tránh vượt giới hạn ký tự cell Google Sheets
+        var detailsStr = "";
+        if (data.details) {
+          try {
+            detailsStr = typeof data.details === 'object' ? JSON.stringify(data.details) : String(data.details);
+          } catch(eDetails) {
+            detailsStr = String(data.details || "");
+          }
+        }
+        if (detailsStr.length > 45000) {
+          detailsStr = detailsStr.substring(0, 45000) + "...";
+        }
 
-    // 3. TÌM HÀNG TRỐNG TIẾP THEO (Quét tìm ô trống thực tế tại Cột B - Mã đề)
-    const vals = sheetKq.getDataRange().getValues();
-    let nextRow = -1;
-    for (let i = 1; i < vals.length; i++) {
-      const cellValue = vals[i][1] !== undefined && vals[i][1] !== null ? String(vals[i][1]).trim() : "";
-      if (cellValue === "") {
-        nextRow = i + 1; 
-        break;
+        // 3. TÌM HÀNG TRỐNG TIẾP THEO (Quét tìm ô trống thực tế tại Cột B - Mã đề)
+        var vals = sheetKq.getDataRange().getValues();
+        var nextRow = -1;
+        for (var i = 1; i < vals.length; i++) {
+          var cellValue = vals[i][1] !== undefined && vals[i][1] !== null ? String(vals[i][1]).trim() : "";
+          if (cellValue === "") {
+            nextRow = i + 1; 
+            break;
+          }
+        }
+
+        if (nextRow === -1) {
+          nextRow = sheetKq.getLastRow() + 1;
+        }
+
+        if (nextRow < 2) nextRow = 2;
+
+        // 4. CHUẨN BỊ MẢNG DỮ LIỆU 1 HÀNG
+        var rowData = [
+          data.timestamp || new Date().toLocaleString('vi-VN'), // A: Timestamp
+          "'" + supper(exams),                                  // B: Mã đề
+          "'" + supper(sbd),                                    // C: SBD
+          supper(data.name || ""),                              // D: Họ tên
+          supper(className),                                    // E: Lớp
+          diem,                                                 // F: Tổng điểm
+          thoiGian,                                             // G: Thời gian làm            
+          "'" + supper(idgv),                                   // H: IDGV
+          tabCount,                                             // I: Vi phạm
+          "'" + supper(exams + "." + idgv),                     // J: exams.idgv
+          "'" + supper(exams + "." + sbd + "." + idgv),         // K: exams.sbd.idgv
+          theloai,                                              // L: Thể loại
+          detailsStr,                                           // M: Detail
+          nx || "Không có nhận xét nào"                         // N: Nhận xét
+        ];
+
+        // 5. GHI DỮ LIỆU VÀ ĐỊNH DẠNG
+        sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
+        
+        try { 
+          sheetKq.getRange(nextRow, 13).setWrap(true); 
+        } catch(eWrap) {}
+       
+        return ContentService.createTextOutput(JSON.stringify({ 
+          status: "success", 
+          message: "Ghi điểm thành công!",
+          rowRecorded: nextRow
+        })).setMimeType(ContentService.MimeType.JSON);
+
+      } catch (err) {
+        return ContentService.createTextOutput(JSON.stringify({ 
+          status: "error", 
+          message: "Lỗi ghi điểm: " + err.toString() 
+        })).setMimeType(ContentService.MimeType.JSON);
       }
     }
-
-    if (nextRow === -1) {
-      nextRow = sheetKq.getLastRow() + 1;
-    }
-
-    if (nextRow < 2) nextRow = 2;
-
-    // 4. CHUẨN BỊ MẢNG DỮ LIỆU 1 HÀNG
-    const rowData = [
-      data.timestamp || new Date().toLocaleString('vi-VN'), // A
-      "'" + supper(exams),                                  // B
-      "'" + supper(sbd),                                    // C
-      supper(data.name || ""),                              // D
-      supper(className),                                   // E
-      diem,                                                 // F
-      thoiGian,                                             // G            
-      "'" + supper(idgv),                                   // H
-      tabCount,                                             // I
-      "'" + supper(exams + "." + idgv),                     // J
-      "'" + supper(exams + "." + sbd + "." + idgv),         // K
-      theloai,                                              // L
-      data.details || "",                                   // M
-      nx || "Không có nhận xét nào"                         // N
-    ];
-
-    // 5. GHI DỮ LIỆU VÀ ĐỊNH DẠNG
-    sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
-    
-    // Đã sửa: Set wrap text an toàn cho đúng ô cột M vừa ghi
-    try { 
-      sheetKq.getRange(nextRow, 13).setWrap(true); 
-    } catch(e) {}
-   
-    return ContentService.createTextOutput(JSON.stringify({ 
-      status: "success", 
-      message: "Ghi điểm thành công!",
-      rowRecorded: nextRow
-    })).setMimeType(ContentService.MimeType.JSON);
-
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ 
-      status: "error", 
-      message: "Lỗi ghi điểm: " + err.toString() 
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
+    //2308ketthucsua3
 
     if (data.type === 'register') {
       var sheetUser = ss.getSheetByName("users");

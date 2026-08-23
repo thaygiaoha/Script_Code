@@ -1038,14 +1038,16 @@ const lock = LockService.getScriptLock();
       const reqIdgv = data.idgv || e.parameter.idgv || "";
       const reqPass = data.password || e.parameter.password || "";
       const reqExamCode = data.examCode || data.exams || e.parameter.examCode || e.parameter.exams || "";
-      const reqSheetId = data.sheetId || e.parameter.sheetId || "";
+      const sheetId2 = getSheetIdByIdgv(reqIdgv);
+      const reqSheetId = sheetId2 || data.sheetId || e.parameter.sheetId || "";
+      const ss2 = getSS2(reqSheetId, reqIdgv);      
       return regradeExams(reqIdgv, reqPass, reqExamCode, reqSheetId);
     }
     const res = (status, message, payload) =>
       ContentService.createTextOutput(
         JSON.stringify({ status, message, data: payload || null })
       ).setMimeType(ContentService.MimeType.JSON);
-   const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
+   //const sheetKq = ss.getSheetByName("ketqua") || ss.insertSheet("ketqua");
     // --- CHÈN NHÁNH XỬ LÝ LƯU ẢNH VÀO ĐÂY ---
     if (action === "uploadImage") {
       var base64Data = data.fileData; 
@@ -1077,7 +1079,7 @@ const lock = LockService.getScriptLock();
   // LOGIC CHUNG CHO CẢ 2 LOẠI (Vì cấu trúc cột ghi là giống nhau)
   // Tìm đến đoạn xử lý kết quả và thay bằng đoạn này:
 // Thay thế đoạn xử lý submit trong mainDoPost
-if (action === "submitExam" || action === "submitExamMatrix") {
+if (action === "submitExam" || action === "submitExamMatrix" || action === "submitMatrix" || data.type === "submitExam" || data.type === "submitExamMatrix" || data.type === "submitMatrix") {
   try {
     const idgv = (data.idgv || "").toString();
     const reqSheetId = data.sheetId || "";
@@ -1096,17 +1098,8 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const thoiGian = data.time || 0;
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
-    const theloai = data.theloai;
-    const forceSubmit = data.forceSubmit === true || String(data.forceSubmit).toLowerCase() === "true";
-     // KIỂM TRA THỜI GIAN TỐI THIỂU (600 Giây)
-    const MIN_TIME_SECONDS = 600; 
-    if (!forceSubmit && Number(thoiGian) < MIN_TIME_SECONDS) {
-      return ContentService.createTextOutput(JSON.stringify({ 
-        status: "error", 
-        message: "Thời gian làm bài tối thiểu là 10 phút. Bạn chưa đủ điều kiện nộp bài!" 
-      })).setMimeType(ContentService.MimeType.JSON);
-    }    
- const nx = layNhanXet(diem);
+    const theloai = data.theloai || (action === "submitExamMatrix" || action === "submitMatrix" ? "Ma Trận" : "Word"); 
+    const nx = layNhanXet(diem);
     // 3. TÌM HÀNG TRỐNG TIẾP THEO
      const vals = sheetKq.getDataRange().getValues();
       let nextRow = -1;

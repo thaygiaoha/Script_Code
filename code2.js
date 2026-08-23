@@ -1111,64 +1111,78 @@ const lock = LockService.getScriptLock();
   // LOGIC CHUNG CHO CẢ 2 LOẠI (Vì cấu trúc cột ghi là giống nhau)
   // Tìm đến đoạn xử lý kết quả và thay bằng đoạn này:
 // Thay thế đoạn xử lý submit trong mainDoPost
-if (action === "submitExam" || action === "submitExamMatrix" || action === "submitMatrix" || data.type === "submitExam" || data.type === "submitExamMatrix" || data.type === "submitMatrix") {
+if (action === "submitExam" || action === "submitExamMatrix") {
   try {
-    const idgv = (data.idgv || "").toString();
-    const reqSheetId = data.sheetId || "";
-    const ss2 = getSS2(reqSheetId, idgv);
+    // 1. LẤY SHEET TẢI ĐIỂM (Tự động mở Sheet riêng của GV nếu có, nếu không thì lấy Sheet hiện tại)
+    var targetSS = getSS2(data.sheetId, data.idgv);
+    if (!targetSS) {
+      return ContentService.createTextOutput(JSON.stringify({ 
+        status: "error", 
+        message: "Không thể kết nối đến Google Sheet của giáo viên!" 
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
-    let sheetKq = ss2.getSheetByName("ketqua");    
+    let sheetKq = targetSS.getSheetByName("ketqua") || targetSS.getSheetByName("KetQua");    
     if (!sheetKq) {
-      sheetKq = ss2.insertSheet("ketqua");
+      sheetKq = targetSS.insertSheet("ketqua");
       sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv", "Thể loại", "Detail"]);
     }
 
     // 2. CHUẨN HÓA DỮ LIỆU
     const exams = (data.exams || data.examCode || "").toString().toUpperCase();
+    const idgv = (data.idgv || "").toString();
     const diem = data.tongdiem !== undefined ? data.tongdiem : (data.score || 0);
     const className  = (data.class || data.className || "Tự do").toString();
     const thoiGian = data.time || 0;
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
-    const theloai = data.theloai || (action === "submitExamMatrix" || action === "submitMatrix" ? "Ma Trận" : "Word"); 
+    const theloai = data.theloai || "Matrix";
     const nx = layNhanXet(diem);
-    // 3. TÌM HÀNG TRỐNG TIẾP THEO
-     const vals = sheetKq.getDataRange().getValues();
-      let nextRow = -1;
-      for (let i = 1; i < vals.length; i++) {
-        const cellValue = vals[i][1] !== undefined && vals[i][1] !== null ? String(vals[i][1]).trim() : "";
-        if (cellValue === "") {
-          nextRow = i + 1; break;
-        }
+
+    // 3. TÌM HÀNG TRỐNG TIẾP THEO (Quét tìm ô trống thực tế tại Cột B - Mã đề)
+    const vals = sheetKq.getDataRange().getValues();
+    let nextRow = -1;
+    for (let i = 1; i < vals.length; i++) {
+      const cellValue = vals[i][1] !== undefined && vals[i][1] !== null ? String(vals[i][1]).trim() : "";
+      if (cellValue === "") {
+        nextRow = i + 1; 
+        break;
       }
+    }
+
+    // NẾU KHÔNG TÌM THẤY HÀNG TRỐNG THÌ GHI VÀO DÒNG CUỐI CÙNG TIẾP THEO
     if (nextRow === -1) {
       nextRow = sheetKq.getLastRow() + 1;
     }
 
+    // Đảm bảo nextRow không bao giờ nhỏ hơn 2 (tránh ghi đè tiêu đề hàng 1)
     if (nextRow < 2) nextRow = 2;
+
+    // Chuẩn bị mảng dữ liệu 1 hàng
     const rowData = [
       data.timestamp || new Date().toLocaleString('vi-VN'), // A
-      "'" + supper(exams),                                                // B
-      "'" + supper(sbd),                                          // C
-      supper(data.name || ""),                             // D
-      supper(className),                                                 // E
-      diem,                                                // F
-      thoiGian,                                           // G           
-      "'" + supper(idgv),
-      tabCount,
-      "'" + supper(exams + "." + idgv),                                    // S
-      "'" + supper(exams + "." + sbd + "." + idgv),
-      theloai,
-      data.details || "",  // Cột M
-      nx           // cột N
+      "'" + supper(exams),                                  // B
+      "'" + supper(sbd),                                    // C
+      supper(data.name || ""),                              // D
+      supper(className),                                   // E
+      diem,                                                 // F
+      thoiGian,                                             // G            
+      "'" + supper(idgv),                                   // H
+      tabCount,                                             // I
+      "'" + supper(exams + "." + idgv),                     // J
+      "'" + supper(exams + "." + sbd + "." + idgv),         // K
+      theloai,                                              // L
+      data.details || "",                                    // M
+      nx: nx
     ];
 
+    // GHI ĐÈ VÀO RANGE CỤ THỂ
     sheetKq.getRange(nextRow, 1, 1, rowData.length).setValues([rowData]);
     sheetKq.getRange("M:M").setWrap(true);
    
     return ContentService.createTextOutput(JSON.stringify({ 
       status: "success", 
-      message: "Ghi điểm thành công vào file TOÁN!",
+      message: "Ghi điểm thành công!",
       rowRecorded: nextRow
     })).setMimeType(ContentService.MimeType.JSON);
 

@@ -1097,9 +1097,10 @@ if (action === "submitExam" || action === "submitExamMatrix") {
     const sbd = data.sbd || "";
     const tabCount = data.tabSwitches !== undefined ? data.tabSwitches : 0;
     const theloai = data.theloai;
+    const forceSubmit = data.forceSubmit === true || String(data.forceSubmit).toLowerCase() === "true";
      // KIỂM TRA THỜI GIAN TỐI THIỂU (600 Giây)
     const MIN_TIME_SECONDS = 600; 
-    if (Number(thoiGian) < MIN_TIME_SECONDS) {
+    if (!forceSubmit && Number(thoiGian) < MIN_TIME_SECONDS) {
       return ContentService.createTextOutput(JSON.stringify({ 
         status: "error", 
         message: "Thời gian làm bài tối thiểu là 10 phút. Bạn chưa đủ điều kiện nộp bài!" 

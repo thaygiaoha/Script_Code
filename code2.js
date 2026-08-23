@@ -1,22 +1,43 @@
 // --- FILE TỔNG TRÊN GITHUB ---07/07/26
 
-// Lấy sheetId từ cột J (cột 10) của sheet 'idgv' trong ssAdmin theo idgv
+// Lấy sheetId từ cột J (cột 10) hoặc cột I (cột 9 dự phòng) của sheet 'idgv' trong ssAdmin
 function getSheetIdByIdgv(idgv) {
   if (!idgv) return "";
   try {
+    if (typeof ssAdmin === "undefined" || !ssAdmin) return "";
     var sheet = ssAdmin.getSheetByName("idgv");
     if (!sheet) return "";
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return "";
-    var data = sheet.getRange(2, 1, lastRow - 1, 10).getValues(); // Cột A -> J
-    var targetStr = String(idgv).trim().toUpperCase();
-    var targetN9 = N9(idgv);
+    
+    // Lấy từ cột A đến cột J (cột 1 đến cột 10)
+    var data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    var targetStr = String(idgv).replace(/'/g, "").trim().toUpperCase();
+    var targetN9 = typeof N9 === "function" ? N9(idgv) : targetStr;
+
     for (var i = 0; i < data.length; i++) {
-      var colAStr = String(data[i][0] || "").trim().toUpperCase();
-      var colAN9 = N9(data[i][0] || "");
-      if (colAStr === targetStr || (targetN9 && colAN9 === targetN9) || supper(colAStr) === supper(targetStr)) {
-        var sid = String(data[i][9] || "").trim(); // Cột J là index 9
-        if (sid) return sid;
+      var cellA = data[i][0];
+      if (cellA === null || cellA === undefined || cellA === "") continue;
+
+      var colAStr = String(cellA).replace(/'/g, "").trim().toUpperCase();
+      var colAN9 = typeof N9 === "function" ? N9(cellA) : colAStr;
+
+      // So sánh khớp IDGV
+      var isMatch = (colAStr === targetStr) || 
+                    (targetN9 && colAN9 === targetN9) || 
+                    (typeof supper === "function" && supper(colAStr) === supper(targetStr));
+
+      if (isMatch) {
+        var sidJ = String(data[i][9] || "").trim(); // Cột J (Index 9)
+        var sidI = String(data[i][8] || "").trim(); // Cột I (Index 8)
+
+        // Lựa chọn ưu tiên: Kiểm tra cột J trước, nếu không hợp lệ thì dự phòng sang cột I
+        if (sidJ && sidJ.length >= 25) {
+          return sidJ;
+        }
+        if (sidI && sidI.length >= 25) {
+          return sidI;
+        }
       }
     }
   } catch (err) {
@@ -27,18 +48,29 @@ function getSheetIdByIdgv(idgv) {
 
 // Mở Spreadsheet của Giáo viên (ss2) theo sheetId hoặc tự động tra cứu từ idgv
 function getSS2(sheetId, idgv) {
-  var sid = (sheetId || "").toString().trim();
+  var sid = String(sheetId || "").trim();
+  
+  // Loại bỏ các trường hợp truyền chuỗi "undefined" hoặc "null" từ Client
+  if (sid === "undefined" || sid === "null" || sid.length < 25) {
+    sid = "";
+  }
+
+  // Nếu không có sheetId chuẩn, tiến hành tra cứu qua idgv trong sheet 'idgv'
   if (!sid && idgv) {
     sid = getSheetIdByIdgv(idgv);
   }
-  if (sid && sid.length >= 20) {
+
+  // Thực hiện mở Google Sheet theo ID tìm được
+  if (sid && sid.length >= 25) {
     try {
       return SpreadsheetApp.openById(sid);
     } catch (e) {
       Logger.log("Không thể mở Spreadsheet theo sheetId [" + sid + "]: " + e.toString());
     }
   }
-  return ss; // Nếu không tìm thấy sheetId hoặc mở lỗi thì fallback về ss mặc định
+
+  // Fallback bắt buộc về File Sheet chính (ss) nếu không mở được file riêng
+  return (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet();
 }
 
 function mainDoGet(e) {

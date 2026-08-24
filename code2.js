@@ -3009,9 +3009,11 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var idgvStr = String(idgv || "").trim();
     var passStr = String(password || "").trim();
     var examStr = String(examCode || "").trim().replace(/^'/, '');
+    var theloaiStr = String(theloai || "").trim().toLowerCase().
 
     if (!idgvStr) return createResponse("error", "Vui lòng nhập ID Giáo viên!");
     if (!passStr) return createResponse("error", "Vui lòng nhập Mật khẩu!");
+    if (!theloaiStr) return createResponse("error", "Vui lòng chọn thể loại đề thi PDF/Word/Matrix!");
     if (!examStr) return createResponse("error", "Vui lòng chọn Mã đề!");
 
     var isAuth = checkTeacherAuth(idgvStr, passStr);
@@ -3020,20 +3022,15 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     }
 
     var ss2 = getSS2(sheetId, idgvStr);
-    var sheetKq = ss2.getSheetByName("ketqua") || ss2.getSheetByName("KetQua") || ss2.getSheetByName("KETQUA");
-    
-    // Nếu trong ss2 không có sheet ketqua, kiểm tra file chính
-    if (!sheetKq) {
-      var mainSS = (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet();
-      sheetKq = mainSS.getSheetByName("ketqua") || mainSS.getSheetByName("KetQua") || mainSS.getSheetByName("KETQUA");
-    }
+    var sheetKq = ss2.getSheetByName("ketqua") || ss2.getSheetByName("KetQua") || ss2.getSheetByName("KETQUA");    
+    // Nếu trong ss2 không có sheet ketqua, kiểm tra file chính  
 
     if (!sheetKq) return createResponse("error", "Sheet ketqua không tồn tại!");
 
     var lastRowKq = sheetKq.getLastRow();
     if (lastRowKq < 2) return createResponse("error", "Sheet ketqua không có dữ liệu!");
 
-    sapxep(2, sheetKq);
+    sapxep_1(2, sheetKq);
 
     var dataKq = sheetKq.getDataRange().getValues();    
     var targetIdgvN9 = N9(idgvStr);
@@ -3049,13 +3046,10 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       var rowExams = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
       var rowIdgv = row[7] ? String(row[7]).replace(/'/g, '').trim() : "";
       var rowExIdgv = row[9] ? String(row[9]).replace(/'/g, '').trim() : "";
+      var rowTheloai = row[11] ? String(row[9]).replace(/'/g, '').trim().toLowCase() : "";
 
       var matchesExam = (supper(rowExams) === targetExamSupper);
-      var matchesId = isPrivateSS || 
-                      (N9(rowIdgv) === targetIdgvN9) || 
-                      (supper(rowIdgv) === targetIdgvSupper) ||
-                      (targetIdgvSupper && rowExIdgv.toUpperCase().indexOf(targetIdgvSupper) !== -1) ||
-                      (targetIdgvN9 && rowExIdgv.toLowerCase().indexOf(targetIdgvN9) !== -1);
+      var matchesId = isPrivateSS && (rowTheloai === theloaiStr);                     
 
       if (matchesExam && matchesId) {
         matchingRowIndices.push(i + 1); // Dòng thực tế 1-indexed trong Google Sheets
@@ -3073,33 +3067,43 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var scSA = 0.5;
 
     // Tra cứu trong sheet exams (Đề Word)
-    var sheetExams = ss2.getSheetByName("exams") || ((typeof ss !== "undefined" && ss) ? ss.getSheetByName("exams") : null);
-    if (sheetExams && sheetExams.getLastRow() >= 2) {
-      var keyCheckExams = supper(examStr + "." + idgvStr);
-      var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, 16).getValues();
+    var sheetExams = ss2.getSheetByName("exams");
+    if (sheetExams && sheetExams.getLastRow() >= 2) {      
+      var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, 21).getValues();
       for (var eIdx = 0; eIdx < dataExams.length; eIdx++) {
         var exRow = dataExams[eIdx];
-        var rowExKey = supper(String(exRow[14] || exRow[0] + "." + exRow[1]));
-        if (rowExKey === keyCheckExams || (supper(exRow[0]) === targetExamSupper && (N9(exRow[1]) === targetIdgvN9 || isPrivateSS))) {
-          if (parseFloat(exRow[3]) > 0) scMCQ = parseFloat(exRow[3]);
-          if (parseFloat(exRow[5]) > 0) scTF = parseFloat(exRow[5]);
-          if (parseFloat(exRow[7]) > 0) scSA = parseFloat(exRow[7]);
+        var rowExKey = supper(String(exRow[0] || ""));
+        var rowTheloai = (String(exRow[20] || "").trim().toLowerCase().
+        if (rowExKey === targetExamSupper && rowTheloai === theloaiStr) {
+               var val3 = parseNum(exRow[3]);
+        if (val3 > 0) scMCQ = val3;
+
+                var val5 = parseNum(exRow[5]);
+        if (val5 > 0) scTF = val5;
+
+                var val7 = parseNum(exRow[7]);
+        if (val7 > 0) scSA = val7;
           break;
         }
       }
     }
 
     // Tra cứu trong sheet matran (Đề Ma Trận)
-    var sheetMatran = ss2.getSheetByName("matran") || ((typeof ss !== "undefined" && ss) ? ss.getSheetByName("matran") : null);
+    var sheetMatran = ss2.getSheetByName("matran");
     if (sheetMatran && sheetMatran.getLastRow() >= 2) {
       var dataMatran = sheetMatran.getRange(2, 1, sheetMatran.getLastRow() - 1, 19).getValues();
       for (var mIdx = 0; mIdx < dataMatran.length; mIdx++) {
         var mtRow = dataMatran[mIdx];
-        var rowMtKey = supper(String(mtRow[18] || mtRow[1] + "." + mtRow[0]));
-        if (rowMtKey === supper(examStr + "." + idgvStr) || (supper(mtRow[1]) === targetExamSupper && (N9(mtRow[0]) === targetIdgvN9 || isPrivateSS))) {
-          if (parseFloat(mtRow[6]) > 0) scMCQ = parseFloat(mtRow[6]);
-          if (parseFloat(mtRow[10]) > 0) scTF = parseFloat(mtRow[10]);
-          if (parseFloat(mtRow[14]) > 0) scSA = parseFloat(mtRow[14]);
+        var rowMtKey = supper(String(mtRow[1] || ""));
+        if (rowMtKey === targetExamSupper) {
+          var val6 = parseNum(mtRow[6]);
+        if (val6 > 0) scMCQ = val6;
+
+          var val10 = parseNum(mtRow[10]);
+        if (val10 > 0) scTF = val10;
+
+          var val14 = parseNum(mtRow[14]);
+        if (val14 > 0) scSA = val14;
           break;
         }
       }
@@ -3111,7 +3115,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var nhMap = {};
 
     // 2a. Đọc từ ngân hàng gốc nganhang
-    var sheetNH = (typeof ss !== "undefined" && ss) ? ss.getSheetByName("nganhang") : SpreadsheetApp.getActiveSpreadsheet().getSheetByName("nganhang");
+   
     if (sheetNH && sheetNH.getLastRow() >= 2) {
       var dataNH = sheetNH.getRange(2, 1, sheetNH.getLastRow() - 1, 9).getValues();
       for (var nhIdx = 0; nhIdx < dataNH.length; nhIdx++) {
@@ -3138,14 +3142,14 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     }
 
     // 2b. Đọc từ exam_data (lưu các câu hỏi riêng của đề Word/Ma trận)
-    var sheetExamData = ss2.getSheetByName("exam_data") || ((typeof ss !== "undefined" && ss) ? ss.getSheetByName("exam_data") : null);
+    var sheetExamData = ss2.getSheetByName("exam_data");
     if (sheetExamData && sheetExamData.getLastRow() >= 2) {
       var dataEd = sheetExamData.getRange(2, 1, sheetExamData.getLastRow() - 1, 10).getValues();
       var keyEd = supper(examStr + "." + idgvStr);
       for (var edIdx = 0; edIdx < dataEd.length; edIdx++) {
         var edRow = dataEd[edIdx];
-        var rowEdKey = supper(String(edRow[8] || edRow[0] + "." + edRow[7]));
-        if (rowEdKey === keyEd || (supper(edRow[0]) === targetExamSupper && (N9(edRow[7]) === targetIdgvN9 || isPrivateSS))) {
+        var rowEdKey = supper(String(edRow[0] || ""));
+        if (rowEdKey === targetExamSupper) {
           var rawQ = String(edRow[4] || "");
           var qIdEd = String(edRow[1] || "").trim();
           var parsedQ = null;
@@ -3619,7 +3623,7 @@ function layNhanXet(diem) {
  * @param {number} cot - Thứ tự cột cần sắp xếp (Ví dụ: 2 là cột B)
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Đối tượng Sheet cần sắp xếp
  */
-function sapxep(cot, sheet) {
+function sapxep_1(cot, sheet) {
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
@@ -3628,4 +3632,26 @@ function sapxep(cot, sheet) {
     var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
     dataRange.sort({ column: cot, ascending: true });
   }
+}
+function sapxep_2(cot1, x, cot2, y, sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+
+  // Nếu có dữ liệu từ dòng 2 trở đi thì mới sắp xếp
+  if (lastRow > 1) {
+    var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
+    
+    dataRange.sort([
+      { column: cot1, ascending: x === 1 },
+      { column: cot2, ascending: y === 1 }
+    ]);
+  }
+}
+
+function parseNum(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  // Chuyển sang dạng chuỗi, đổi dấu phẩy thành dấu chấm rồi parse số
+  var cleanVal = String(val).replace(',', '.');
+  var num = parseFloat(cleanVal);
+  return isNaN(num) ? 0 : num;
 }

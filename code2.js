@@ -823,14 +823,16 @@ if (action === 'getAppConfigmt') {
 // 3107them5: Route lấy danh sách mã đề chấm lại & chấm lại (GET)
 if (action === "getRegradeExamsList") {
   const targetIdgv = e.parameter.idgv || e.parameter.idnumber || "";
-  const reqSheetId = e.parameter.sheetId || "";
+  const sheetId2 = getSheetIdByIdgv(targetIdgv);
+  const reqSheetId = sheetId2 || e.parameter.sheetId || "";
   return getRegradeExamsList(targetIdgv, reqSheetId);
 }
 if (action === "regradeExams") {
   const reqIdgv = e.parameter.idgv || "";
+  const sheetId2 = getSheetIdByIdgv(reqIdgv);
   const reqPass = e.parameter.password || "";
   const reqExamCode = e.parameter.examCode || e.parameter.exams || "";
-  const reqSheetId = e.parameter.sheetId || "";
+  const reqSheetId = sheetId2 || e.parameter.sheetId || "";
   return regradeExams(reqIdgv, reqPass, reqExamCode, reqSheetId);
 }
 
@@ -2977,12 +2979,10 @@ function getRegradeExamsList(idgv, sheetId) {
   try {
     if (!idgv) return createResponse("error", "Thiếu ID Giáo viên");
     var ss2 = getSS2(sheetId, idgv);
-    var sheet = ss2.getSheetByName("ketqua");
+    var sheet = ss2.getSheetByName("ketqua");   
     if (!sheet) return createResponse("success", "OK", []);
-
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return createResponse("success", "OK", []);
-
     var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
     var targetIdgv = supper(idgv);
     var targetN9 = N9(idgv);
@@ -2994,7 +2994,7 @@ function getRegradeExamsList(idgv, sheetId) {
       var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
 
       var matchesIdgv = (targetIdgv && (supper(rowIdgv) === targetIdgv || N9(rowIdgv) === targetN9));
-      var isTargetTheloai = (theloai === "matran" || theloai === "word" || theloai === "ma trận");
+      var isTargetTheloai = (theloai === "matran" || theloai === "word" || theloai === "matrix");
 
       if (matchesIdgv && isTargetTheloai) {
         var examCode = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
@@ -3030,18 +3030,23 @@ function regradeExams(idgv, password, examCode, sheetId) {
     var ss2 = getSS2(sheetId, idgvStr);
 
     var sheetKq = ss2.getSheetByName("ketqua");
+    sapxep(2, sheetKq);    
+    var rowStart = -1;
+    var arrayDiem = [];     // Mảng chứa điểm ghi vào Cột F
+    var arrayNhanXet = [];  // Mảng chứa nhận xét ghi vào Cột N
+    var arrayGhichu = []; // cột p
     if (!sheetKq) return createResponse("error", "Sheet ketqua không tồn tại!");
 
     var lastRowKq = sheetKq.getLastRow();
     if (lastRowKq < 2) return createResponse("error", "Sheet ketqua không có dữ liệu!");
 
-    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 14).getValues();
+    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 15).getValues();
     var targetIdgvSupper = supper(idgvStr);
     var targetIdgvN9 = N9(idgvStr);
     var targetExamSupper = supper(examStr);
 
     var matchingRowIndices = [];
-    var matchingDetails = [];
+    var matchingDetails = [];    
 
     for (var i = 0; i < dataKq.length; i++) {
       var row = dataKq[i];
@@ -3054,8 +3059,12 @@ function regradeExams(idgv, password, examCode, sheetId) {
       var isWordOrMatran = (theloai === "matran" || theloai === "word" || theloai === "ma trận");
 
       if (matchesId && matchesExam && isWordOrMatran) {
+        if (rowStart === -1) {
+          rowStart = i + 2;
+        }
+        
         matchingRowIndices.push(i + 2);
-        matchingDetails.push(row[12]);
+        matchingDetails.push(row[12]);       
       }
     }
 
@@ -3270,15 +3279,27 @@ function regradeExams(idgv, password, examCode, sheetId) {
         totalScore += point;
       });
 
-      var finalScore = Math.round(totalScore * 100) / 100;
-      var scoreStr = finalScore.toString().replace('.', ',');
-
-      // Cập nhật vào Sheet ketqua: Cột 6 (F) = tongdiem, Cột 14 (N) = "Chấm lại"
-      sheetKq.getRange(actualRow, 6).setValue(scoreStr);
-      sheetKq.getRange(actualRow, 14).setValue("Chấm lại");
-
+      var finalScore = Math.round(totalScore * 100) / 100;      
+      var numericScore = typeof finalScore === 'number' ? finalScore : (parseFloat(String(finalScore).replace(',', '.')) || 0);
+      var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Không có nhận xét nào";
+        arrayDiem.push([finalScore]);
+        arrayNhanXet.push([nx]);
+        arrayGhichu.push(["Chấm lại"]);
       regradedCount++;
     }
+    if (rowStart !== -1 && regradedCount > 0) {
+    // Ghi đè cột F (Cột 6 - Điểm)
+    sheetKq.getRange(rowStart, 6, regradedCount, 1).setValues(arrayDiem);
+
+    // Ghi đè cột N (Cột 14 - Nhận xét)
+    sheetKq.getRange(rowStart, 14, regradedCount, 1).setValues(arrayNhanXet);
+    // Ghi đè cột O (Cột 15 - Ghi chú)
+    sheetKq.getRange(rowStart, 15, regradedCount, 1).setValues(arrayGhichu);
+
+    Logger.log("Đã cập nhật xong " + regradedCount + " câu. Dòng bắt đầu: " + rowStart);
+  } else {
+    Logger.log("Không tìm thấy mã bài với mã: " + examStr + " của giáo viên với IDGV: " + idgvStr);
+  }
 
     return createResponse("success", "Đã chấm lại thành công " + regradedCount + " bài làm cho mã đề " + examStr + "!");
 
@@ -3542,6 +3563,20 @@ function layNhanXet(diem) {
   } else {
     nx = nx6;
   }
-
   return nx;
+}
+/**
+ * Hàm sắp xếp tổng quát cho Sheet
+ * @param {number} cot - Thứ tự cột cần sắp xếp (Ví dụ: 2 là cột B)
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet - Đối tượng Sheet cần sắp xếp
+ */
+function sapxep(cot, sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+
+  // Nếu có dữ liệu từ dòng 2 trở đi thì mới sắp xếp (tránh xếp mất dòng Header)
+  if (lastRow > 1) {
+    var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
+    dataRange.sort({ column: cot, ascending: true });
+  }
 }

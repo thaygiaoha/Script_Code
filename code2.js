@@ -2967,140 +2967,31 @@ function checkTeacherAuth(idgv, password) {
 }
 
 // 2408sua2: Lấy danh sách các mã đề theo thể loại (Matrix, Word, PDF) ở sheet ketqua, matran, exams của idgv
-function getRegradeExamsList(idgv, sheetId, theloai) {
+function getRegradeExamsList(idgv, sheetId, theloai) {  
   try {
-    if (!idgv) return createResponse("error", "Thiếu ID Giáo viên");
+    var tagettheloai = (theloai || "").trim().toLowerCase();
+    if (!idgv || !theloai || tagettheloai === "pdf") return createResponse("error", "Thiếu thông tin rồi bạn ơi");
+    var ss2 = getSS2(sheetId, idgv);
+    var sheet = ss2.getSheetByName("ketqua");
+    if (!sheet) return createResponse("success", "OK", []);
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return createResponse("success", "OK", []);
+
+    var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
     var targetIdgv = supper(idgv);
     var targetN9 = N9(idgv);
-    var targetTheloai = String(theloai || "").trim().toLowerCase();
+    
     var examsList = [];
 
-    // Quét tìm trong cả ss2 (file riêng GV) và ss/mainSS (file chính)
-    var sheetsToScan = [];
-    var ss2 = getSS2(sheetId, idgv);
-    var hasPrivateSS = !!(sheetId || (typeof getSheetIdByIdgv === "function" && getSheetIdByIdgv(idgv)));
-
-    if (ss2) {
-      var sh1 = ss2.getSheetByName("ketqua") || ss2.getSheetByName("KetQua") || ss2.getSheetByName("KETQUA");
-      if (sh1) sheetsToScan.push({ sheet: sh1, isPrivate: hasPrivateSS, ssRef: ss2 });
-    }
-    var mainSS = (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet();
-    if (mainSS && (!ss2 || mainSS.getId() !== ss2.getId())) {
-      var sh2 = mainSS.getSheetByName("ketqua") || mainSS.getSheetByName("KetQua") || mainSS.getSheetByName("KETQUA");
-      if (sh2) sheetsToScan.push({ sheet: sh2, isPrivate: false, ssRef: mainSS });
-    }
-
-    // Hàm kiểm tra khớp thể loại chính xác & linh hoạt
-    function checkTheloaiMatch(rowTheloai, examCode, currentSS) {
-      if (!targetTheloai || targetTheloai === "all") return true;
-      var t = String(rowTheloai || "").trim().toLowerCase();
-
-      // 1. Thể loại PDF
-      if (targetTheloai === "pdf") {
-        return (t === "pdf" || t.indexOf("pdf") !== -1);
-      }
-
-      // 2. Thể loại Matrix / Ma Trận
-      if (targetTheloai === "matrix" || targetTheloai === "matran" || targetTheloai === "ma trận") {
-        if (t === "matrix" || t === "matran" || t === "ma trận" || t === "quiz" || t === "quizz") {
-          return true;
-        }
-        if (!t) {
-          // Kiểm tra xem mã đề có trong sheet matran không
-          var shMt = currentSS ? currentSS.getSheetByName("matran") : null;
-          if (shMt && shMt.getLastRow() >= 2) {
-            var mtVals = shMt.getRange(2, 2, shMt.getLastRow() - 1, 1).getValues();
-            for (var m = 0; m < mtVals.length; m++) {
-              if (supper(mtVals[m][0]) === supper(examCode)) return true;
-            }
-          }
-          return (t !== "pdf" && t.indexOf("pdf") === -1 && t !== "word");
-        }
-        return false;
-      }
-
-      // 3. Thể loại Word
-      if (targetTheloai === "word") {
-        if (t === "word" || t.indexOf("word") !== -1) {
-          return true;
-        }
-        if (!t) {
-          // Kiểm tra xem mã đề có trong sheet exams không
-          var shEx = currentSS ? currentSS.getSheetByName("exams") : null;
-          if (shEx && shEx.getLastRow() >= 2) {
-            var exVals = shEx.getRange(2, 1, shEx.getLastRow() - 1, 1).getValues();
-            for (var e = 0; e < exVals.length; e++) {
-              if (supper(exVals[e][0]) === supper(examCode)) return true;
-            }
-          }
-          return (t !== "pdf" && t.indexOf("pdf") === -1 && t !== "matrix" && t !== "matran" && t !== "ma trận");
-        }
-        return false;
-      }
-
-      return true;
-    }
-
-    sheetsToScan.forEach(function(item) {
-      var sheet = item.sheet;
-      var isPrivate = item.isPrivate;
-      var curSS = item.ssRef;
-      var lastRow = sheet.getLastRow();
-      if (lastRow >= 2) {
-        var data = sheet.getDataRange().getValues();
-        for (var i = 1; i < data.length; i++) {
-          var row = data[i];
-          var examCode = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
-          if (!examCode) continue;
-
-          var rowIdgv = row[7] ? String(row[7]).replace(/'/g, '').trim() : "";
-          var rowExIdgv = row[9] ? String(row[9]).replace(/'/g, '').trim() : "";
-          var rowExSbdIdgv = row[10] ? String(row[10]).replace(/'/g, '').trim() : "";
-          var theloaiCell = row[11] ? String(row[11]).trim() : "";
-
-          // Khớp IDGV linh hoạt
-          var matchesIdgv = isPrivate || 
-                            !targetIdgv || 
-                            (supper(rowIdgv) === targetIdgv) || 
-                            (targetN9 && N9(rowIdgv) === targetN9) ||
-                            (targetIdgv && rowExIdgv.toUpperCase().indexOf(targetIdgv) !== -1) ||
-                            (targetN9 && rowExIdgv.toLowerCase().indexOf(targetN9) !== -1) ||
-                            (targetIdgv && rowExSbdIdgv.toUpperCase().indexOf(targetIdgv) !== -1);
-
-          var matchesType = checkTheloaiMatch(theloaiCell, examCode, curSS);
-
-          if (matchesIdgv && matchesType) {
-            examsList.push(examCode);
-          }
-        }
-      }
-    });
-
-    // 2408them2: Nếu là Matrix hoặc Word mà chưa thấy mã đề trong ketqua, bổ sung các mã đề đã tạo trong sheet matran / exams của GV
-    if (ss2) {
-      if (targetTheloai === "matrix" || targetTheloai === "matran" || targetTheloai === "ma trận") {
-        var sheetMt = ss2.getSheetByName("matran");
-        if (sheetMt && sheetMt.getLastRow() >= 2) {
-          var mtData = sheetMt.getRange(2, 1, sheetMt.getLastRow() - 1, 2).getValues();
-          for (var m = 0; m < mtData.length; m++) {
-            var rowTId = String(mtData[m][0] || "").trim();
-            var rowMCode = String(mtData[m][1] || "").trim().replace(/^'/, '');
-            if (rowMCode && (hasPrivateSS || supper(rowTId) === targetIdgv || N9(rowTId) === targetN9 || rowTId === "SYSTEM")) {
-              examsList.push(rowMCode);
-            }
-          }
-        }
-      } else if (targetTheloai === "word") {
-        var sheetEx = ss2.getSheetByName("exams");
-        if (sheetEx && sheetEx.getLastRow() >= 2) {
-          var exData = sheetEx.getRange(2, 1, sheetEx.getLastRow() - 1, 2).getValues();
-          for (var e = 0; e < exData.length; e++) {
-            var rowECode = String(exData[e][0] || "").trim().replace(/^'/, '');
-            var rowTId = String(exData[e][1] || "").trim();
-            if (rowECode && (hasPrivateSS || supper(rowTId) === targetIdgv || N9(rowTId) === targetN9)) {
-              examsList.push(rowECode);
-            }
-          }
+    for (var i = 0; i < data.length; i++) {
+      var row = data[i];
+      var rowIdgv = row[7] ? String(row[7]).trim() : "";
+      var theloaisheet = row[11] ? String(row[11]).trim().toLowerCase() : "";     
+      if (theloaisheet === tagettheloai) {
+        var examCode = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
+        if (examCode) {
+          examsList.push(examCode);
         }
       }
     }

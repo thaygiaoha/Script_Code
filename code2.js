@@ -1064,8 +1064,7 @@ const lock = LockService.getScriptLock();
       const reqPass = data.password || e.parameter.password || "";
       const reqExamCode = data.examCode || data.exams || e.parameter.examCode || e.parameter.exams || "";
       const sheetId2 = getSheetIdByIdgv(reqIdgv);
-      const reqSheetId = sheetId2 || data.sheetId || e.parameter.sheetId || "";
-      const ss2 = getSS2(reqSheetId, reqIdgv);      
+      const reqSheetId = sheetId2 || data.sheetId || e.parameter.sheetId || "";     
       return regradeExams(reqIdgv, reqPass, reqExamCode, reqSheetId);
     }
     const res = (status, message, payload) =>

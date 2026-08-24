@@ -2965,34 +2965,63 @@ function checkTeacherAuth(idgv, password) {
 }
 
 // 3107them5: Lấy danh sách các mã đề Matran hoặc Word ở sheet ketqua của idgv
+// 2408sua1: Lấy danh sách các mã đề Matran hoặc Word ở sheet ketqua của idgv
 function getRegradeExamsList(idgv, sheetId) {
   try {
     if (!idgv) return createResponse("error", "Thiếu ID Giáo viên");
-    var ss2 = getSS2(sheetId, idgv);
-    var sheet = ss2.getSheetByName("ketqua");   
-    if (!sheet) return createResponse("success", "OK", []);
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return createResponse("success", "OK", []);
-    var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
     var targetIdgv = supper(idgv);
     var targetN9 = N9(idgv);
     var examsList = [];
 
-    for (var i = 0; i < data.length; i++) {
-      var row = data[i];
-      var rowIdgv = row[7] ? String(row[7]).trim() : "";
-      var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
+    // Quét tìm trong cả ss2 (file riêng GV) và ss/mainSS (file chính)
+    var sheetsToScan = [];
+    var ss2 = getSS2(sheetId, idgv);
+    var hasPrivateSS = !!(sheetId || (typeof getSheetIdByIdgv === "function" && getSheetIdByIdgv(idgv)));
 
-      var matchesIdgv = (targetIdgv && (supper(rowIdgv) === targetIdgv || N9(rowIdgv) === targetN9));
-      var isTargetTheloai = (theloai === "matran" || theloai === "word" || theloai === "matrix");
+    if (ss2) {
+      var sh1 = ss2.getSheetByName("ketqua") || ss2.getSheetByName("KetQua") || ss2.getSheetByName("KETQUA");
+      if (sh1) sheetsToScan.push({ sheet: sh1, isPrivate: hasPrivateSS });
+    }
+    var mainSS = (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet();
+    if (mainSS && (!ss2 || mainSS.getId() !== ss2.getId())) {
+      var sh2 = mainSS.getSheetByName("ketqua") || mainSS.getSheetByName("KetQua") || mainSS.getSheetByName("KETQUA");
+      if (sh2) sheetsToScan.push({ sheet: sh2, isPrivate: false });
+    }
 
-      if (matchesIdgv && isTargetTheloai) {
-        var examCode = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
-        if (examCode) {
-          examsList.push(examCode);
+    sheetsToScan.forEach(function(item) {
+      var sheet = item.sheet;
+      var isPrivate = item.isPrivate;
+      var lastRow = sheet.getLastRow();
+      if (lastRow >= 2) {
+        var data = sheet.getDataRange().getValues();
+        for (var i = 1; i < data.length; i++) {
+          var row = data[i];
+          var examCode = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
+          if (!examCode) continue;
+
+          var rowIdgv = row[7] ? String(row[7]).replace(/'/g, '').trim() : "";
+          var rowExIdgv = row[9] ? String(row[9]).replace(/'/g, '').trim() : "";
+          var rowExSbdIdgv = row[10] ? String(row[10]).replace(/'/g, '').trim() : "";
+          var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
+
+          // Thể loại: Chấp nhận word, matrix, matran, ma trận, hoặc để trống (chỉ loại trừ PDF)
+          var isNonPdf = (!theloai || (theloai !== "pdf" && theloai.indexOf("pdf") === -1));
+
+          // Khớp IDGV linh hoạt
+          var matchesIdgv = isPrivate || 
+                            !targetIdgv || 
+                            (supper(rowIdgv) === targetIdgv) || 
+                            (targetN9 && N9(rowIdgv) === targetN9) ||
+                            (targetIdgv && rowExIdgv.toUpperCase().indexOf(targetIdgv) !== -1) ||
+                            (targetN9 && rowExIdgv.toLowerCase().indexOf(targetN9) !== -1) ||
+                            (targetIdgv && rowExSbdIdgv.toUpperCase().indexOf(targetIdgv) !== -1);
+
+          if (matchesIdgv && isNonPdf) {
+            examsList.push(examCode);
+          }
         }
       }
-    }
+    });
 
     var uniqueExams = [...new Set(examsList)];
     return createResponse("success", "OK", uniqueExams);
@@ -3002,6 +3031,7 @@ function getRegradeExamsList(idgv, sheetId) {
 }
 
 // 3107them5: Chấm lại bài thi Matran & Word cho tất cả học sinh thi mã đề đó
+// 2408sua1: Chấm lại bài thi Matran & Word cho tất cả học sinh thi mã đề đó
 function regradeExams(idgv, password, examCode, sheetId) {
   try {
     var idgvStr = String(idgv || "").trim();
@@ -3018,41 +3048,48 @@ function regradeExams(idgv, password, examCode, sheetId) {
     }
 
     var ss2 = getSS2(sheetId, idgvStr);
+    var sheetKq = ss2.getSheetByName("ketqua") || ss2.getSheetByName("KetQua") || ss2.getSheetByName("KETQUA");
+    
+    // Nếu trong ss2 không có sheet ketqua, kiểm tra file chính
+    if (!sheetKq) {
+      var mainSS = (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet();
+      sheetKq = mainSS.getSheetByName("ketqua") || mainSS.getSheetByName("KetQua") || mainSS.getSheetByName("KETQUA");
+    }
 
-    var sheetKq = ss2.getSheetByName("ketqua");
-    sapxep(2, sheetKq);    
-    var rowStart = -1;
-    var arrayDiem = [];     // Mảng chứa điểm ghi vào Cột F
-    var arrayNhanXet = [];  // Mảng chứa nhận xét ghi vào Cột N
-    var arrayGhichu = []; // cột p
     if (!sheetKq) return createResponse("error", "Sheet ketqua không tồn tại!");
 
     var lastRowKq = sheetKq.getLastRow();
     if (lastRowKq < 2) return createResponse("error", "Sheet ketqua không có dữ liệu!");
 
-    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 15).getValues();    
+    sapxep(2, sheetKq);
+
+    var dataKq = sheetKq.getDataRange().getValues();    
     var targetIdgvN9 = N9(idgvStr);
+    var targetIdgvSupper = supper(idgvStr);
     var targetExamSupper = supper(examStr);
+    var isPrivateSS = !!(sheetId || (typeof getSheetIdByIdgv === "function" && getSheetIdByIdgv(idgvStr)));
 
     var matchingRowIndices = [];
     var matchingDetails = [];    
 
-    for (var i = 0; i < dataKq.length; i++) {
+    for (var i = 1; i < dataKq.length; i++) {
       var row = dataKq[i];
       var rowExams = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
-      var rowIdgv = row[7] ? String(row[7]).trim() : "";
+      var rowIdgv = row[7] ? String(row[7]).replace(/'/g, '').trim() : "";
+      var rowExIdgv = row[9] ? String(row[9]).replace(/'/g, '').trim() : "";
       var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
 
-      var matchesId = (N9(rowIdgv) === targetIdgvN9);
       var matchesExam = (supper(rowExams) === targetExamSupper);
-      var isWordOrMatran = (theloai === "matran" || theloai === "word" || theloai === "ma trận");
+      var matchesId = isPrivateSS || 
+                      (N9(rowIdgv) === targetIdgvN9) || 
+                      (supper(rowIdgv) === targetIdgvSupper) ||
+                      (targetIdgvSupper && rowExIdgv.toUpperCase().indexOf(targetIdgvSupper) !== -1) ||
+                      (targetIdgvN9 && rowExIdgv.toLowerCase().indexOf(targetIdgvN9) !== -1);
 
-      if (matchesId && matchesExam && isWordOrMatran) {
-        if (rowStart === -1) {
-          rowStart = i + 2;
-        }
-        
-        matchingRowIndices.push(i + 2);
+      var isNonPdf = (!theloai || (theloai !== "pdf" && theloai.indexOf("pdf") === -1));
+
+      if (matchesExam && matchesId && isNonPdf) {
+        matchingRowIndices.push(i + 1); // Dòng thực tế 1-indexed trong Google Sheets
         matchingDetails.push(row[12]);       
       }
     }
@@ -3066,7 +3103,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
     var scSA = 0.5;
     var questions = [];
 
-    var sheetExams = ss2.getSheetByName("exams");
+    var sheetExams = ss2.getSheetByName("exams") || ((typeof ss !== "undefined" && ss) ? ss.getSheetByName("exams") : null);
     if (sheetExams && sheetExams.getLastRow() >= 2) {
       var keyCheckExams = supper(examStr + "." + idgvStr);
       var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, 16).getValues();
@@ -3082,7 +3119,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
       }
     }
 
-    var sheetMatran = ss2.getSheetByName("matran");
+    var sheetMatran = ss2.getSheetByName("matran") || ((typeof ss !== "undefined" && ss) ? ss.getSheetByName("matran") : null);
     if (sheetMatran && sheetMatran.getLastRow() >= 2) {
       var dataMatran = sheetMatran.getRange(2, 1, sheetMatran.getLastRow() - 1, 19).getValues();
       for (var mIdx = 0; mIdx < dataMatran.length; mIdx++) {
@@ -3097,7 +3134,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
       }
     }
 
-    var sheetExamData = ss2.getSheetByName("exam_data");
+    var sheetExamData = ss2.getSheetByName("exam_data") || ((typeof ss !== "undefined" && ss) ? ss.getSheetByName("exam_data") : null);
     if (sheetExamData && sheetExamData.getLastRow() >= 2) {
       var dataEd = sheetExamData.getRange(2, 1, sheetExamData.getLastRow() - 1, 10).getValues();
       var keyEd = supper(examStr + "." + idgvStr);
@@ -3271,24 +3308,17 @@ function regradeExams(idgv, password, examCode, sheetId) {
       var finalScore = Math.round(totalScore * 100) / 100;      
       var numericScore = typeof finalScore === 'number' ? finalScore : (parseFloat(String(finalScore).replace(',', '.')) || 0);
       var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Không có nhận xét nào";
-        arrayDiem.push([finalScore]);
-        arrayNhanXet.push([nx]);
-        arrayGhichu.push(["Chấm lại"]);
+
+      // Ghi điểm an toàn chuẩn xác theo từng hàng thực tế
+      try {
+        sheetKq.getRange(actualRow, 6).setValue(finalScore);      // Cột F: Điểm
+        sheetKq.getRange(actualRow, 14).setValue(nx);             // Cột N: Nhận xét
+        sheetKq.getRange(actualRow, 15).setValue("Chấm lại");     // Cột O: Ghi chú
+      } catch (eRow) {
+        Logger.log("Lỗi ghi dòng " + actualRow + ": " + eRow.toString());
+      }      
       regradedCount++;
     }
-    if (rowStart !== -1 && regradedCount > 0) {
-    // Ghi đè cột F (Cột 6 - Điểm)
-    sheetKq.getRange(rowStart, 6, regradedCount, 1).setValues(arrayDiem);
-
-    // Ghi đè cột N (Cột 14 - Nhận xét)
-    sheetKq.getRange(rowStart, 14, regradedCount, 1).setValues(arrayNhanXet);
-    // Ghi đè cột O (Cột 15 - Ghi chú)
-    sheetKq.getRange(rowStart, 15, regradedCount, 1).setValues(arrayGhichu);
-
-    Logger.log("Đã cập nhật xong " + regradedCount + " câu. Dòng bắt đầu: " + rowStart);
-  } else {
-    Logger.log("Không tìm thấy mã bài với mã: " + examStr + " của giáo viên với IDGV: " + idgvStr);
-  }
 
     return createResponse("success", "Đã chấm lại thành công " + regradedCount + " bài làm cho mã đề " + examStr + "!");
 
@@ -3296,7 +3326,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
     return createResponse("error", "Lỗi trong quá trình chấm lại: " + err.toString());
   }
 }
-
+      
 // Hàm chuẩn hóa lại ngân hàng
 function normalizeQuestionBank_1() {
   // Sử dụng biến ss toàn cục được khai báo ở đầu file của bạn

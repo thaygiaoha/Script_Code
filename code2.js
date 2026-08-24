@@ -827,15 +827,6 @@ if (action === "getRegradeExamsList") {
   const reqSheetId = sheetId2 || e.parameter.sheetId || "";
   return getRegradeExamsList(targetIdgv, reqSheetId);
 }
-if (action === "regradeExams") {
-  const reqIdgv = e.parameter.idgv || "";
-  const sheetId2 = getSheetIdByIdgv(reqIdgv);
-  const reqPass = e.parameter.password || "";
-  const reqExamCode = e.parameter.examCode || e.parameter.exams || "";
-  const reqSheetId = sheetId2 || e.parameter.sheetId || "";
-  return regradeExams(reqIdgv, reqPass, reqExamCode, reqSheetId);
-}
-
   // 3. TOP 10
   if (type === 'top10') {
     const sheet = ssAdmin.getSheetByName("Top10Display");
@@ -3040,8 +3031,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
     var lastRowKq = sheetKq.getLastRow();
     if (lastRowKq < 2) return createResponse("error", "Sheet ketqua không có dữ liệu!");
 
-    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 15).getValues();
-    var targetIdgvSupper = supper(idgvStr);
+    var dataKq = sheetKq.getRange(2, 1, lastRowKq - 1, 15).getValues();    
     var targetIdgvN9 = N9(idgvStr);
     var targetExamSupper = supper(examStr);
 
@@ -3054,7 +3044,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
       var rowIdgv = row[7] ? String(row[7]).trim() : "";
       var theloai = row[11] ? String(row[11]).trim().toLowerCase() : "";
 
-      var matchesId = (supper(rowIdgv) === targetIdgvSupper || N9(rowIdgv) === targetIdgvN9);
+      var matchesId = (N9(rowIdgv) === targetIdgvN9);
       var matchesExam = (supper(rowExams) === targetExamSupper);
       var isWordOrMatran = (theloai === "matran" || theloai === "word" || theloai === "ma trận");
 
@@ -3084,7 +3074,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
       for (var eIdx = 0; eIdx < dataExams.length; eIdx++) {
         var exRow = dataExams[eIdx];
         var rowExKey = supper(String(exRow[14] || exRow[0] + "." + exRow[1]));
-        if (rowExKey === keyCheckExams || (supper(exRow[0]) === targetExamSupper && (supper(exRow[1]) === targetIdgvSupper || N9(exRow[1]) === targetIdgvN9))) {
+        if (rowExKey === keyCheckExams || (supper(exRow[0]) === targetExamSupper && (N9(exRow[1]) === targetIdgvN9))) {
           if (parseFloat(exRow[3]) > 0) scMCQ = parseFloat(exRow[3]);
           if (parseFloat(exRow[5]) > 0) scTF = parseFloat(exRow[5]);
           if (parseFloat(exRow[7]) > 0) scSA = parseFloat(exRow[7]);
@@ -3099,7 +3089,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
       for (var mIdx = 0; mIdx < dataMatran.length; mIdx++) {
         var mtRow = dataMatran[mIdx];
         var rowMtKey = supper(String(mtRow[18] || mtRow[1] + "." + mtRow[0]));
-        if (rowMtKey === supper(examStr + "." + idgvStr) || (supper(mtRow[1]) === targetExamSupper && (supper(mtRow[0]) === targetIdgvSupper || N9(mtRow[0]) === targetIdgvN9))) {
+        if (rowMtKey === supper(examStr + "." + idgvStr) || (supper(mtRow[1]) === targetExamSupper && (N9(mtRow[0]) === targetIdgvN9))) {
           if (parseFloat(mtRow[6]) > 0) scMCQ = parseFloat(mtRow[6]);
           if (parseFloat(mtRow[10]) > 0) scTF = parseFloat(mtRow[10]);
           if (parseFloat(mtRow[14]) > 0) scSA = parseFloat(mtRow[14]);
@@ -3115,7 +3105,7 @@ function regradeExams(idgv, password, examCode, sheetId) {
       for (var edIdx = 0; edIdx < dataEd.length; edIdx++) {
         var edRow = dataEd[edIdx];
         var rowEdKey = supper(String(edRow[8] || edRow[0] + "." + edRow[7]));
-        if (rowEdKey === keyEd || (supper(edRow[0]) === targetExamSupper && (supper(edRow[7]) === targetIdgvSupper || N9(edRow[7]) === targetIdgvN9))) {
+        if (rowEdKey === keyEd || (supper(edRow[0]) === targetExamSupper && (N9(edRow[7]) === targetIdgvN9))) {
           var rawQ = String(edRow[4] || "");
           if (rawQ) {
             try {

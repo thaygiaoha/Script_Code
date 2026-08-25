@@ -3237,17 +3237,89 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       }
     }
 
-    // 2508sua1: Xây dựng bản đồ câu hỏi (questionMap) và danh sách câu hỏi từ ss2
+    // 2508sua1: Xây dựng bản đồ câu hỏi (questionMap) và danh sách câu hỏi từ ngân hàng (nganhang) và exam_data
     var questionMap = {};
     // 2508sua1: Danh sách tất cả câu hỏi theo thứ tự
     var allQuestions = [];
 
-    // 2508sua1: Đọc câu hỏi từ sheet exam_data trong ss2 theo mã đề và thể loại
-    var sheetExamData = ss2.getSheetByName("exam_data");
+    // 2508sua1: 1. Đọc từ sheet nganhang trong ss (File chính) hoặc ss2
+    var sheetNH = (typeof ss !== "undefined" && ss) ? ss.getSheetByName("nganhang") : null;
+    if (!sheetNH) {
+      try {
+        var mainSS = SpreadsheetApp.getActiveSpreadsheet();
+        if (mainSS) sheetNH = mainSS.getSheetByName("nganhang");
+      } catch (eNH) {}
+    }
+    if (!sheetNH && ss2) {
+      sheetNH = ss2.getSheetByName("nganhang");
+    }
+
+    if (sheetNH && sheetNH.getLastRow() >= 2) {
+      var maxColsNH = Math.max(sheetNH.getLastColumn(), 9);
+      var dataNH = sheetNH.getRange(2, 1, sheetNH.getLastRow() - 1, maxColsNH).getValues();
+      for (var nhIdx = 0; nhIdx < dataNH.length; nhIdx++) {
+        var rowNH = dataNH[nhIdx];
+        var qIdNH = String(rowNH[0] || "").trim();
+        if (!qIdNH) continue;
+
+        var typeNH = String(rowNH[2] || "").toLowerCase().trim();
+        var partNH = String(rowNH[3] || "").toLowerCase().trim();
+        var questionNH = rowNH[4];
+
+        var optsNH = null;
+        if (rowNH[5]) {
+          try { optsNH = JSON.parse(rowNH[5]); } catch (e) { optsNH = rowNH[5]; }
+        }
+
+        var ansNH = null;
+        if (rowNH[6] !== undefined && rowNH[6] !== null && rowNH[6] !== "") {
+          try { ansNH = JSON.parse(rowNH[6]); } catch (e) { ansNH = rowNH[6]; }
+        }
+
+        var qObjNH = {
+          id: qIdNH,
+          classTag: rowNH[1],
+          type: typeNH,
+          part: partNH,
+          question: questionNH,
+          o: optsNH,
+          options: optsNH,
+          a: (ansNH !== null && ansNH !== undefined && ansNH !== "") ? ansNH : rowNH[6],
+          answer: (ansNH !== null && ansNH !== undefined && ansNH !== "") ? ansNH : rowNH[6],
+          s: (Array.isArray(optsNH) && optsNH.length > 0 && typeof optsNH[0] === "object") ? optsNH : null,
+          statement: (Array.isArray(optsNH) && optsNH.length > 0 && typeof optsNH[0] === "object") ? optsNH : null,
+          loigiai: rowNH[7]
+        };
+
+        // Chuẩn hóa loại câu hỏi nếu type để trống
+        if (!qObjNH.type) {
+          if (partNH.indexOf("phần i") !== -1 || partNH.indexOf("i.") !== -1) qObjNH.type = "mcq";
+          else if (partNH.indexOf("phần ii") !== -1 || partNH.indexOf("ii.") !== -1) qObjNH.type = "true-false";
+          else if (partNH.indexOf("phần iii") !== -1 || partNH.indexOf("iii.") !== -1) qObjNH.type = "short-answer";
+        }
+
+        // Nếu là câu đúng sai, đảm bảo s được gán từ optsNH
+        if ((qObjNH.type === "true-false" || qObjNH.type === "tf" || partNH.indexOf("ii") !== -1) && !qObjNH.s) {
+          qObjNH.s = optsNH;
+          qObjNH.statement = optsNH;
+        }
+
+        questionMap[qIdNH] = qObjNH;
+        questionMap[qIdNH.toLowerCase()] = qObjNH;
+        if (typeof supper === "function") questionMap[supper(qIdNH)] = qObjNH;
+        allQuestions.push(qObjNH);
+      }
+    }
+
+    // 2508sua1: 2. Đọc câu hỏi từ sheet exam_data trong ss2 và ss theo mã đề
+    var sheetExamData = ss2 ? ss2.getSheetByName("exam_data") : null;
+    if (!sheetExamData && typeof ss !== "undefined" && ss) {
+      sheetExamData = ss.getSheetByName("exam_data");
+    }
     // 2508sua1: Kiểm tra tồn tại và số dòng sheet exam_data
     if (sheetExamData && sheetExamData.getLastRow() >= 2) {
       // 2508sua1: Đọc dữ liệu từ sheet exam_data
-      var dataEd = sheetExamData.getRange(2, 1, sheetExamData.getLastRow() - 1, 10).getValues();
+      var dataEd = sheetExamData.getRange(2, 1, sheetExamData.getLastRow() - 1, Math.max(sheetExamData.getLastColumn(), 10)).getValues();
       // 2508sua1: Duyệt qua các câu hỏi trong exam_data
       for (var edIdx = 0; edIdx < dataEd.length; edIdx++) {
         // 2508sua1: Lấy dòng câu hỏi hiện tại
@@ -3270,7 +3342,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
               parsedQ = JSON.parse(rawQ);
             } catch (errQ) {
               // 2508sua1: Fallback tạo object câu hỏi nếu không phải JSON
-              parsedQ = { id: qIdEd, type: edRow[3], question: rawQ, a: edRow[6] };
+              parsedQ = { id: qIdEd, type: edRow[3], question: rawQ, a: edRow[6] || edRow[5] };
             }
           }
           // 2508sua1: Nếu đã có đối tượng câu hỏi
@@ -3278,7 +3350,11 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
             // 2508sua1: Đảm bảo có ID câu hỏi
             if (!parsedQ.id && qIdEd) parsedQ.id = qIdEd;
             // 2508sua1: Lưu vào bản đồ câu hỏi theo ID
-            if (qIdEd) questionMap[qIdEd] = parsedQ;
+            if (qIdEd) {
+              questionMap[qIdEd] = parsedQ;
+              questionMap[qIdEd.toLowerCase()] = parsedQ;
+              if (typeof supper === "function") questionMap[supper(qIdEd)] = parsedQ;
+            }
             // 2508sua1: Thêm vào danh sách câu hỏi tổng quát
             allQuestions.push(parsedQ);
           }
@@ -3308,14 +3384,37 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         .toLowerCase();
     }
 
+    // 2508sua1: Hàm chuẩn hóa chuỗi đáp án trắc nghiệm toán học (loại bỏ LaTeX $, dấu chấm cuối dòng, khoảng trắng thừa)
+    function normMCQ(val) {
+      if (val === null || val === undefined) return "";
+      return String(val)
+        .replace(/[\u00a0\s]+/g, " ")
+        .replace(/\$/g, "")
+        .replace(/\\+/g, "\\")
+        .replace(/[\.\s;:]+$/, "")
+        .trim()
+        .toLowerCase();
+    }
+
+    // 2508sua1: Hàm chuẩn hóa thu gọn toán học
+    function normMCQCompact(val) {
+      if (val === null || val === undefined) return "";
+      return String(val)
+        .replace(/[\u00a0\s\$\.]+/g, "")
+        .replace(/\\+/g, "\\")
+        .trim()
+        .toLowerCase();
+    }
+
     // 2508sua1: Hàm chuẩn hóa đáp án tự luận ngắn
     function cleanSA(val) {
       // 2508sua1: Trả về rỗng nếu null hoặc undefined
       if (val === null || val === undefined) return "";
-      // 2508sua1: Đổi dấu phẩy thành dấu chấm và bỏ khoảng trắng
+      // 2508sua1: Đổi dấu phẩy thành dấu chấm, bỏ dấu $, bỏ dấu chấm cuối dòng và bỏ khoảng trắng
       return String(val)
-        .replace(/[\u00a0\s]+/g, "")
+        .replace(/[\u00a0\s\$\.]+/g, "")
         .replace(",", ".")
+        .replace(/[\.\s;:]+$/, "")
         .trim()
         .toLowerCase();
     }
@@ -3379,13 +3478,13 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
           }
 
           // 2508sua1: Tra cứu câu hỏi tương ứng theo ID hoặc theo vị trí câu hỏi
-          var q = (qId && questionMap[qId]) || allQuestions[itemIdx];
+          var q = (qId && questionMap[qId]) || (qId && questionMap[qId.toLowerCase()]) || (qId && typeof supper === "function" && questionMap[supper(qId)]) || allQuestions[itemIdx];
           // 2508sua1: Thử tìm kiếm không phân biệt hoa thường theo ID
           if (!q && qId) {
             // 2508sua1: Duyệt qua bản đồ câu hỏi
             for (var kQ in questionMap) {
               // 2508sua1: So sánh ID chữ thường
-              if (kQ.toLowerCase() === qId.toLowerCase()) { 
+              if (kQ.toLowerCase() === qId.toLowerCase() || String(kQ).trim() === String(qId).trim()) { 
                 // 2508sua1: Gán câu hỏi tìm được
                 q = questionMap[kQ]; 
                 // 2508sua1: Dừng tìm kiếm
@@ -3399,56 +3498,70 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
 
           // 2508sua1: Lấy loại câu hỏi
           var qType = String(q.type || "").toLowerCase().trim();
+          var qPart = String(q.part || "").toLowerCase().trim();
           // 2508sua1: Khởi tạo điểm cho câu hỏi này
           var point = 0;
 
           // =======================
           // 2508sua1: 1️⃣ CHẤM ĐIỂM MCQ (Trắc nghiệm 1 đáp án)
           // =======================
-          if (qType === "mcq" || qType === "phần i" || (!qType && (q.o || q.options))) {
+          if (qType === "mcq" || qType === "phần i" || qPart.indexOf("phần i") !== -1 || (!qType && (q.o || q.options) && !q.s)) {
             // 2508sua1: Lấy đáp án đúng của câu hỏi
             var correctAns = q.a !== undefined ? q.a : (q.ans !== undefined ? q.ans : (q.answer !== undefined ? q.answer : ""));
             // 2508sua1: Lấy danh sách các phương án lựa chọn
             var opts = Array.isArray(q.o) ? q.o : (Array.isArray(q.options) ? q.options : (typeof q.o === "string" ? (function(){ try { return JSON.parse(q.o); } catch(e){ return []; } })() : []));
 
-            // 2508sua1: So sánh trực tiếp chuỗi đáp án học sinh và đáp án đúng
-            if (cleanStr(studentAns) !== "" && (cleanStr(studentAns) === cleanStr(correctAns) || cleanCompact(studentAns) === cleanCompact(correctAns))) {
-              // 2508sua1: Ghi nhận điểm MCQ đầy đủ
-              point = Number(scMCQ);
+            var isCorrect = false;
+
+            // A. So sánh chuỗi trực tiếp hoặc chuẩn hóa LaTeX/Toán
+            if (normMCQ(studentAns) !== "" && (normMCQ(studentAns) === normMCQ(correctAns) || normMCQCompact(studentAns) === normMCQCompact(correctAns) || cleanStr(studentAns) === cleanStr(correctAns) || cleanCompact(studentAns) === cleanCompact(correctAns))) {
+              isCorrect = true;
             }
-            // 2508sua1: Trường hợp học sinh nộp dạng "A", "B", "C", "D"
+            // B. Trường hợp học sinh nộp dạng nhãn "A", "B", "C", "D"
             else if (typeof studentAns === "string" && ["A", "B", "C", "D"].includes(studentAns.trim().toUpperCase())) {
-              // 2508sua1: Tính chỉ số index của phương án chọn (0, 1, 2, 3)
-              var optIdx = studentAns.trim().toUpperCase().charCodeAt(0) - 65;
-              // 2508sua1: So sánh nếu đáp án đúng cũng là nhãn A/B/C/D
-              if (studentAns.trim().toUpperCase() === String(correctAns).trim().toUpperCase()) {
-                // 2508sua1: Ghi nhận điểm MCQ
-                point = Number(scMCQ);
-              } 
-              // 2508sua1: So sánh nội dung phương án chọn với đáp án đúng
-              else if (opts[optIdx] !== undefined && (cleanStr(opts[optIdx]) === cleanStr(correctAns) || cleanCompact(opts[optIdx]) === cleanCompact(correctAns))) {
-                // 2508sua1: Ghi nhận điểm MCQ
-                point = Number(scMCQ);
+              var sLetter = studentAns.trim().toUpperCase();
+              var sIdx = sLetter.charCodeAt(0) - 65;
+              if (sLetter === String(correctAns).trim().toUpperCase()) {
+                isCorrect = true;
+              } else if (opts[sIdx] !== undefined && (normMCQ(opts[sIdx]) === normMCQ(correctAns) || normMCQCompact(opts[sIdx]) === normMCQCompact(correctAns) || cleanStr(opts[sIdx]) === cleanStr(correctAns) || cleanCompact(opts[sIdx]) === cleanCompact(correctAns))) {
+                isCorrect = true;
               }
             }
-            // 2508sua1: Trường hợp đáp án đúng là "A", "B", "C", "D" nhưng học sinh nộp nội dung text
+            // C. Trường hợp đáp án đúng là nhãn "A", "B", "C", "D" nhưng học sinh nộp nội dung text
             else if (typeof correctAns === "string" && ["A", "B", "C", "D"].includes(String(correctAns).trim().toUpperCase())) {
-              // 2508sua1: Tính chỉ số index của đáp án đúng
-              var corIdx = String(correctAns).trim().toUpperCase().charCodeAt(0) - 65;
-              // 2508sua1: So sánh nội dung bài nộp với phương án đúng
-              if (opts[corIdx] !== undefined && (cleanStr(studentAns) === cleanStr(opts[corIdx]) || cleanCompact(studentAns) === cleanCompact(opts[corIdx]))) {
-                // 2508sua1: Ghi nhận điểm MCQ
-                point = Number(scMCQ);
+              var cLetter = String(correctAns).trim().toUpperCase();
+              var cIdx = cLetter.charCodeAt(0) - 65;
+              if (opts[cIdx] !== undefined && (normMCQ(studentAns) === normMCQ(opts[cIdx]) || normMCQCompact(studentAns) === normMCQCompact(opts[cIdx]) || cleanStr(studentAns) === cleanStr(opts[cIdx]) || cleanCompact(studentAns) === cleanCompact(opts[cIdx]))) {
+                isCorrect = true;
               }
+            }
+            // D. So sánh phương án trong danh sách opts
+            else if (opts && opts.length > 0) {
+              for (var oIdx = 0; oIdx < opts.length; oIdx++) {
+                var optItem = opts[oIdx];
+                var matchStudent = (normMCQ(studentAns) === normMCQ(optItem) || normMCQCompact(studentAns) === normMCQCompact(optItem));
+                var matchCorrect = (normMCQ(correctAns) === normMCQ(optItem) || normMCQCompact(correctAns) === normMCQCompact(optItem));
+                if (matchStudent && matchCorrect) {
+                  isCorrect = true;
+                  break;
+                }
+              }
+            }
+
+            if (isCorrect) {
+              point = Number(scMCQ);
             }
           }
 
           // =======================
           // 2508sua1: 2️⃣ CHẤM ĐIỂM TRUE-FALSE (Đúng / Sai theo thang 0 - 0.1 - 0.25 - 0.5 - 1.0)
           // =======================
-          else if (qType === "true-false" || qType === "tf" || qType === "phần ii" || q.s || q.statement) {
+          else if (qType === "true-false" || qType === "tf" || qType === "phần ii" || qPart.indexOf("phần ii") !== -1 || q.s || q.statement) {
             // 2508sua1: Lấy danh sách các ý đúng sai của câu hỏi
-            var tfData = Array.isArray(q.s) ? q.s : (Array.isArray(q.statement) ? q.statement : (typeof q.s === "string" ? (function(){ try { return JSON.parse(q.s); } catch(e){ return []; } })() : []));
+            var tfData = Array.isArray(q.s) ? q.s : (Array.isArray(q.statement) ? q.statement : (Array.isArray(q.o) && q.o.length > 0 && typeof q.o[0] === "object" ? q.o : []));
+            if (typeof tfData === "string") {
+              try { tfData = JSON.parse(tfData); } catch (e) { tfData = []; }
+            }
             // 2508sua1: Khởi tạo biến đếm số ý làm đúng
             var correctSubCount = 0;
 
@@ -3457,7 +3570,11 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
               // 2508sua1: Lấy nhãn chữ cái A, B, C, D
               var label = String.fromCharCode(65 + subI);
               // 2508sua1: Xác định giá trị Boolean mong đợi của ý đúng/sai
-              var expectedBool = (sub.a === true || String(sub.a).toLowerCase() === "true" || String(sub.a) === "đúng" || String(sub.a) === "Đúng" || sub.a === 1 || sub.a === "1");
+              var expectedBool = null;
+              if (sub && typeof sub === "object") {
+                var rawA = sub.a !== undefined ? sub.a : (sub.answer !== undefined ? sub.answer : (sub.correct !== undefined ? sub.correct : null));
+                expectedBool = (rawA === true || String(rawA).toLowerCase() === "true" || String(rawA) === "đúng" || String(rawA) === "Đúng" || rawA === 1 || rawA === "1");
+              }
 
               // 2508sua1: Khởi tạo giá trị học sinh chọn cho ý này
               var choiceVal = null;
@@ -3499,7 +3616,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
               }
 
               // 2508sua1: Nếu câu trả lời khớp với đáp án đúng
-              if (studentBool !== null && studentBool === expectedBool) {
+              if (studentBool !== null && expectedBool !== null && studentBool === expectedBool) {
                 // 2508sua1: Tăng số ý làm đúng
                 correctSubCount++;
               }
@@ -3516,11 +3633,14 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
           // =======================
           // 2508sua1: 3️⃣ CHẤM ĐIỂM SHORT ANSWER (Trả lời ngắn)
           // =======================
-          else if (qType === "sa" || qType === "short-answer" || qType === "phần iii") {
+          else if (qType === "sa" || qType === "short-answer" || qType === "phần iii" || qPart.indexOf("phần iii") !== -1) {
             // 2508sua1: Lấy đáp án đúng câu trả lời ngắn
             var correctSA = q.a !== undefined ? q.a : (q.ans !== undefined ? q.ans : (q.answer !== undefined ? q.answer : ""));
+            var sSA = cleanSA(studentAns);
+            var cSA = cleanSA(correctSA);
+
             // 2508sua1: So sánh sau khi làm sạch và chuẩn hóa số thực
-            if (cleanSA(studentAns) !== "" && cleanSA(studentAns) === cleanSA(correctSA)) {
+            if (sSA !== "" && (sSA === cSA || (!isNaN(parseFloat(sSA)) && !isNaN(parseFloat(cSA)) && parseFloat(sSA) === parseFloat(cSA)))) {
               // 2508sua1: Ghi nhận điểm câu trả lời ngắn
               point = Number(scSA);
             }

@@ -3150,7 +3150,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         matchingDetails.push(row[12]);
         // Lưu bảng điểm cũ         
         arraydiemcu.push(row[5]);
-        if (rowsart === -1) {
+        if (rowstart === -1) {
           rowstart = i + 2;
         }
       }
@@ -3252,7 +3252,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var rawDetail = matchingDetails[0];
     var result = parseDetailData(rawDetail);
     var listIdkq = result.arrayIddetail || [];      // Mảng ID: ["3", "13", "17"]    
-    if (theloaiStr = "word") {
+    if (theloaiStr === "word") {
       var sheet = ss2.getSheetByName("exam_data");
       var data = sheet.getDataRange().getValues();
       for (var i = 1; i < data.length; i++) {      
@@ -3263,11 +3263,11 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         listtypeexam.push(typeq);
         var resultE = parseExamData(quetstionq);
         var ansE = resultE.arrayexamAnswer;
-        listAnsexam.push(ansE[0].toLowerCase());
+        listAnsexam.push(ansE[0]);
       }      
     }
     }
-     if (theloaiStr = "matrix") {
+     if (theloaiStr === "matrix") {
       var data = sheetNH.getDataRange().getValues();
       for (var i = 1; i < data.length; i++) {      
       var idq = String(data[i][0] || "").trim();
@@ -3275,7 +3275,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         var typeq = String(data[i][2] || "").trim();        
         listtypeexam.push(typeq);         
         var ansOp = parseTfOptions(String(data[5] || "short-answer"))
-        var ansQ = (String(data[6]).trim() || ansOp[0]).toLowerCase();
+        var ansQ = String(data[6]).trim() || ansOp[0];
         listAnsexam.push(ansQ);
       }      
     }
@@ -3290,17 +3290,17 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       result = parseDetailData(rawDetail);
       // 3. Lấy mảng ID và mảng Answer ra sử dụng
       //listIdkq = result.arrayIddetail;       // Mảng ID: ["3", "13", "17"]
-      listAnskq = result.arrayanswer;      
+      listanswerkq = result.arrayanswer;      
       var totalScore = 0;
-      for (var j = 0; j < listAnsexam.lenght; J++) {
-      if (listtypeexam[j] === "mcq" && listAnskq[j] === listAnsexam[j]) {
+      for (var j = 0; j < listAnsexam.lenght; j++) {
+      if (listtypeexam[j].toLowCase() === "mcq" && listanswerkq[j] === listAnsexam[j]) {
         totalScore += scMCQ;
-      } else if (listtypeexam[j] === "true-false") {
-        var p1 = listAnskq[j];
+      } else if (listtypeexam[j].toLowCase() === "true-false") {
+        var p1 = listanswerkq[j];
         var p2 = listAnsexam[j];
         var point = pointtf(scTF, p1, p2);
         totalScore += point;
-      } else if (listAnskq[j] === listAnsexam[j]) {
+      } else if (listanswerkq[j] === listAnsexam[j]) {
         totalScore += scSA;        
       }
       }     
@@ -3312,7 +3312,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       var numericScore = typeof finalScore === "number" ? finalScore : (parseFloat(String(finalScore).replace(",", ".")) || 0);
       // 2508sua1: Lấy nhận xét tương ứng với điểm số
       var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Không có nhận xét nào";
-      arrynx.push(nx);
+      arraynx.push(nx);
       // 2508sua1: Ghi điểm an toàn chuẩn xác theo từng hàng thực tế trong sheet ketqua của ss2
       try {
         // 2508sua1: Ghi điểm vào Cột F (Cột 6)
@@ -3322,7 +3322,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         // 2508sua1: Ghi chú "Chấm lại" vào Cột O (Cột 15)
         sheetKq.getRange(actualRow, 15).setValue("Chấm lại");
         // Ghi điểm cũ cột P matchingPointOld
-        var diemcu = matchingPointOld[k] || "";
+        var diemcu = arraydiemcu[k] || "";
         sheetKq.getRange(actualRow, 16).setValue(diemcu);
       } catch (eRow) {
         // 2508sua1: Ghi log nếu có lỗi ghi điểm dòng

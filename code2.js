@@ -3120,6 +3120,8 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var matchingRowIndices = [];
     // 2508sua1: Khởi tạo mảng lưu dữ liệu chi tiết bài làm (detail)
     var matchingDetails = [];    
+    // Khởi tạo mảng điểm cũ
+    var matchingPointOld = [];
 
     // 2508sua1: Duyệt qua tất cả các dòng kết quả trong ss2 (bỏ dòng tiêu đề)
     for (var i = 1; i < dataKq.length; i++) {
@@ -3141,6 +3143,8 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         matchingRowIndices.push(i + 1);
         // 2508sua1: Lưu chi tiết bài làm học sinh từ cột M (Index 12)
         matchingDetails.push(row[12]);
+        // Lưu bảng điểm cũ 
+        matchingPointOld.push(row[5]);
       }
     }
 
@@ -3542,6 +3546,9 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         sheetKq.getRange(actualRow, 14).setValue(nx);
         // 2508sua1: Ghi chú "Chấm lại" vào Cột O (Cột 15)
         sheetKq.getRange(actualRow, 15).setValue("Chấm lại");
+        // Ghi điểm cũ cột P matchingPointOld
+        var diemcu = matchingPointOld[k] || "";
+        sheetKq.getRange(actualRow, 16).setValue(diemcu);
       } catch (eRow) {
         // 2508sua1: Ghi log nếu có lỗi ghi điểm dòng
         Logger.log("Lỗi ghi dòng " + actualRow + ": " + eRow.toString());

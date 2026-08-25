@@ -72,6 +72,36 @@ function getSS2(sheetId, idgv) {
   // Fallback bắt buộc về File Sheet chính (ss) nếu không mở được file riêng
   return (typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet();
 }
+function getSS2Sheet(sheetId, idgv, sheetName) {
+  var sid = String(sheetId || "").trim();
+  
+  // Loại bỏ các trường hợp truyền chuỗi "undefined" hoặc "null" từ Client
+  if (sid === "undefined" || sid === "null" || sid.length < 25) {
+    sid = "";
+  }
+
+  // Nếu không có sheetId chuẩn, tiến hành tra cứu qua idgv trong sheet 'idgv'
+  if (!sid && idgv) {
+    sid = getSheetIdByIdgv(idgv);
+  }
+
+  // Thực hiện mở Google Sheet theo ID tìm được
+  if (sid && sid.length >= 25) {
+    try {
+      var ss2 = SpreadsheetApp.openById(sid);
+      var sheet = getSheetByName(sheetName);
+      if (!sheet) {
+        ss2.insertSheet(sheetName);
+      }
+      return sheet; 
+    } catch (e) {
+      Logger.log("Không thể mở Spreadsheet theo sheetId [" + sid + "]: " + e.toString());
+    }
+  }
+
+  // Fallback bắt buộc về File Sheet chính (ss) nếu không mở được file riêng
+  return null;
+}
 
 function mainDoGet(e) {
 const params = e.parameter;

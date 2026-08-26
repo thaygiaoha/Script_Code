@@ -3007,7 +3007,7 @@ function checkTeacherAuth(idgv, password) {
   return false;
 }
 
-// 2508sua1: Lấy danh sách các mã đề theo thể loại (Matrix, Word) ở sheet ketqua của ss2 (bắt buộc dùng ss2, không cần kiểm tra idgv)
+// 2508sua1: Lấy danh sách các mã đề theo thể loại (Matrix, Word) ở sheet ketqua của ss2 (bắt buộc dùng ss2, không cần kiểm tra idgv) chamlai
 function getRegradeExamsList(idgv, sheetId, theloai) {  
   // 2508sua1: Khối try catch bắt lỗi
   try {
@@ -3065,7 +3065,7 @@ function getRegradeExamsList(idgv, sheetId, theloai) {
   }
 }
 
-// 2508sua1: Chấm lại bài thi Matran & Word chuẩn xác chỉ dùng ss2 theo thể loại và đáp án
+// 2508sua1: Chấm lại bài thi Matran & Word chuẩn xác chỉ dùng ss2 theo thể loại và đáp án chamlai
 function regradeExams(idgv, password, examCode, sheetId, theloai) {
   try {
     // 1. Chuẩn hóa dữ liệu đầu vào
@@ -3179,7 +3179,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       }
     } 
 
-    // 6. Lấy Đáp án chuẩn & Kiểu câu hỏi từ Ngân hàng Đề
+   // 6. Lấy Đáp án chuẩn & Kiểu câu hỏi từ Ngân hàng Đề
     var listtypeexam = [];    
     var listAnsexam = [];
     var rawDetail = matchingDetails[0];
@@ -3199,43 +3199,45 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
             listtypeexam.push(typeq);
             
             var examMap = parseExamData(quetstionq);
-            var ansE = examMap[idq]; // Lấy thẳng đáp án theo ID câu hỏi            
+            var ansE = examMap[idq]; // Đã bóc chuẩn mảng Boolean hoặc chuỗi
+            
             if (typeq === "true-false" || typeq === "tf") {
               listAnsexam.push(ansE);
-            } else if (typeof ansE === "string") {
-              listAnsexam.push(ansE.toLowerCase().trim());
             } else {
-              listAnsexam.push(ansE);
+              listAnsexam.push(normalizeAns(ansE));
             }
           }      
         }
       }
     }
 
-    // Nhánh đề MATRIX (Sử dụng sheetNH có sẵn bên Code.gs)
+    // Nhánh đề MATRIX (Sử dụng sheetNH)
     if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {
       if (typeof sheetNH !== "undefined" && sheetNH) {
         var dataNH = sheetNH.getDataRange().getValues();
         
-        // Tạo Map tra cứu để không bị lệch câu
         var nhMap = {};
         for (var i = 1; i < dataNH.length; i++) {
           var idqRow = String(dataNH[i][0] || "").trim();
           if (idqRow) {
             var typeqRow = String(dataNH[i][2] || "").trim().toLowerCase();
             var ansRow = null;
+            
             if (typeqRow === "true-false" || typeqRow === "tf") {
-              ansRow = parseTfOptions(dataNH[i][5]); // Trả thẳng mảng [true, false,...]
+              // Dùng parseTfOptions cho Cột F (Cột 5) của Ngân hàng đề
+              ansRow = parseTfOptions(dataNH[i][5]); 
             } else {
-              ansRow = String(dataNH[i][6] || "").trim().toLowerCase();
+              // Chuẩn hóa chuỗi đáp án MCQ / Short-answer ở Cột G (Cột 6)
+              ansRow = normalizeAns(dataNH[i][6]);
             }
+            
             nhMap[idqRow] = {
               type: typeqRow,
               ans: ansRow
             };
           }
         }
-        // Map lại đúng thứ tự bài làm học sinh
+
         for (var idx = 0; idx < listIdkq.length; idx++) {
           var targetId = String(listIdkq[idx]).trim();
           if (nhMap[targetId]) {
@@ -3248,6 +3250,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         }
       }
     }
+
     // 7. Vòng lặp Chấm điểm từng bài
     for (var k = 0; k < numRows; k++) {
       rawDetail = matchingDetails[k];
@@ -3261,15 +3264,20 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         var ansStudent = listanswerkq[j];
         var ansExam = listAnsexam[j];
 
-        if ((qType === "mcq") && normalizeAns(ansStudent) === normalizeAns(ansExam)) {
-          totalScore += scMCQ;
+        if (qType === "mcq") {
+          if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
+            totalScore += scMCQ;
+          }
         } 
         else if (qType === "true-false" || qType === "tf") {
+          // Truyền trực tiếp 2 mảng Boolean [false, true, ...] vào pointtf
           var point = pointtf(scTF, ansStudent, ansExam);
           totalScore += point;
         } 
-        else if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
-          totalScore += scSA;        
+        else if (qType === "short-answer" || qType === "sa") {
+          if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
+            totalScore += scSA;        
+          }
         }
       }     
       
@@ -3277,8 +3285,8 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       var numericScore = typeof finalScore === "number" ? finalScore : (parseFloat(String(finalScore).replace(",", ".")) || 0);
       var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Hoàn thành bài thi";
       
-      arraydiem.push([finalScore]); // Mảng 2 chiều [[điểm1], [điểm2], ...]
-      arraynx.push([nx]);           // Mảng 2 chiều [[nhận xét 1], ...]
+      arraydiem.push([finalScore]); 
+      arraynx.push([nx]);           
     }
 
     // 8. GHI HÀNG LOẠT (BULK WRITE) TỪ DÒNG matchingRowIndices[0]
@@ -3836,10 +3844,18 @@ function demoSuDung() {
 
 
 function normalizeAns(str) {
-  if (typeof str !== "string") return String(str || "").trim();
+  if (str === null || str === undefined) return "";
   
-  return str
+  var s = String(str).trim();
+  
+  // Bỏ dấu nháy bọc ngoài nếu có (ví dụ: "\"$E \\subset F$.\"")
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  
+  return s
     .replace(/\\\\/g, "\\")      // Chuyển \\ thành \ (đồng bộ LaTeX)
+    .replace(/\s+/g, " ")        // Gom nhiều khoảng trắng/xuống dòng thành 1 khoảng trắng
     .trim()                      // Xóa khoảng trắng đầu/cuối
     .replace(/\.$/, "")          // Xóa duy nhất dấu chấm thừa ở cuối câu
     .trim()                      // Trim lại phòng trường hợp còn khoảng trắng trước dấu chấm

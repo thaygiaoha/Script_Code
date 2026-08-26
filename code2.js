@@ -3655,7 +3655,7 @@ function fixMathJaxString(str) {
 function layNhanXet(diem) {
   const nx1 = "🌟 Bài làm rất tốt, cần tiếp tục phát huy nhé";
   const nx2 = "👍 Bài làm tương đối tốt, nắm khá chắc kiến thức cơ bản. Cần cố gắng và chăm chỉ hơn nữa";
-  const nx3 = "🙂 Bài làm mới đạt ở mức trung bình, cần cố gắng nhiều me hơn nữa";
+  const nx3 = "🙂 Bài làm mới đạt ở mức trung bình, cần cố gắng và nỗ lực nhiều hơn nữa";
   const nx4 = "⚠️ Bài làm chưa được tốt, báo động nhẹ. Cần phải xem lại thái độ học tập";
   const nx5 = "🚨 Kết quả rất báo động, có vẻ như em chưa thực sự chú ý đến việc học hoặc chưa có phương pháp học hiệu quả. Hãy chia sẻ để mình tốt hơn nhé";
   const nx6 = "🚨🚨Kết quả rất báo động, nếu còn tiếp diễn có thể em sẽ bị loại khỏi cuộc chơi";

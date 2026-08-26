@@ -1336,7 +1336,8 @@ const lock = LockService.getScriptLock();
         "'" + toStr(data.openDate),
         "'" + toStr(data.closeDate),
         now,
-        "'" + supper(toStr(data.lop || data.class || data.targetClass || ""))
+        "'" + supper(toStr(data.lop || data.class || data.targetClass || "")),
+        data.thuong || ""
       ];
       const key = supper(data.gvPass + "." + data.gvId);
       const sheetId = ssAdmin.getSheetByName("idgv");

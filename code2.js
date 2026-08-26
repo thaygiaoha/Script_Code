@@ -1158,7 +1158,7 @@ const lock = LockService.getScriptLock();
         
         // Đảm bảo tiêu đề cột chuẩn nếu sheet mới tạo hoặc trống
         if (sheetKq.getLastRow() === 0) {
-          sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv", "Thể loại", "Detail", "Nhận xét"]);
+          sheetKq.appendRow(["Timestamp", "Mã đề", "SBD", "Họ tên", "Lớp", "Tổng điểm", "Thời gian làm", "IDGV", "Vi phạm", "exams.idgv", "exams.sbd.idgv", "Thể loại", "Detail", "Nhận xét", "Ghi chú", "Điểm cũ"]);
         }
 
         // 2. CHUẨN HÓA DỮ LIỆU
@@ -1177,17 +1177,17 @@ const lock = LockService.getScriptLock();
         var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Không có nhận xét nào";
 
         // Xử lý chuỗi chi tiết an toàn tránh vượt giới hạn ký tự cell Google Sheets
-        var detailsStr = "";
-        if (data.details) {
-          try {
-            detailsStr = typeof data.details === 'object' ? JSON.stringify(data.details) : String(data.details);
-          } catch(eDetails) {
-            detailsStr = String(data.details || "");
-          }
-        }
+        // Xử lý detailsStr an toàn
+        var detailsStr = data.details || "";
+        if (typeof detailsStr === "object") {
+          detailsStr = JSON.stringify(detailsStr);
+          } else {
+          detailsStr = String(detailsStr);
+            }
+
         if (detailsStr.length > 45000) {
-          detailsStr = detailsStr.substring(0, 45000) + "...";
-        }
+        detailsStr = detailsStr.substring(0, 45000) + "...";
+      }
 
         // 3. TÌM HÀNG TRỐNG TIẾP THEO (Quét tìm ô trống thực tế tại Cột B - Mã đề)
         var vals = sheetKq.getDataRange().getValues();

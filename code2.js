@@ -3574,7 +3574,7 @@ function layNhanXet(diem) {
     // 5 <= diem < 6
     nx = nx4;
   } else if (diem >= 3) {
-    mx = nx5;
+    nx = nx5;
   } else {
     nx = nx6;
   }

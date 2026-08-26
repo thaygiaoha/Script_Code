@@ -3331,6 +3331,9 @@ if (theloaiStr === "word") {
         }
 
         for (var idx = 0; idx < listIdkq.length; idx++) {
+          rawDetail = matchingDetails[k];
+          resultDetail = parseDetailData(rawDetail);
+          listIdkq = resultDetail.arrayIddetail || []; 
           var targetId = String(listIdkq[idx]).trim();
           if (nhMap[targetId]) {
             listtypeexam.push(nhMap[targetId].type);
@@ -3342,10 +3345,16 @@ if (theloaiStr === "word") {
         }
       }
     }
-
+      rawDetail = matchingDetails[0];
+      resultDetail = parseDetailData(rawDetail);
+      listIdkq = resultDetail.arrayIddetail || []; 
     // 7. Vòng lặp Chấm điểm từng bài
     for (var k = 0; k < numRows; k++) {
-      rawDetail = matchingDetails[k];
+      if (theloaiStr === "matrix") {
+        rawDetail = matchingDetails[k];
+       resultDetail = parseDetailData(rawDetail);
+       listIdkq = resultDetail.arrayIddetail || []; 
+      }     
       
       var parsedStudent = parseDetailData(rawDetail);
       var listanswerkq = parsedStudent.arrayanswer || [];      

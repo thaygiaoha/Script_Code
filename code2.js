@@ -3248,14 +3248,14 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         var ansStudent = listanswerkq[j];
         var ansExam = listAnsexam[j];
 
-        if ((qType === "mcq") && String(ansStudent).toLowerCase().trim() === String(ansExam).toLowerCase().trim()) {
+        if ((qType === "mcq") && normalizeAns(ansStudent) === normalizeAns(ansExam)) {
           totalScore += scMCQ;
         } 
         else if (qType === "true-false" || qType === "tf") {
           var point = pointtf(scTF, ansStudent, ansExam);
           totalScore += point;
         } 
-        else if (String(ansStudent).toLowerCase().trim() === String(ansExam).toLowerCase().trim()) {
+        else if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
           totalScore += scSA;        
         }
       }     
@@ -3830,3 +3830,14 @@ function demoSuDung() {
   Logger.log("Đáp án câu thứ 2: " + listAns[1]); // Ra: [true, false, true, false]
 }
 
+
+function normalizeAns(str) {
+  if (typeof str !== "string") return String(str || "").trim();
+  
+  return str
+    .replace(/\\\\/g, "\\")      // Chuyển \\ thành \ (đồng bộ LaTeX)
+    .trim()                      // Xóa khoảng trắng đầu/cuối
+    .replace(/\.$/, "")          // Xóa duy nhất dấu chấm thừa ở cuối câu
+    .trim()                      // Trim lại phòng trường hợp còn khoảng trắng trước dấu chấm
+    .toLowerCase();
+}

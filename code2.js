@@ -3198,9 +3198,8 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
             var quetstionq = dataWord[i][4] || "";
             listtypeexam.push(typeq);
             
-            var resultE = parseExamData(quetstionq);
-            var ansE = resultE.arrayexamAnswer[0];
-            
+            var examMap = parseExamData(quetstionq);
+            var ansE = examMap[idq]; // Lấy thẳng đáp án theo ID câu hỏi            
             if (typeq === "true-false" || typeq === "tf") {
               listAnsexam.push(ansE);
             } else if (typeof ansE === "string") {
@@ -3217,24 +3216,38 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {
       if (typeof sheetNH !== "undefined" && sheetNH) {
         var dataNH = sheetNH.getDataRange().getValues();
-        for (var i = 1; i < dataNH.length; i++) {      
-          var idq = String(dataNH[i][0] || "").trim();
-          if (listIdkq.includes(idq)) {
-            var typeq = String(dataNH[i][2] || "").trim().toLowerCase();        
-            listtypeexam.push(typeq);         
-            
-            if (typeq === "true-false" || typeq === "tf") {
-              var ansOp = parseTfOptions(dataNH[i][5]);
-              listAnsexam.push(ansOp);
+        
+        // Tạo Map tra cứu để không bị lệch câu
+        var nhMap = {};
+        for (var i = 1; i < dataNH.length; i++) {
+          var idqRow = String(dataNH[i][0] || "").trim();
+          if (idqRow) {
+            var typeqRow = String(dataNH[i][2] || "").trim().toLowerCase();
+            var ansRow = null;
+            if (typeqRow === "true-false" || typeqRow === "tf") {
+              ansRow = parseTfOptions(dataNH[i][5]); // Trả thẳng mảng [true, false,...]
             } else {
-              var ansQ = String(dataNH[i][6] || "").trim().toLowerCase();
-              listAnsexam.push(ansQ);
+              ansRow = String(dataNH[i][6] || "").trim().toLowerCase();
             }
-          }      
+            nhMap[idqRow] = {
+              type: typeqRow,
+              ans: ansRow
+            };
+          }
+        }
+        // Map lại đúng thứ tự bài làm học sinh
+        for (var idx = 0; idx < listIdkq.length; idx++) {
+          var targetId = String(listIdkq[idx]).trim();
+          if (nhMap[targetId]) {
+            listtypeexam.push(nhMap[targetId].type);
+            listAnsexam.push(nhMap[targetId].ans);
+          } else {
+            listtypeexam.push("mcq");
+            listAnsexam.push("");
+          }
         }
       }
     }
-
     // 7. Vòng lặp Chấm điểm từng bài
     for (var k = 0; k < numRows; k++) {
       rawDetail = matchingDetails[k];
@@ -3638,66 +3651,59 @@ function parseDetailData(detailInput) {
  * @return {Object} Đối tượng chứa { arrayexamId, arrayexamAnswer }[cite: 1]
  */
 function parseExamData(examDataInput) {
-  var arrayexamId = [];
-  var arrayexamAnswer = [];
+  var examMap = {};
 
-  if (!examDataInput) {
-    return { arrayexamId: arrayexamId, arrayexamAnswer: arrayexamAnswer };
-  }
+  if (!examDataInput) return examMap;
 
   var list = [];
   try {
     list = typeof examDataInput === "string" ? JSON.parse(examDataInput) : examDataInput;
   } catch (e) {
     Logger.log("Lỗi parse JSON exam_data: " + e.toString());
-    return { arrayexamId: arrayexamId, arrayexamAnswer: arrayexamAnswer };
+    return examMap;
   }
 
-  if (Array.isArray(list)) {
-    for (var i = 0; i < list.length; i++) {
-      var q = list[i];
-      if (typeof q === "string") {
-        try { q = JSON.parse(q); } catch (e) { continue; }
+  // Đảm bảo list luôn là mảng để duyệt
+  if (!Array.isArray(list)) list = [list];
+
+  for (var i = 0; i < list.length; i++) {
+    var q = list[i];
+    if (typeof q === "string") {
+      try { q = JSON.parse(q); } catch (e) { continue; }
+    }
+
+    if (q && typeof q === "object") {
+      var qId = String(q.id !== undefined ? q.id : "").trim();
+      var type = String(q.type || "").toLowerCase().trim();
+      var part = String(q.part || "").toLowerCase().trim();
+      var ansValue = null;
+
+      // 1. Trả lời ngắn (PHẦN III / short-answer)
+      if (type === "short-answer" || type === "sa" || part.indexOf("iii") !== -1) {
+        ansValue = q.a !== undefined ? q.a : (q.answer !== undefined ? q.answer : q.ans);
+      }
+      // 2. Trắc nghiệm Đúng/Sai (PHẦN II / true-false)
+      else if (type === "true-false" || type === "tf" || part.indexOf("ii") !== -1) {
+        var sList = Array.isArray(q.s) ? q.s : [];
+        ansValue = sList.map(function(item) {
+          if (item && typeof item === "object") {
+            return item.a !== undefined ? item.a : item.answer;
+          }
+          return item;
+        });
+      } 
+      // 3. Trắc nghiệm MCQ (PHẦN I)
+      else {
+        ansValue = q.a !== undefined ? q.a : (q.answer !== undefined ? q.answer : q.ans);
       }
 
-      if (q && typeof q === "object") {
-        // 1. Tách ID câu hỏi
-        var qId = q.id !== undefined ? q.id : "";
-        arrayexamId.push(String(qId).trim());
-
-        // 2. Tách Answer
-        var type = String(q.type || "").toLowerCase().trim();
-        var part = String(q.part || "").toLowerCase().trim();
-        var ansValue = null;
-
-        // ƯU TIÊN 1: Trả lời ngắn (PHẦN III / short-answer)
-        if (type === "short-answer" || type === "sa" || part.indexOf("iii") !== -1) {
-          ansValue = q.a !== undefined ? q.a : (q.answer !== undefined ? q.answer : q.ans);
-        }
-        // ƯU TIÊN 2: Trắc nghiệm Đúng/Sai (PHẦN II / true-false)[cite: 1]
-        else if (type === "true-false" || type === "tf" || part.indexOf("ii") !== -1) {
-          var sList = Array.isArray(q.s) ? q.s : [];
-          ansValue = sList.map(function(item) {
-            if (item && typeof item === "object") {
-              return item.a !== undefined ? item.a : item.answer;
-            }
-            return item;
-          });
-        } 
-        // ƯU TIÊN 3: Trắc nghiệm 1 đáp án MCQ (PHẦN I)[cite: 1]
-        else {
-          ansValue = q.a !== undefined ? q.a : (q.answer !== undefined ? q.answer : q.ans);
-        }
-
-        arrayexamAnswer.push(ansValue);
+      if (qId) {
+        examMap[qId] = ansValue;
       }
     }
   }
 
-  return {
-    arrayexamId: arrayexamId,
-    arrayexamAnswer: arrayexamAnswer
-  };
+  return examMap;
 }
 
 
@@ -3728,9 +3734,7 @@ function parseTfOptions(tfInput) {
     for (var i = 0; i < list.length; i++) {
       var item = list[i];
       if (item && typeof item === "object") {
-        // Lấy giá trị từ thuộc tính "a" hoặc "answer"
         var val = item.a !== undefined ? item.a : item.answer;
-        
         // Ép kiểu chuẩn về Boolean
         var boolVal = (val === true || String(val).toLowerCase() === "true" || val === 1);
         arrayTfBool.push(boolVal);
@@ -3738,7 +3742,7 @@ function parseTfOptions(tfInput) {
     }
   }
 
-  return arrayTfBool;
+  return arrayTfBool; // Trả thẳng mảng [true, false, false, true]
 }
 
 // ==========================================

@@ -3190,29 +3190,118 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var listIdkq = resultDetail.arrayIddetail || []; 
 
     // Nhánh đề WORD
-    if (theloaiStr === "word") {
-      var sheetWord = ss2.getSheetByName("exam_data");
-      if (sheetWord) {
-        var dataWord = sheetWord.getDataRange().getValues();
-        for (var i = 1; i < dataWord.length; i++) {      
-          var idq = String(dataWord[i][1] || "").trim();
-          if (listIdkq.includes(idq)) {
-            var typeq = String(dataWord[i][3] || "").trim().toLowerCase();
-            var quetstionq = dataWord[i][4] || "";
-            listtypeexam.push(typeq);
-            
-            var examMap = parseExamData(quetstionq);
-            var ansE = examMap[idq]; // Đã bóc chuẩn mảng Boolean hoặc chuỗi
-            
-            if (typeq === "true-false" || typeq === "tf") {
-              listAnsexam.push(ansE);
-            } else {
-              listAnsexam.push(normalizeAns(ansE));
-            }
-          }      
-        }
-      }
+    // =====================================================
+// NHÁNH ĐỀ WORD
+// QUAN TRỌNG: LUÔN KHỚP THEO THỨ TỰ ID TRONG DETAIL HS
+// =====================================================
+if (theloaiStr === "word") {
+
+  var sheetWord = ss2.getSheetByName("exam_data");
+
+  if (!sheetWord) {
+    return createResponse(
+      "error",
+      "Không tìm thấy sheet exam_data!"
+    );
+  }
+
+  var dataWord = sheetWord.getDataRange().getValues();
+
+  // ---------------------------------------------------
+  // BƯỚC 1:
+  // Đọc exam_data và tạo MAP theo ID
+  //
+  // wordMap[id] = {
+  //    type: ...,
+  //    answer: ...
+  // }
+  // ---------------------------------------------------
+  var wordMap = {};
+
+  for (var i = 1; i < dataWord.length; i++) {
+
+    var idq = String(dataWord[i][1] || "").trim();
+
+    if (!idq) continue;
+
+    // Chỉ lấy những ID có trong Detail của bài thi
+    if (listIdkq.indexOf(idq) === -1) continue;
+
+    var typeq = String(dataWord[i][3] || "")
+      .trim()
+      .toLowerCase();
+
+    var quetstionq = dataWord[i][4] || "";
+
+    // Bóc answer từ JSON của exam_data
+    var examMap = parseExamData(quetstionq);
+
+    var ansE = examMap[idq];
+
+    // Lưu vào MAP bằng chính ID câu hỏi
+    wordMap[idq] = {
+      type: typeq,
+      answer: ansE
+    };
+  }
+
+
+  // ---------------------------------------------------
+  // BƯỚC 2:
+  // TUYỆT ĐỐI KHÔNG push theo thứ tự exam_data.
+  //
+  // Phải duyệt listIdkq = THỨ TỰ CỦA DETAIL HS
+  // ---------------------------------------------------
+  for (var d = 0; d < listIdkq.length; d++) {
+
+    var detailId = String(listIdkq[d] || "").trim();
+
+    var bankItem = wordMap[detailId];
+
+    if (!bankItem) {
+
+      Logger.log(
+        "❌ Không tìm thấy ID trong exam_data: " +
+        detailId
+      );
+
+      // Vẫn giữ vị trí để không làm lệch mảng
+      listtypeexam.push("");
+      listAnsexam.push("");
+
+      continue;
     }
+
+    var typeDetail = bankItem.type;
+    var answerDetail = bankItem.answer;
+
+    listtypeexam.push(typeDetail);
+
+    if (
+      typeDetail === "true-false" ||
+      typeDetail === "tf"
+    ) {
+
+      // TF giữ nguyên mảng Boolean
+      listAnsexam.push(answerDetail);
+
+    } else {
+
+      // MCQ / SA chuẩn hóa
+      listAnsexam.push(
+        normalizeAns(answerDetail)
+      );
+    }
+
+    Logger.log(
+      "KHỚP WORD | vị trí=" + d +
+      " | ID=" + detailId +
+      " | TYPE=" + typeDetail +
+      " | ANSWER=" +
+      JSON.stringify(listAnsexam[listAnsexam.length - 1])
+    );
+  }
+}
 
     // Nhánh đề MATRIX (Sử dụng sheetNH)
     if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {

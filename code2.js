@@ -3105,6 +3105,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var arraydiem = [];
     var arraynx = [];
     var arraydiemcu = [];
+    var arraydiemchamlai = [];
 
     // 4. Lọc bài làm cần chấm lại theo Mã đề & Thể loại
     for (var i = 1; i < dataKq.length; i++) {
@@ -3119,6 +3120,8 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
         matchingRowIndices.push(i + 1); // Dòng thực tế trên Sheet (1-indexed)
         matchingDetails.push(row[12]);   // Cột M: Detail bài làm
         arraydiemcu.push(row[5]);        // Cột F: Điểm cũ
+        var diemP = row[15] !== undefined ? row[15] : "";
+        arraydiemchamlai.push(diemP);
       }
     }
 
@@ -3291,19 +3294,25 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
 
     // 8. GHI HÀNG LOẠT (BULK WRITE) TỪ DÒNG matchingRowIndices[0]
     if (numRows > 0) {
-      // Đóng gói mảng 2 chiều cho Cột N, O, P (Cột 14, 15, 16)
+      // Đóng gói mảng 2 chiều cho Cột N, O, P, Q (Cột 14, 15, 16, 17)
       var bulkDataNOP = [];
       for (var r = 0; r < numRows; r++) {
         var nxVal = arraynx[r][0];
         var oldScoreVal = arraydiemcu[r] !== undefined ? arraydiemcu[r] : "";
-        bulkDataNOP.push([nxVal, "Chấm lại", oldScoreVal]);
+        var oldDiemchamlai = arrydiemchamlai[r] !== undefined ? arrydiemchamlai[r] : "";
+        
+        if (String(oldDiemchamlai).trim() !== "") {
+          bulkDataNOP.push([nxVal, "Chấm lại", oldDiemchamlai, oldScoreVal]);          
+        } else {
+          bulkDataNOP.push([nxVal, "Chấm lại", oldScoreVal, ""]); 
+        }
       }
 
       // Ghi hàng loạt Cột F (Điểm mới) - Cột 6
       sheetKq.getRange(startRow, 6, numRows, 1).setValues(arraydiem);
 
-      // Ghi hàng loạt 3 cột N, O, P (Nhận xét, Trạng thái, Điểm cũ) - Cột 14
-      sheetKq.getRange(startRow, 14, numRows, 3).setValues(bulkDataNOP);
+      // Ghi hàng loạt 4 cột N, O, P, Q (Nhận xét, Trạng thái, Điểm gốc, Điểm lần chấm trước) - Cột 14
+      sheetKq.getRange(startRow, 14, numRows, 4).setValues(bulkDataNOP);
     }
 
     return createResponse("success", "Đã chấm lại thành công " + numRows + " bài làm cho mã đề " + examStr + "!");

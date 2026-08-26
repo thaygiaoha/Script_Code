@@ -868,20 +868,7 @@ if (action === "getRegradeExamsList") {
   const sheetId2 = getSheetIdByIdgv(targetIdgv);
   const reqSheetId = sheetId2 || e.parameter.sheetId || "";
   return getRegradeExamsList(targetIdgv, reqSheetId, reqTheloai);
-}
-  // 3. TOP 10
-  if (type === 'top10') {
-    const sheet = ssAdmin.getSheetByName("Top10Display");
-    if (!sheet) return createResponse("error", "Không tìm thấy sheet Top10Display");
-    const lastRow = sheet.getLastRow();
-    if (lastRow < 2) return createResponse("success", "Chưa có dữ liệu Top 10", []);
-    const values = sheet.getRange(2, 1, Math.min(10, lastRow - 1), 10).getValues();
-    const top10 = values.map((row, index) => ({
-      rank: index + 1, name: row[0], phoneNumber: row[1], score: row[2],
-      time: row[3], sotk: row[4], bank: row[5], idPhone: row[9]
-    }));
-    return createResponse("success", "OK", top10);
-  }
+}  
 
   // 4. THỐNG KÊ ĐÁNH GIÁ
   if (type === 'getStats') {
@@ -3066,7 +3053,7 @@ function getRegradeExamsList(idgv, sheetId, theloai) {
   }
 }
 
-// 2508sua1: Chấm lại bài thi Matran & Word chuẩn xác chỉ dùng ss2 theo thể loại và đáp án chamlai
+// 2608sua4: Chấm lại bài thi Matran & Word tách riêng luồng xử lý và dùng chung phần ghi kết quả
 function regradeExams(idgv, password, examCode, sheetId, theloai) {
   try {
     // 1. Chuẩn hóa dữ liệu đầu vào
@@ -3103,8 +3090,6 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
 
     var matchingRowIndices = [];
     var matchingDetails = [];    
-    var arraydiem = [];
-    var arraynx = [];
     var arraydiemcu = [];
     var arraydiemchamlai = [];
 
@@ -3130,273 +3115,33 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       return createResponse("error", "Không tìm thấy bài làm nào của mã đề " + examStr + " thuộc thể loại " + theloaiStr + "!");
     }
 
-    // Dòng bắt đầu ghi dữ liệu chính là dòng đầu tiên khớp điều kiện
     var startRow = matchingRowIndices[0];
     var numRows = matchingRowIndices.length;
 
-    // 5. Thiết lập thang điểm mặc định
-    var scMCQ = 0.25;
-    var scTF = 1.0;
-    var scSA = 0.5;
+    // 5. Chấm điểm tách biệt theo thể loại đề Word / Matrix
+    var gradeResult = null;
 
-    // Tra cứu điểm trong sheet exams (Đề Word)
     if (theloaiStr === "word") {
-      var sheetExams = ss2.getSheetByName("exams");
-      if (sheetExams && sheetExams.getLastRow() >= 2) {     
-        var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, sheetExams.getLastColumn()).getValues();
-        for (var eIdx = 0; eIdx < dataExams.length; eIdx++) {
-          var exRow = dataExams[eIdx];
-          var rowExKey = (typeof supper === "function") ? supper(String(exRow[0] || "")) : String(exRow[0] || "").toUpperCase();
-          var exTheloai = String(exRow[19] || exRow[20] || "").trim().toLowerCase();
-          
-          if (rowExKey === targetExamSupper && exTheloai === theloaiStr) {
-            var val3 = parseNum(exRow[3]);
-            if (val3 > 0) scMCQ = val3;
-            var val5 = parseNum(exRow[5]);
-            if (val5 > 0) scTF = val5;
-            var val7 = parseNum(exRow[7]);
-            if (val7 > 0) scSA = val7;
-            break;
-          }
-        }
-      }
-    }
-
-    // Tra cứu điểm trong sheet matran (Đề Ma Trận)
-    if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {
-      var sheetMatran = ss2.getSheetByName("matran");
-      if (sheetMatran && sheetMatran.getLastRow() >= 2) {
-        var dataMatran = sheetMatran.getRange(2, 1, sheetMatran.getLastRow() - 1, 19).getValues();
-        for (var mIdx = 0; mIdx < dataMatran.length; mIdx++) {
-          var mtRow = dataMatran[mIdx];
-          var rowMtKey = (typeof supper === "function") ? supper(String(mtRow[1] || "")) : String(mtRow[1] || "").toUpperCase();
-          if (rowMtKey === targetExamSupper) {
-            var val6 = parseNum(mtRow[6]);
-            if (val6 > 0) scMCQ = val6;
-            var val10 = parseNum(mtRow[10]);
-            if (val10 > 0) scTF = val10;
-            var val14 = parseNum(mtRow[14]);
-            if (val14 > 0) scSA = val14;
-            break;
-          }
-        }
-      }
-    } 
-
-   // 6. Lấy Đáp án chuẩn & Kiểu câu hỏi từ Ngân hàng Đề
-    var listtypeexam = [];    
-    var listAnsexam = [];
-    var rawDetail = matchingDetails[0];
-    var resultDetail = parseDetailData(rawDetail);
-    var listIdkq = resultDetail.arrayIddetail || []; 
-
-    // Nhánh đề WORD
-    // =====================================================
-// NHÁNH ĐỀ WORD
-// QUAN TRỌNG: LUÔN KHỚP THEO THỨ TỰ ID TRONG DETAIL HS
-// =====================================================
-if (theloaiStr === "word") {
-
-  var sheetWord = ss2.getSheetByName("exam_data");
-
-  if (!sheetWord) {
-    return createResponse(
-      "error",
-      "Không tìm thấy sheet exam_data!"
-    );
-  }
-
-  var dataWord = sheetWord.getDataRange().getValues();
-
-  // ---------------------------------------------------
-  // BƯỚC 1:
-  // Đọc exam_data và tạo MAP theo ID
-  //
-  // wordMap[id] = {
-  //    type: ...,
-  //    answer: ...
-  // }
-  // ---------------------------------------------------
-  var wordMap = {};
-
-  for (var i = 1; i < dataWord.length; i++) {
-
-    var idq = String(dataWord[i][1] || "").trim();
-
-    if (!idq) continue;
-
-    // Chỉ lấy những ID có trong Detail của bài thi
-    if (listIdkq.indexOf(idq) === -1) continue;
-
-    var typeq = String(dataWord[i][3] || "")
-      .trim()
-      .toLowerCase();
-
-    var quetstionq = dataWord[i][4] || "";
-
-    // Bóc answer từ JSON của exam_data
-    var examMap = parseExamData(quetstionq);
-
-    var ansE = examMap[idq];
-
-    // Lưu vào MAP bằng chính ID câu hỏi
-    wordMap[idq] = {
-      type: typeq,
-      answer: ansE
-    };
-  }
-
-
-  // ---------------------------------------------------
-  // BƯỚC 2:
-  // TUYỆT ĐỐI KHÔNG push theo thứ tự exam_data.
-  //
-  // Phải duyệt listIdkq = THỨ TỰ CỦA DETAIL HS
-  // ---------------------------------------------------
-  for (var d = 0; d < listIdkq.length; d++) {
-
-    var detailId = String(listIdkq[d] || "").trim();
-
-    var bankItem = wordMap[detailId];
-
-    if (!bankItem) {
-
-      Logger.log(
-        "❌ Không tìm thấy ID trong exam_data: " +
-        detailId
-      );
-
-      // Vẫn giữ vị trí để không làm lệch mảng
-      listtypeexam.push("");
-      listAnsexam.push("");
-
-      continue;
-    }
-
-    var typeDetail = bankItem.type;
-    var answerDetail = bankItem.answer;
-
-    listtypeexam.push(typeDetail);
-
-    if (
-      typeDetail === "true-false" ||
-      typeDetail === "tf"
-    ) {
-
-      // TF giữ nguyên mảng Boolean
-      listAnsexam.push(answerDetail);
-
+      gradeResult = regradeWordExams_(ss2, targetExamSupper, matchingDetails);
+    } else if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {
+      gradeResult = regradeMatrixExams_(ss2, targetExamSupper, matchingDetails);
     } else {
-
-      // MCQ / SA chuẩn hóa
-      listAnsexam.push(
-        normalizeAns(answerDetail)
-      );
+      return createResponse("error", "Thể loại '" + theloaiStr + "' hiện chưa được hỗ trợ chấm lại!");
     }
 
-    Logger.log(
-      "KHỚP WORD | vị trí=" + d +
-      " | ID=" + detailId +
-      " | TYPE=" + typeDetail +
-      " | ANSWER=" +
-      JSON.stringify(listAnsexam[listAnsexam.length - 1])
-    );
-  }
-}
-
-    // Nhánh đề MATRIX (Sử dụng sheetNH)
-    if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {
-      if (typeof sheetNH !== "undefined" && sheetNH) {
-        var dataNH = sheetNH.getDataRange().getValues();
-        
-        var nhMap = {};
-        for (var i = 1; i < dataNH.length; i++) {
-          var idqRow = String(dataNH[i][0] || "").trim();
-          if (idqRow) {
-            var typeqRow = String(dataNH[i][2] || "").trim().toLowerCase();
-            var ansRow = null;
-            
-            if (typeqRow === "true-false" || typeqRow === "tf") {
-              // Dùng parseTfOptions cho Cột F (Cột 5) của Ngân hàng đề
-              ansRow = parseTfOptions(dataNH[i][5]); 
-            } else {
-              // Chuẩn hóa chuỗi đáp án MCQ / Short-answer ở Cột G (Cột 6)
-              ansRow = normalizeAns(dataNH[i][6]);
-            }
-            
-            nhMap[idqRow] = {
-              type: typeqRow,
-              ans: ansRow
-            };
-          }
-        }
-
-        for (var idx = 0; idx < listIdkq.length; idx++) {
-          rawDetail = matchingDetails[k];
-          resultDetail = parseDetailData(rawDetail);
-          listIdkq = resultDetail.arrayIddetail || []; 
-          var targetId = String(listIdkq[idx]).trim();
-          if (nhMap[targetId]) {
-            listtypeexam.push(nhMap[targetId].type);
-            listAnsexam.push(nhMap[targetId].ans);
-          } else {
-            listtypeexam.push("mcq");
-            listAnsexam.push("");
-          }
-        }
-      }
-    }
-      rawDetail = matchingDetails[0];
-      resultDetail = parseDetailData(rawDetail);
-      listIdkq = resultDetail.arrayIddetail || []; 
-    // 7. Vòng lặp Chấm điểm từng bài
-    for (var k = 0; k < numRows; k++) {
-      if (theloaiStr === "matrix") {
-        rawDetail = matchingDetails[k];
-       resultDetail = parseDetailData(rawDetail);
-       listIdkq = resultDetail.arrayIddetail || []; 
-      }     
-      
-      var parsedStudent = parseDetailData(rawDetail);
-      var listanswerkq = parsedStudent.arrayanswer || [];      
-      var totalScore = 0;
-
-      for (var j = 0; j < listAnsexam.length; j++) {
-        var qType = listtypeexam[j].toLowerCase().trim();
-        var ansStudent = listanswerkq[j];
-        var ansExam = listAnsexam[j];
-
-        if (qType === "mcq") {
-          if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
-            totalScore += scMCQ;
-          }
-        } 
-        else if (qType === "true-false" || qType === "tf") {
-          // Truyền trực tiếp 2 mảng Boolean [false, true, ...] vào pointtf
-          var point = pointtf(scTF, ansStudent, ansExam);
-          totalScore += point;
-        } 
-        else if (qType === "short-answer" || qType === "sa") {
-          if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
-            totalScore += scSA;        
-          }
-        }
-      }     
-      
-      var finalScore = Math.round(totalScore * 100) / 100;      
-      var numericScore = typeof finalScore === "number" ? finalScore : (parseFloat(String(finalScore).replace(",", ".")) || 0);
-      var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Hoàn thành bài thi";
-      
-      arraydiem.push([finalScore]); 
-      arraynx.push([nx]);           
+    if (!gradeResult || !gradeResult.success) {
+      return createResponse("error", (gradeResult && gradeResult.message) ? gradeResult.message : "Chấm lại không thành công!");
     }
 
-    // 8. GHI HÀNG LOẠT (BULK WRITE) TỪ DÒNG matchingRowIndices[0]
+    var arraydiem = gradeResult.arraydiem || [];
+    var arraynx = gradeResult.arraynx || [];
+
+    // 6. GHI HÀNG LOẠT (BULK WRITE) TỪ DÒNG matchingRowIndices[0] - Ghi điểm mới và bảo lưu điểm cũ
     if (numRows > 0) {
       // Đóng gói mảng 2 chiều cho Cột N, O, P, Q (Cột 14, 15, 16, 17)
       var bulkDataNOP = [];
       for (var r = 0; r < numRows; r++) {
-        var nxVal = arraynx[r][0];
+        var nxVal = arraynx[r] ? arraynx[r][0] : "";
         var oldScoreVal = arraydiemcu[r] !== undefined ? arraydiemcu[r] : "";
         var oldDiemchamlai = arraydiemchamlai[r] !== undefined ? arraydiemchamlai[r] : "";
         
@@ -3419,6 +3164,247 @@ if (theloaiStr === "word") {
   } catch (err) {
     return createResponse("error", "Lỗi trong quá trình chấm lại: " + err.toString());
   }
+}
+
+/**
+ * 2608sua4: Hàm chấm lại riêng cho thể loại đề WORD
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss2 - Bảng tính ss2 của GV
+ * @param {string} targetExamSupper - Mã đề dạng chữ hoa
+ * @param {Array<string|Object>} matchingDetails - Mảng chứa detail của các bài làm cần chấm
+ * @return {Object} { success: boolean, arraydiem: Array<Array<number>>, arraynx: Array<Array<string>>, message?: string }
+ */
+function regradeWordExams_(ss2, targetExamSupper, matchingDetails) {
+  // 1. Lấy thang điểm đề Word từ sheet exams
+  var scMCQ = 0.25;
+  var scTF = 1.0;
+  var scSA = 0.5;
+
+  var sheetExams = ss2.getSheetByName("exams");
+  if (sheetExams && sheetExams.getLastRow() >= 2) {     
+    var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, sheetExams.getLastColumn()).getValues();
+    for (var eIdx = 0; eIdx < dataExams.length; eIdx++) {
+      var exRow = dataExams[eIdx];
+      var rowExKey = (typeof supper === "function") ? supper(String(exRow[0] || "")) : String(exRow[0] || "").toUpperCase();
+      var exTheloai = String(exRow[19] || exRow[20] || "").trim().toLowerCase();
+      
+      if (rowExKey === targetExamSupper && (exTheloai === "word" || !exRow[19])) {
+        var val3 = parseNum(exRow[3]);
+        if (val3 > 0) scMCQ = val3;
+        var val5 = parseNum(exRow[5]);
+        if (val5 > 0) scTF = val5;
+        var val7 = parseNum(exRow[7]);
+        if (val7 > 0) scSA = val7;
+        break;
+      }
+    }
+  }
+
+  // 2. Lấy dữ liệu câu hỏi từ sheet exam_data trong ss2
+  var sheetWord = ss2.getSheetByName("exam_data");
+  if (!sheetWord || sheetWord.getLastRow() < 2) {
+    return { success: false, message: "Không tìm thấy sheet exam_data hoặc sheet không có dữ liệu!" };
+  }
+
+  var dataWord = sheetWord.getDataRange().getValues();
+  var wordMap = {};
+
+  for (var i = 1; i < dataWord.length; i++) {
+    var idq = String(dataWord[i][1] || "").trim();
+    if (!idq) continue;
+
+    var typeq = String(dataWord[i][3] || "").trim().toLowerCase();
+    var questionq = dataWord[i][4] || "";
+
+    // Bóc answer từ JSON của exam_data
+    var examMap = parseExamData(questionq);
+    var ansE = examMap[idq];
+
+    if (ansE === undefined || ansE === null) {
+      ansE = dataWord[i][6] !== undefined && dataWord[i][6] !== "" ? dataWord[i][6] : dataWord[i][5];
+    }
+
+    wordMap[idq] = {
+      type: typeq,
+      answer: ansE
+    };
+  }
+
+  // 3. Tiến hành chấm từng bài làm của học sinh
+  var arraydiem = [];
+  var arraynx = [];
+
+  for (var k = 0; k < matchingDetails.length; k++) {
+    var rawDetail = matchingDetails[k];
+    var parsedStudent = parseDetailData(rawDetail);
+    var listIdkq = parsedStudent.arrayIddetail || [];
+    var listanswerkq = parsedStudent.arrayanswer || [];      
+    var totalScore = 0;
+
+    for (var j = 0; j < listIdkq.length; j++) {
+      var detailId = String(listIdkq[j] || "").trim();
+      var bankItem = wordMap[detailId];
+      if (!bankItem) continue;
+
+      var qType = String(bankItem.type || "").toLowerCase().trim();
+      var ansExam = bankItem.answer;
+      var ansStudent = listanswerkq[j];
+
+      if (qType === "mcq" || qType.indexOf("phần i") !== -1 || (!qType && !Array.isArray(ansExam))) {
+        if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
+          totalScore += scMCQ;
+        }
+      } 
+      else if (qType === "true-false" || qType === "tf" || qType.indexOf("phần ii") !== -1) {
+        var tfStudent = parseTfOptions(ansStudent);
+        var expectedTf = Array.isArray(ansExam) ? ansExam : parseTfOptions(ansExam);
+        var point = pointtf(scTF, tfStudent, expectedTf);
+        totalScore += point;
+      } 
+      else if (qType === "short-answer" || qType === "sa" || qType.indexOf("phần iii") !== -1) {
+        if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
+          totalScore += scSA;        
+        }
+      }
+    }     
+    
+    var finalScore = Math.round(totalScore * 100) / 100;      
+    var numericScore = typeof finalScore === "number" ? finalScore : (parseFloat(String(finalScore).replace(",", ".")) || 0);
+    var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Hoàn thành bài thi";
+    
+    arraydiem.push([finalScore]); 
+    arraynx.push([nx]);           
+  }
+
+  return {
+    success: true,
+    arraydiem: arraydiem,
+    arraynx: arraynx
+  };
+}
+
+/**
+ * 2608sua4: Hàm chấm lại riêng cho thể loại đề MATRIX (Ma trận)
+ * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} ss2 - Bảng tính ss2 của GV
+ * @param {string} targetExamSupper - Mã đề dạng chữ hoa
+ * @param {Array<string|Object>} matchingDetails - Mảng chứa detail của các bài làm cần chấm
+ * @return {Object} { success: boolean, arraydiem: Array<Array<number>>, arraynx: Array<Array<string>>, message?: string }
+ */
+function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
+  // 1. Lấy thang điểm đề Ma trận từ sheet matran
+  var scMCQ = 0.25;
+  var scTF = 1.0;
+  var scSA = 0.5;
+
+  var sheetMatran = ss2.getSheetByName("matran");
+  if (sheetMatran && sheetMatran.getLastRow() >= 2) {
+    var dataMatran = sheetMatran.getRange(2, 1, sheetMatran.getLastRow() - 1, 19).getValues();
+    for (var mIdx = 0; mIdx < dataMatran.length; mIdx++) {
+      var mtRow = dataMatran[mIdx];
+      var rowMtKey = (typeof supper === "function") ? supper(String(mtRow[1] || "")) : String(mtRow[1] || "").toUpperCase();
+      if (rowMtKey === targetExamSupper) {
+        var val6 = parseNum(mtRow[6]);
+        if (val6 > 0) scMCQ = val6;
+        var val10 = parseNum(mtRow[10]);
+        if (val10 > 0) scTF = val10;
+        var val14 = parseNum(mtRow[14]);
+        if (val14 > 0) scSA = val14;
+        break;
+      }
+    }
+  }
+
+  // 2. Lấy dữ liệu câu hỏi từ sheet nganhang
+  var sheetNHRef = (typeof sheetNH !== "undefined" && sheetNH) ? sheetNH : (typeof ss !== "undefined" && ss ? ss.getSheetByName("nganhang") : null);
+  if (!sheetNHRef && ss2) {
+    sheetNHRef = ss2.getSheetByName("nganhang");
+  }
+  if (!sheetNHRef) {
+    try {
+      var activeSS = SpreadsheetApp.getActiveSpreadsheet();
+      if (activeSS) sheetNHRef = activeSS.getSheetByName("nganhang");
+    } catch (eActive) {}
+  }
+
+  if (!sheetNHRef || sheetNHRef.getLastRow() < 2) {
+    return { success: false, message: "Không tìm thấy sheet nganhang hoặc sheet không có dữ liệu!" };
+  }
+
+  var dataNH = sheetNHRef.getDataRange().getValues();
+  var nhMap = {};
+
+  for (var i = 1; i < dataNH.length; i++) {
+    var idqRow = String(dataNH[i][0] || "").trim();
+    if (!idqRow) continue;
+
+    var typeqRow = String(dataNH[i][2] || "").trim().toLowerCase();
+    var ansRow = null;
+    
+    if (typeqRow === "true-false" || typeqRow === "tf") {
+      // Dùng parseTfOptions cho Cột F (Cột 5) của Ngân hàng đề
+      ansRow = parseTfOptions(dataNH[i][5]); 
+      if (ansRow.length === 0) ansRow = parseTfOptions(dataNH[i][6]);
+    } else {
+      // Chuẩn hóa chuỗi đáp án MCQ / Short-answer ở Cột G (Cột 6)
+      ansRow = normalizeAns(dataNH[i][6]);
+    }
+    
+    nhMap[idqRow] = {
+      type: typeqRow,
+      ans: ansRow
+    };
+  }
+
+  // 3. Tiến hành chấm từng bài làm của học sinh
+  var arraydiem = [];
+  var arraynx = [];
+
+  for (var k = 0; k < matchingDetails.length; k++) {
+    var rawDetail = matchingDetails[k];
+    var parsedStudent = parseDetailData(rawDetail);
+    var listIdkq = parsedStudent.arrayIddetail || [];
+    var listanswerkq = parsedStudent.arrayanswer || [];      
+    var totalScore = 0;
+
+    for (var j = 0; j < listIdkq.length; j++) {
+      var targetId = String(listIdkq[j] || "").trim();
+      var bankItem = nhMap[targetId];
+      if (!bankItem) continue;
+
+      var qType = String(bankItem.type || "").toLowerCase().trim();
+      var ansExam = bankItem.ans;
+      var ansStudent = listanswerkq[j];
+
+      if (qType === "mcq" || qType.indexOf("phần i") !== -1 || (!qType && !Array.isArray(ansExam))) {
+        if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
+          totalScore += scMCQ;
+        }
+      } 
+      else if (qType === "true-false" || qType === "tf" || qType.indexOf("phần ii") !== -1) {
+        var tfStudent = parseTfOptions(ansStudent);
+        var expectedTf = Array.isArray(ansExam) ? ansExam : parseTfOptions(ansExam);
+        var point = pointtf(scTF, tfStudent, expectedTf);
+        totalScore += point;
+      } 
+      else if (qType === "short-answer" || qType === "sa" || qType.indexOf("phần iii") !== -1) {
+        if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
+          totalScore += scSA;        
+        }
+      }
+    }     
+    
+    var finalScore = Math.round(totalScore * 100) / 100;      
+    var numericScore = typeof finalScore === "number" ? finalScore : (parseFloat(String(finalScore).replace(",", ".")) || 0);
+    var nx = (typeof layNhanXet === "function") ? layNhanXet(numericScore) : "Hoàn thành bài thi";
+    
+    arraydiem.push([finalScore]); 
+    arraynx.push([nx]);           
+  }
+
+  return {
+    success: true,
+    arraydiem: arraydiem,
+    arraynx: arraynx
+  };
 }
 // 2508ketthucsua1
 

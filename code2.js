@@ -3064,11 +3064,10 @@ function getRegradeExamsList(idgv, sheetId, theloai) {
     return createResponse("error", "Lỗi lấy danh sách mã đề: " + err.toString());
   }
 }
-
-// 2508sua1: Chấm lại bài thi Matran & Word chuẩn xác chỉ dùng ss2 theo thể loại và đáp án
+// 2608sua1: Chấm lại bài thi Matran & Word chuẩn xác chỉ dùng ss2 theo thể loại và đáp án
 function regradeExams(idgv, password, examCode, sheetId, theloai) {
   try {
-    // 1. Chuẩn hóa dữ liệu đầu vào
+    // 2608sua1: 1. Chuẩn hóa dữ liệu đầu vào
     var idgvStr = String(idgv || "").trim();
     var passStr = String(password || "").trim();
     var examStr = String(examCode || "").trim().replace(/^'/, '');
@@ -3079,13 +3078,13 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     if (!theloaiStr) return createResponse("error", "Vui lòng chọn thể loại đề thi PDF/Word/Matrix!");
     if (!examStr) return createResponse("error", "Vui lòng chọn Mã đề!");
 
-    // 2. Xác thực giáo viên
+    // 2608sua1: 2. Xác thực giáo viên
     var isAuth = checkTeacherAuth(idgvStr, passStr);
     if (!isAuth) {
       return createResponse("error", "Mật khẩu hoặc ID Giáo viên không đúng!");
     }
 
-    // 3. Lấy Bảng tính ss2 và Sheet ketqua
+    // 2608sua1: 3. Lấy Bảng tính ss2 và Sheet ketqua
     var ss2 = getSS2(sheetId, idgvStr);
     var sheetKq = ss2 ? (ss2.getSheetByName("ketqua") || ss2.getSheetByName("KetQua") || ss2.getSheetByName("KETQUA")) : null;   
 
@@ -3106,7 +3105,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var arraynx = [];
     var arraydiemcu = [];
 
-    // 4. Lọc bài làm cần chấm lại theo Mã đề & Thể loại
+    // 2608sua1: 4. Lọc bài làm cần chấm lại theo Mã đề & Thể loại
     for (var i = 1; i < dataKq.length; i++) {
       var row = dataKq[i];
       var rowExams = row[1] ? String(row[1]).trim().replace(/^'/, '') : "";
@@ -3130,7 +3129,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     var startRow = matchingRowIndices[0];
     var numRows = matchingRowIndices.length;
 
-    // 5. Thiết lập thang điểm mặc định
+    // 2608sua1: 5. Thiết lập thang điểm mặc định
     var scMCQ = 0.25;
     var scTF = 1.0;
     var scSA = 0.5;
@@ -3145,7 +3144,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
           var rowExKey = (typeof supper === "function") ? supper(String(exRow[0] || "")) : String(exRow[0] || "").toUpperCase();
           var exTheloai = String(exRow[19] || exRow[20] || "").trim().toLowerCase();
           
-          if (rowExKey === targetExamSupper && exTheloai === theloaiStr) {
+          if (rowExKey === targetExamSupper && (exTheloai === theloaiStr || !exRow[19])) {
             var val3 = parseNum(exRow[3]);
             if (val3 > 0) scMCQ = val3;
             var val5 = parseNum(exRow[5]);
@@ -3179,97 +3178,226 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       }
     } 
 
-    // 6. Lấy Đáp án chuẩn & Kiểu câu hỏi từ Ngân hàng Đề
-    var listtypeexam = [];    
-    var listAnsexam = [];
-    var rawDetail = matchingDetails[0];
-    var resultDetail = parseDetailData(rawDetail);
-    var listIdkq = resultDetail.arrayIddetail || []; 
+    // 2608them1: 6. Xây dựng bản đồ tra cứu câu hỏi chuẩn xác (questionMap) theo ID
+    var questionMap = {};
 
-    // Nhánh đề WORD
-    if (theloaiStr === "word") {
-      var sheetWord = ss2.getSheetByName("exam_data");
-      if (sheetWord) {
-        var dataWord = sheetWord.getDataRange().getValues();
-        for (var i = 1; i < dataWord.length; i++) {      
-          var idq = String(dataWord[i][1] || "").trim();
-          if (listIdkq.includes(idq)) {
-            var typeq = String(dataWord[i][3] || "").trim().toLowerCase();
-            var quetstionq = dataWord[i][4] || "";
-            listtypeexam.push(typeq);
-            
-            var examMap = parseExamData(quetstionq);
-            var ansE = examMap[idq]; // Lấy thẳng đáp án theo ID câu hỏi            
-            if (typeq === "true-false" || typeq === "tf") {
-              listAnsexam.push(ansE);
-            } else if (typeof ansE === "string") {
-              listAnsexam.push(ansE.toLowerCase().trim());
-            } else {
-              listAnsexam.push(ansE);
-            }
-          }      
+    // 2608sua1: A. Nạp từ sheet exam_data trong ss2 (cho đề Word hoặc đề tải lên)
+    var sheetWord = ss2 ? ss2.getSheetByName("exam_data") : null;
+    if (sheetWord && sheetWord.getLastRow() >= 2) {
+      var dataWord = sheetWord.getDataRange().getValues();
+      for (var wIdx = 1; wIdx < dataWord.length; wIdx++) {
+        var rowW = dataWord[wIdx];
+        var rowExamCodeW = (typeof supper === "function") ? supper(String(rowW[0] || "")) : String(rowW[0] || "").toUpperCase();
+        var qIdW = String(rowW[1] || "").trim();
+        if (!qIdW) continue;
+
+        var typeW = String(rowW[3] || "").trim().toLowerCase();
+        var rawQW = rowW[4];
+        var parsedQW = null;
+
+        if (rawQW) {
+          try {
+            parsedQW = typeof rawQW === "string" ? JSON.parse(rawQW) : rawQW;
+          } catch (eQW) {
+            parsedQW = null;
+          }
+        }
+
+        var ansW = null;
+        var optsW = [];
+        var tfListW = [];
+
+        if (parsedQW && typeof parsedQW === "object") {
+          typeW = String(parsedQW.type || typeW || "").trim().toLowerCase();
+          ansW = parsedQW.a !== undefined ? parsedQW.a : (parsedQW.answer !== undefined ? parsedQW.answer : parsedQW.ans);
+          optsW = parsedQW.o || parsedQW.options || [];
+          if (parsedQW.s || parsedQW.statement) {
+            tfListW = parseTfOptions(parsedQW.s || parsedQW.statement);
+          }
+        } else {
+          ansW = rowW[6] !== undefined && rowW[6] !== "" ? rowW[6] : rowW[5];
+          optsW = rowW[5];
+          tfListW = parseTfOptions(rowW[5]);
+        }
+
+        if ((typeW === "true-false" || typeW === "tf") && tfListW.length === 0) {
+          tfListW = parseTfOptions(ansW || optsW);
+        }
+
+        var qItemW = {
+          id: qIdW,
+          type: typeW,
+          answer: ansW,
+          options: Array.isArray(optsW) ? optsW : [],
+          tfExpected: tfListW
+        };
+
+        if (rowExamCodeW === targetExamSupper || !questionMap[qIdW]) {
+          questionMap[qIdW] = qItemW;
+          questionMap[qIdW.toLowerCase()] = qItemW;
         }
       }
     }
 
-    // Nhánh đề MATRIX (Sử dụng sheetNH có sẵn bên Code.gs)
-    if (theloaiStr === "matrix" || theloaiStr === "matran" || theloaiStr === "ma trận") {
-      if (typeof sheetNH !== "undefined" && sheetNH) {
-        var dataNH = sheetNH.getDataRange().getValues();
+    // 2608sua1: B. Nạp từ sheet nganhang (cho đề Matrix hoặc ngân hàng chung)
+    var sheetNHRef = (typeof sheetNH !== "undefined" && sheetNH) ? sheetNH : (typeof ss !== "undefined" && ss ? ss.getSheetByName("nganhang") : null);
+    if (!sheetNHRef && ss2) {
+      sheetNHRef = ss2.getSheetByName("nganhang");
+    }
+    if (!sheetNHRef) {
+      try {
+        var activeSS = SpreadsheetApp.getActiveSpreadsheet();
+        if (activeSS) sheetNHRef = activeSS.getSheetByName("nganhang");
+      } catch (eActive) {}
+    }
+
+    if (sheetNHRef && sheetNHRef.getLastRow() >= 2) {
+      var maxColsNH = Math.max(sheetNHRef.getLastColumn(), 9);
+      var dataNH = sheetNHRef.getRange(2, 1, sheetNHRef.getLastRow() - 1, maxColsNH).getValues();
+      for (var nhIdx = 0; nhIdx < dataNH.length; nhIdx++) {
+        var rowNH = dataNH[nhIdx];
+        var qIdNH = String(rowNH[0] || "").trim();
+        if (!qIdNH) continue;
+
+        var typeNH = String(rowNH[2] || "").toLowerCase().trim();
+        var partNH = String(rowNH[3] || "").toLowerCase().trim();
         
-        // Tạo Map tra cứu để không bị lệch câu
-        var nhMap = {};
-        for (var i = 1; i < dataNH.length; i++) {
-          var idqRow = String(dataNH[i][0] || "").trim();
-          if (idqRow) {
-            var typeqRow = String(dataNH[i][2] || "").trim().toLowerCase();
-            var ansRow = null;
-            if (typeqRow === "true-false" || typeqRow === "tf") {
-              ansRow = parseTfOptions(dataNH[i][5]); // Trả thẳng mảng [true, false,...]
-            } else {
-              ansRow = String(dataNH[i][6] || "").trim().toLowerCase();
-            }
-            nhMap[idqRow] = {
-              type: typeqRow,
-              ans: ansRow
-            };
-          }
+        var optsNH = [];
+        if (rowNH[5]) {
+          try { optsNH = JSON.parse(rowNH[5]); } catch (eO) { optsNH = rowNH[5]; }
         }
-        // Map lại đúng thứ tự bài làm học sinh
-        for (var idx = 0; idx < listIdkq.length; idx++) {
-          var targetId = String(listIdkq[idx]).trim();
-          if (nhMap[targetId]) {
-            listtypeexam.push(nhMap[targetId].type);
-            listAnsexam.push(nhMap[targetId].ans);
-          } else {
-            listtypeexam.push("mcq");
-            listAnsexam.push("");
-          }
+
+        var ansNH = rowNH[6];
+        if (ansNH !== undefined && ansNH !== null && ansNH !== "") {
+          try { ansNH = JSON.parse(ansNH); } catch (eA) {}
+        }
+
+        var tfListNH = [];
+        if (typeNH === "true-false" || typeNH === "tf" || partNH.indexOf("ii") !== -1) {
+          tfListNH = parseTfOptions(rowNH[5]);
+          if (tfListNH.length === 0) tfListNH = parseTfOptions(rowNH[6]);
+        }
+
+        if (!typeNH) {
+          if (partNH.indexOf("phần i") !== -1 || partNH.indexOf("i.") !== -1) typeNH = "mcq";
+          else if (partNH.indexOf("phần ii") !== -1 || partNH.indexOf("ii.") !== -1) typeNH = "true-false";
+          else if (partNH.indexOf("phần iii") !== -1 || partNH.indexOf("iii.") !== -1) typeNH = "short-answer";
+        }
+
+        var qItemNH = {
+          id: qIdNH,
+          type: typeNH,
+          answer: ansNH,
+          options: Array.isArray(optsNH) ? optsNH : [],
+          tfExpected: tfListNH
+        };
+
+        if (!questionMap[qIdNH]) {
+          questionMap[qIdNH] = qItemNH;
+          questionMap[qIdNH.toLowerCase()] = qItemNH;
         }
       }
     }
-    // 7. Vòng lặp Chấm điểm từng bài
+
+    // 2608sua1: 7. Vòng lặp Chấm điểm từng bài làm dựa trên ID câu hỏi cụ thể của từng học sinh
     for (var k = 0; k < numRows; k++) {
-      rawDetail = matchingDetails[k];
-      
-      var parsedStudent = parseDetailData(rawDetail);
-      var listanswerkq = parsedStudent.arrayanswer || [];      
+      var currentRawDetail = matchingDetails[k];
+      var parsedStudent = parseDetailData(currentRawDetail);
+      var listIds = parsedStudent.arrayIddetail || [];
+      var listAnswers = parsedStudent.arrayanswer || [];      
       var totalScore = 0;
 
-      for (var j = 0; j < listAnsexam.length; j++) {
-        var qType = listtypeexam[j].toLowerCase().trim();
-        var ansStudent = listanswerkq[j];
-        var ansExam = listAnsexam[j];
+      for (var j = 0; j < listIds.length; j++) {
+        var targetId = String(listIds[j] || "").trim();
+        var ansStudent = listAnswers[j];
 
-        if ((qType === "mcq") && normalizeAns(ansStudent) === normalizeAns(ansExam)) {
-          totalScore += scMCQ;
-        } 
+        // 2608them1: Tra cứu câu hỏi từ questionMap theo ID
+        var qObj = questionMap[targetId] || questionMap[targetId.toLowerCase()];
+        if (!qObj) continue;
+
+        var qType = String(qObj.type || "").toLowerCase().trim();
+        var ansCorrect = qObj.answer;
+        var opts = qObj.options || [];
+
+        // 2608sua1: 1️⃣ CHẤM ĐIỂM MCQ (Trắc nghiệm 1 đáp án)
+        if (qType === "mcq" || (!qType && opts.length > 0 && qObj.tfExpected.length === 0)) {
+          var isCorrect = false;
+          var normS = normalizeAns(ansStudent);
+          var normC = normalizeAns(ansCorrect);
+          var normSCompact = normalizeAnsCompact(ansStudent);
+          var normCCompact = normalizeAnsCompact(ansCorrect);
+
+          // A. So sánh chuỗi trực tiếp hoặc công thức toán học
+          if (normS !== "" && (normS === normC || normSCompact === normCCompact)) {
+            isCorrect = true;
+          }
+          // B. Trường hợp học sinh nộp nhãn A, B, C, D
+          else if (typeof ansStudent === "string" && ["A", "B", "C", "D"].includes(ansStudent.trim().toUpperCase())) {
+            var sLetter = ansStudent.trim().toUpperCase();
+            var sIdx = sLetter.charCodeAt(0) - 65;
+            if (sLetter === String(ansCorrect).trim().toUpperCase()) {
+              isCorrect = true;
+            } else if (opts[sIdx] !== undefined && (normalizeAns(opts[sIdx]) === normC || normalizeAnsCompact(opts[sIdx]) === normCCompact)) {
+              isCorrect = true;
+            }
+          }
+          // C. Trường hợp đáp án đúng là nhãn A, B, C, D nhưng học sinh nộp nội dung
+          else if (typeof ansCorrect === "string" && ["A", "B", "C", "D"].includes(String(ansCorrect).trim().toUpperCase())) {
+            var cLetter = String(ansCorrect).trim().toUpperCase();
+            var cIdx = cLetter.charCodeAt(0) - 65;
+            if (opts[cIdx] !== undefined && (normS === normalizeAns(opts[cIdx]) || normSCompact === normalizeAnsCompact(opts[cIdx]))) {
+              isCorrect = true;
+            }
+          }
+          // D. So khớp qua danh sách options nếu cả 2 cùng là nội dung phương án
+          else if (opts && opts.length > 0) {
+            for (var oIdx = 0; oIdx < opts.length; oIdx++) {
+              var optText = opts[oIdx];
+              var mS = (normS === normalizeAns(optText) || normSCompact === normalizeAnsCompact(optText));
+              var mC = (normC === normalizeAns(optText) || normCCompact === normalizeAnsCompact(optText));
+              if (mS && mC) {
+                isCorrect = true;
+                break;
+              }
+            }
+          }
+
+          if (isCorrect) {
+            totalScore += scMCQ;
+          }
+        }
+        // 2608sua1: 2️⃣ CHẤM ĐIỂM TRUE-FALSE (Đúng / Sai theo thang điểm)
         else if (qType === "true-false" || qType === "tf") {
-          var point = pointtf(scTF, ansStudent, ansExam);
-          totalScore += point;
-        } 
-        else if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
-          totalScore += scSA;        
+          var tfStudent = [];
+          if (Array.isArray(ansStudent)) {
+            tfStudent = ansStudent;
+          } else if (ansStudent && typeof ansStudent === "object") {
+            var keys = ["A", "B", "C", "D"];
+            for (var ki = 0; ki < keys.length; ki++) {
+              var kLetter = keys[ki];
+              var valK = ansStudent[kLetter] !== undefined ? ansStudent[kLetter] : (ansStudent[kLetter.toLowerCase()] !== undefined ? ansStudent[kLetter.toLowerCase()] : ansStudent[ki]);
+              tfStudent.push(valK);
+            }
+          }
+          var expectedTf = (qObj.tfExpected && qObj.tfExpected.length > 0) ? qObj.tfExpected : parseTfOptions(ansCorrect);
+          var pointTfVal = pointtf(scTF, tfStudent, expectedTf);
+          totalScore += pointTfVal;
+        }
+        // 2608sua1: 3️⃣ CHẤM ĐIỂM SHORT ANSWER (Trả lời ngắn)
+        else if (qType === "sa" || qType === "short-answer") {
+          var numS = normalizeNumberSA(ansStudent);
+          var numC = normalizeNumberSA(ansCorrect);
+          if (numS !== "" && (numS === numC || normalizeAns(ansStudent) === normalizeAns(ansCorrect) || normalizeAnsCompact(ansStudent) === normalizeAnsCompact(ansCorrect))) {
+            totalScore += scSA;
+          } else if (!isNaN(parseFloat(numS)) && !isNaN(parseFloat(numC)) && parseFloat(numS) === parseFloat(numC)) {
+            totalScore += scSA;
+          }
+        }
+        // Fallback: So sánh thông thường
+        else {
+          if (normalizeAns(ansStudent) === normalizeAns(ansCorrect) || normalizeAnsCompact(ansStudent) === normalizeAnsCompact(ansCorrect)) {
+            totalScore += scSA;
+          }
         }
       }     
       
@@ -3281,7 +3409,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       arraynx.push([nx]);           // Mảng 2 chiều [[nhận xét 1], ...]
     }
 
-    // 8. GHI HÀNG LOẠT (BULK WRITE) TỪ DÒNG matchingRowIndices[0]
+    // 2608sua1: 8. GHI HÀNG LOẠT (BULK WRITE) TỪ DÒNG matchingRowIndices[0]
     if (numRows > 0) {
       // Đóng gói mảng 2 chiều cho Cột N, O, P (Cột 14, 15, 16)
       var bulkDataNOP = [];
@@ -3304,7 +3432,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
     return createResponse("error", "Lỗi trong quá trình chấm lại: " + err.toString());
   }
 }
-// 2508ketthucsua1
+// 2608ketthucsua1
 
 // Hàm chuẩn hóa lại ngân hàng
 function normalizeQuestionBank_1() {
@@ -3601,11 +3729,7 @@ function parseNum(val) {
   return isNaN(num) ? 0 : num;
 }
 
-/**
- * Tách dữ liệu detail bài làm của học sinh thành 2 mảng ID và Answer tương ứng.
- * @param {string|Array} detailInput - Chuỗi JSON hoặc mảng Object từ cột detail.
- * @return {Object} Đối tượng chứa { arrayIddetail, arrayanswer }
- */
+// 2608sua1: Tách dữ liệu detail bài làm của học sinh thành 2 mảng ID và Answer tương ứng
 function parseDetailData(detailInput) {
   var arrayIddetail = [];
   var arrayanswer = [];
@@ -3616,7 +3740,6 @@ function parseDetailData(detailInput) {
 
   var list = [];
   try {
-    // Nếu dữ liệu truyền vào là chuỗi JSON thì parse ra mảng
     list = typeof detailInput === "string" ? JSON.parse(detailInput) : detailInput;
   } catch (e) {
     Logger.log("Lỗi parse JSON detail: " + e.toString());
@@ -3627,14 +3750,21 @@ function parseDetailData(detailInput) {
     for (var i = 0; i < list.length; i++) {
       var item = list[i];
       if (item && typeof item === "object") {
-        // Lấy ID câu hỏi
-        var qId = item.id || item.idquestion || item.questionId || "";
+        var qId = item.id || item.idquestion || item.questionId || item.idq || "";
         arrayIddetail.push(String(qId).trim());
 
-        // Lấy Answer của câu hỏi
-        var ans = item.answer !== undefined ? item.answer : (item.ans !== undefined ? item.ans : item.a);
+        var ans = item.answer !== undefined ? item.answer : (item.ans !== undefined ? item.ans : (item.a !== undefined ? item.a : item.value));
         arrayanswer.push(ans);
+      } else {
+        arrayIddetail.push(String(i + 1));
+        arrayanswer.push(item);
       }
+    }
+  } else if (list && typeof list === "object") {
+    // 2608them1: Xử lý trường hợp bài làm lưu dạng Object { "1001": "A", "1002": "B" }
+    for (var k in list) {
+      arrayIddetail.push(String(k).trim());
+      arrayanswer.push(list[k]);
     }
   }
 
@@ -3644,12 +3774,7 @@ function parseDetailData(detailInput) {
   };
 }
 
-// ==========================================
-/**
- * Tách dữ liệu câu hỏi trong exam_data thành 2 mảng ID và Answer.
- * @param {Array<Object|string>} examDataInput - Danh sách các câu hỏi (dạng Object hoặc mảng JSON) từ exam_data.
- * @return {Object} Đối tượng chứa { arrayexamId, arrayexamAnswer }[cite: 1]
- */
+// 2608sua1: Tách dữ liệu câu hỏi trong exam_data thành 2 mảng ID và Answer
 function parseExamData(examDataInput) {
   var examMap = {};
 
@@ -3663,7 +3788,6 @@ function parseExamData(examDataInput) {
     return examMap;
   }
 
-  // Đảm bảo list luôn là mảng để duyệt
   if (!Array.isArray(list)) list = [list];
 
   for (var i = 0; i < list.length; i++) {
@@ -3684,7 +3808,7 @@ function parseExamData(examDataInput) {
       }
       // 2. Trắc nghiệm Đúng/Sai (PHẦN II / true-false)
       else if (type === "true-false" || type === "tf" || part.indexOf("ii") !== -1) {
-        var sList = Array.isArray(q.s) ? q.s : [];
+        var sList = Array.isArray(q.s) ? q.s : (Array.isArray(q.statement) ? q.statement : []);
         ansValue = sList.map(function(item) {
           if (item && typeof item === "object") {
             return item.a !== undefined ? item.a : item.answer;
@@ -3706,17 +3830,7 @@ function parseExamData(examDataInput) {
   return examMap;
 }
 
-
-/**
- * Hàm tách riêng danh sách phương án lựa chọn (options) từ exam_data.
- * @param {Array<Object|string>|string} examDataInput - Dữ liệu câu hỏi trong exam_data.
- * @return {Array<Array>} Mảng chứa danh sách options của từng câu hỏi.
- */
-/**
- * Hàm trích xuất mảng giá trị Boolean [true/false] từ danh sách mệnh đề Đúng/Sai.
- * @param {Array<Object>|string} tfInput - Mảng chứa các mệnh đề dạng [{"text": "...", "a": true}, ...] hoặc chuỗi JSON.
- * @return {Array<boolean>} Mảng Boolean tương ứng [true, false, ...]
- */
+// 2608sua1: Hàm trích xuất mảng giá trị Boolean [true/false] từ danh sách mệnh đề Đúng/Sai
 function parseTfOptions(tfInput) {
   var arrayTfBool = [];
 
@@ -3735,51 +3849,39 @@ function parseTfOptions(tfInput) {
       var item = list[i];
       if (item && typeof item === "object") {
         var val = item.a !== undefined ? item.a : item.answer;
-        // Ép kiểu chuẩn về Boolean
         var boolVal = (val === true || String(val).toLowerCase() === "true" || val === 1);
         arrayTfBool.push(boolVal);
+      } else {
+        var bVal = (item === true || String(item).toLowerCase() === "true" || item === 1);
+        arrayTfBool.push(bVal);
+      }
+    }
+  } else if (list && typeof list === "object") {
+    // 2608them1: Xử lý dạng object { "A": true, "B": false, ... }
+    var keys = ["A", "B", "C", "D"];
+    for (var k = 0; k < keys.length; k++) {
+      var kLet = keys[k];
+      var oVal = list[kLet] !== undefined ? list[kLet] : (list[kLet.toLowerCase()] !== undefined ? list[kLet.toLowerCase()] : list[k]);
+      if (oVal !== undefined) {
+        var bObjVal = (oVal === true || String(oVal).toLowerCase() === "true" || oVal === 1);
+        arrayTfBool.push(bObjVal);
       }
     }
   }
 
-  return arrayTfBool; // Trả thẳng mảng [true, false, false, true]
+  return arrayTfBool;
 }
 
-// ==========================================
-// Test thử với dữ liệu của thầy
-// ==========================================
-function testParseTf() {
-  var dataInput = [
-    {"text":"Giá trị trung bình của mẫu số liệu bảng $1$ xấp xỉ bằng $58,7$ (làm tròn đến hàng phần chục).","a":true},
-    {"text":"Ghép nhóm mẫu số liệu bảng $1$ với lớp ghép đầu tiên là $[25; 34)$ ta có mốt của mẫu số liệu sau khi ghép nhóm (làm tròn kết quả đến hàng phần mười) bằng $49,8$.","a":true},
-    {"text":"Bảng tần số ghép nhóm của mẫu số liệu bảng $1$ có lớp ghép đầu tiên là $[25; 34)$ như bảng $2$ sau:","a":false},
-    {"text":"Kích thước mẫu của mẫu số liệu bảng $1$ bằng $30$.","a":true}
-  ];
-
-  var result = parseTfOptions(dataInput);
-  Logger.log(result); 
-  // Kết quả ra đúng chuẩn: [true, true, false, true]
-}
-
-/**
- * Tính điểm câu hỏi Trắc nghiệm Đúng/Sai dựa trên số ý trả lời đúng.
- * @param {number} point - Điểm tối đa của câu hỏi.
- * @param {Array<boolean>} p1 - Mảng đáp án 1 (ví dụ: đáp án học sinh).
- * @param {Array<boolean>} p2 - Mảng đáp án 2 (ví dụ: đáp án chuẩn).
- * @return {number} Số điểm đạt được (đã làm tròn 2 chữ số thập phân).
- */
+// 2608sua1: Tính điểm câu hỏi Trắc nghiệm Đúng/Sai dựa trên số ý trả lời đúng
 function pointtf(point, p1, p2) {
-  // Kiểm tra dữ liệu đầu vào
   if (!Array.isArray(p1) || !Array.isArray(p2) || p1.length === 0 || p2.length === 0) {
     return 0;
   }
 
-  // Đếm số ý trùng khớp giữa p1 và p2
   var count = 0;
   var len = Math.min(p1.length, p2.length);
 
   for (var i = 0; i < len; i++) {
-    // Ép kiểu Boolean để so sánh chuẩn xác tuyệt đối (tránh lỗi do chuỗi "true"/1)
     var bool1 = (p1[i] === true || String(p1[i]).toLowerCase() === "true" || p1[i] === 1);
     var bool2 = (p2[i] === true || String(p2[i]).toLowerCase() === "true" || p2[i] === 1);
 
@@ -3788,60 +3890,41 @@ function pointtf(point, p1, p2) {
     }
   }
 
-  // Bảng tỷ lệ điểm tương ứng theo số ý đúng [0, 1, 2, 3, 4]
   var scaleMap = [0, 0.1, 0.25, 0.5, 1];
-
-  // Lấy tỷ lệ (nếu vượt quá 4 ý thì mặc định lấy 1)
   var scale = scaleMap[count] !== undefined ? scaleMap[count] : 1;
-
-  // Tính điểm và làm tròn 2 chữ số thập phân
   var resultPoint = Number(point) * scale;
   return Math.round(resultPoint * 100) / 100;
 }
 
-// ==========================================
-// Test thử theo ví dụ
-// ==========================================
-function testPointTf() {
-  var p1 = [true, true, false, true];
-  var p2 = [true, false, true, true];
-
-  var result = pointtf(1, p1, p2);
-  Logger.log("Điểm đạt được: " + result); // Kết quả trả về số 0.25
-}
-
-function demoSuDung() {
-  // 1. Giả sử đây là dữ liệu ngân hàng câu hỏi từ exam_data
-  var examDataInput = [
-    { "id": 3, "part": "PHẦN I", "type": "mcq", "a": "$12$" },
-    { "id": 13, "part": "PHẦN II", "type": "true-false", "s": [{ "a": true }, { "a": false }, { "a": true }, { "a": false }] },
-    { "id": 17, "part": "PHẦN III", "type": "short-answer", "a": "45" }
-  ];
-
-  // 2. Gọi hàm parseExamData và lưu vào biến result
-  var result = parseExamData(examDataInput);
-
-  // 3. Lấy mảng ID và mảng Answer ra sử dụng
-  var listId = result.arrayexamId;       // Mảng ID: ["3", "13", "17"]
-  var listAns = result.arrayexamAnswer;  // Mảng Answer: ["$12$", [true, false, true, false], "45"]
-
-  // --- Ví dụ: Gọi phần tử đầu tiên (Phần tử chỉ số 0) ---
-  Logger.log("ID câu thứ 1: " + listId[0]);      // Ra: "3"
-  Logger.log("Đáp án câu thứ 1: " + listAns[0]); // Ra: "$12$"
-
-  // --- Ví dụ: Gọi phần tử câu Đúng/Sai (Phần tử chỉ số 1) ---
-  Logger.log("ID câu thứ 2: " + listId[1]);      // Ra: "13"
-  Logger.log("Đáp án câu thứ 2: " + listAns[1]); // Ra: [true, false, true, false]
-}
-
-
+// 2608sua1: Chuẩn hóa chuỗi đáp án (xử lý khoảng trắng, LaTeX, dấu $ và dấu chấm cuối câu)
 function normalizeAns(str) {
-  if (typeof str !== "string") return String(str || "").trim();
+  if (str === null || str === undefined) return "";
+  if (typeof str !== "string") str = String(str);
   
   return str
-    .replace(/\\\\/g, "\\")      // Chuyển \\ thành \ (đồng bộ LaTeX)
-    .trim()                      // Xóa khoảng trắng đầu/cuối
-    .replace(/\.$/, "")          // Xóa duy nhất dấu chấm thừa ở cuối câu
-    .trim()                      // Trim lại phòng trường hợp còn khoảng trắng trước dấu chấm
+    .replace(/[\u00a0\s]+/g, " ")      // Đổi non-breaking space và khoảng trắng thừa thành 1 dấu cách
+    .replace(/\\+/g, "\\")             // Đồng bộ nhiều dấu gạch chéo ngược thành 1 dấu \ (LaTeX)
+    .replace(/\$/g, "")                // Loại bỏ ký hiệu $
+    .replace(/[\.\s;:]+$/, "")         // Xóa dấu chấm, dấu chấm phẩy, khoảng trắng ở cuối chuỗi
+    .trim()
     .toLowerCase();
+}
+
+// 2608them1: Chuẩn hóa thu gọn tối đa (xóa mọi khoảng trắng, dấu $, dấu chấm) để so khớp công thức toán học
+function normalizeAnsCompact(str) {
+  if (str === null || str === undefined) return "";
+  if (typeof str !== "string") str = String(str);
+  
+  return str
+    .replace(/[\u00a0\s\$\.]+/g, "")   // Xóa toàn bộ khoảng trắng, ký hiệu $, dấu chấm
+    .replace(/\\+/g, "\\")             // Đồng bộ nhiều dấu gạch chéo ngược thành 1 \
+    .trim()
+    .toLowerCase();
+}
+
+// 2608them1: Chuẩn hóa số cho phần câu hỏi trả lời ngắn (xử lý dấu phẩy thập phân)
+function normalizeNumberSA(str) {
+  if (str === null || str === undefined) return "";
+  var s = String(str).replace(/[\u00a0\s\$\.]+/g, "").replace(",", ".").replace(/[\.\s;:]+$/, "").trim().toLowerCase();
+  return s;
 }

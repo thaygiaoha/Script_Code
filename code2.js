@@ -3299,7 +3299,7 @@ function regradeExams(idgv, password, examCode, sheetId, theloai) {
       for (var r = 0; r < numRows; r++) {
         var nxVal = arraynx[r][0];
         var oldScoreVal = arraydiemcu[r] !== undefined ? arraydiemcu[r] : "";
-        var oldDiemchamlai = arrydiemchamlai[r] !== undefined ? arrydiemchamlai[r] : "";
+        var oldDiemchamlai = arraydiemchamlai[r] !== undefined ? arraydiemchamlai[r] : "";
         
         if (String(oldDiemchamlai).trim() !== "") {
           bulkDataNOP.push([nxVal, "Chấm lại", oldDiemchamlai, oldScoreVal]);          

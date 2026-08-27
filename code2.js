@@ -521,8 +521,8 @@ if (action === 'getLG') {
     
     if (!idTraCuu || !passTracuu || !idgvTracuu) return createResponse("error", "Thiếu thông tin tra cứu!");
     const sheetId = getSheetIdByIdgv(idgvTracuu);
-    const sheetmatran = getSS2Sheet(sheetId, idgvTracuu, "matran");
-    const passL1 = sheetmatran ? sheetmatran.getRange("L1").getValue() : "";
+    const sheetDS = getSS2Sheet(sheetId, idgvTracuu, "danhsach");
+    const passL1 = sheetDS ? sheetDS.getRange("L1").getValue() : "";
     if (passTracuu !== String(passL1).trim()) return createResponse("error", "Mật khâu sai rồi bạn yêu! Hãy liên hệ với thầy cô " + idgvTracuu );
     const lastRow = sheetNH.getLastRow();
     if (lastRow < 2) return createResponse("error", "Ngân hàng đang trống!");

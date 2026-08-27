@@ -576,13 +576,19 @@ if (action === 'getLG') {
     var dataNH = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
     for (var i = 0; i < dataNH.length; i++) {
       if (dataNH[i][0].toString().trim() === id) {
+        var answersheet = dataNH[i][6].toString().trim() || "";
+        var typesheet = dataNH[i][2].toString().trim().toLowCase();
+        var optionsheet = dataNH[i][5] || "";
+        if (typesheet === "true-false") {
+          answersheet = parseTfOptions(optionsheet);          
+        }
         return createResponse("success", "OK", {
           idquestion: dataNH[i][0], 
           classTag: dataNH[i][1], 
-          type: dataNH[i][2],
+          type: typesheet,
           question: dataNH[i][4],
-          options: dataNH[i][5],
-          answer: dataNH[i][6],
+          options: optionsheet,
+          answer: answersheet,
           loigiai: dataNH[i][7],
           datetime: dataNH[i][8]
           

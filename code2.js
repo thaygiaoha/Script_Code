@@ -3194,7 +3194,7 @@ function regradeWordExams_(ss2, targetExamSupper, matchingDetails) {
   var scMCQ = 0.25;
   var scTF = 1.0;
   var scSA = 0.5;
-
+  var totalId = matchingDetails.length;   
   var sheetExams = ss2.getSheetByName("exams");
   if (sheetExams && sheetExams.getLastRow() >= 2) {     
     var dataExams = sheetExams.getRange(2, 1, sheetExams.getLastRow() - 1, sheetExams.getLastColumn()).getValues();
@@ -3216,14 +3216,13 @@ function regradeWordExams_(ss2, targetExamSupper, matchingDetails) {
   }
 
   // 2. Lấy dữ liệu câu hỏi từ sheet exam_data trong ss2
-  var sheetWord = ss2.getSheetByName("exam_data");
+    var sheetWord = ss2.getSheetByName("exam_data");
   if (!sheetWord || sheetWord.getLastRow() < 2) {
     return { success: false, message: "Không tìm thấy sheet exam_data hoặc sheet không có dữ liệu!" };
   }
 
   var dataWord = sheetWord.getDataRange().getValues();
   var wordMap = {};
-
   for (var i = 1; i < dataWord.length; i++) {
     var idq = String(dataWord[i][1] || "").trim();
     if (!idq) continue;

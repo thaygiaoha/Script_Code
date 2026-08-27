@@ -3234,11 +3234,6 @@ function regradeWordExams_(ss2, targetExamSupper, matchingDetails) {
     // Bóc answer từ JSON của exam_data
     var examMap = parseExamData(questionq);
     var ansE = examMap[idq];
-
-    if (ansE === undefined || ansE === null) {
-      ansE = dataWord[i][6] !== undefined && dataWord[i][6] !== "" ? dataWord[i][6] : dataWord[i][5];
-    }
-
     wordMap[idq] = {
       type: typeq,
       answer: ansE
@@ -3271,11 +3266,13 @@ function regradeWordExams_(ss2, targetExamSupper, matchingDetails) {
         }
       } 
       else if (qType === "true-false" || qType === "tf" || qType.indexOf("phần ii") !== -1) {
-        var tfStudent = parseTfOptions(ansStudent);
+        // ansStudent đã là mảng [true, false,...], ansExam cũng là mảng [true, false,...]
+        var tfStudent = Array.isArray(ansStudent) ? ansStudent : parseTfOptions(ansStudent);
         var expectedTf = Array.isArray(ansExam) ? ansExam : parseTfOptions(ansExam);
+        
         var point = pointtf(scTF, tfStudent, expectedTf);
         totalScore += point;
-      } 
+      }
       else if (qType === "short-answer" || qType === "sa" || qType.indexOf("phần iii") !== -1) {
         if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
           totalScore += scSA;        
@@ -3330,37 +3327,40 @@ function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
   }
 
   // 2. Lấy dữ liệu câu hỏi từ sheet nganhang
-  var sheetNHRef = (typeof sheetNH !== "undefined" && sheetNH) ? sheetNH : (typeof ss !== "undefined" && ss ? ss.getSheetByName("nganhang") : null);
-  if (!sheetNHRef && ss2) {
-    sheetNHRef = ss2.getSheetByName("nganhang");
-  }
-  if (!sheetNHRef) {
-    try {
-      var activeSS = SpreadsheetApp.getActiveSpreadsheet();
-      if (activeSS) sheetNHRef = activeSS.getSheetByName("nganhang");
-    } catch (eActive) {}
+ // Step 2.1: Gom tất cả ID câu hỏi xuất hiện trong các bài làm của học sinh
+  var neededIds = {};
+  var totalNeeded = 0;
+
+  for (var k = 0; k < matchingDetails.length; k++) {
+    var parsedStudent = parseDetailData(matchingDetails[k]);
+    var listIdkq = parsedStudent.arrayIddetail || [];
+    for (var j = 0; j < listIdkq.length; j++) {
+      var id = String(listIdkq[j] || "").trim();
+      if (id && !neededIds[id]) {
+        neededIds[id] = true;
+        totalNeeded++; // Đếm tổng số câu hỏi duy nhất cần tìm
+      }
+    }
   }
 
-  if (!sheetNHRef || sheetNHRef.getLastRow() < 2) {
-    return { success: false, message: "Không tìm thấy sheet nganhang hoặc sheet không có dữ liệu!" };
-  }
-
-  var dataNH = sheetNHRef.getDataRange().getValues();
+  // Step 2.2: Duyệt ngân hàng đề & DỪNG NGAY khi đã tìm đủ
+  var dataNH = sheetNH.getDataRange().getValues();
   var nhMap = {};
-
+  var foundCount = 0;
+  
   for (var i = 1; i < dataNH.length; i++) {
+    // Nếu đã tìm đủ tất cả câu hỏi có trong bài làm -> DỪNG VÒNG LẶP NGAY
+    if (foundCount >= totalNeeded) break;
+
     var idqRow = String(dataNH[i][0] || "").trim();
-    if (!idqRow) continue;
+    if (!idqRow || !neededIds[idqRow]) continue;
 
     var typeqRow = String(dataNH[i][2] || "").trim().toLowerCase();
     var ansRow = null;
     
     if (typeqRow === "true-false" || typeqRow === "tf") {
-      // Dùng parseTfOptions cho Cột F (Cột 5) của Ngân hàng đề
       ansRow = parseTfOptions(dataNH[i][5]); 
-      if (ansRow.length === 0) ansRow = parseTfOptions(dataNH[i][6]);
     } else {
-      // Chuẩn hóa chuỗi đáp án MCQ / Short-answer ở Cột G (Cột 6)
       ansRow = normalizeAns(dataNH[i][6]);
     }
     
@@ -3368,8 +3368,9 @@ function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
       type: typeqRow,
       ans: ansRow
     };
-  }
 
+    foundCount++; // Tăng biến đếm số câu đã tìm thấy
+  }
   // 3. Tiến hành chấm từng bài làm của học sinh
   var arraydiem = [];
   var arraynx = [];
@@ -3396,11 +3397,13 @@ function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
         }
       } 
       else if (qType === "true-false" || qType === "tf" || qType.indexOf("phần ii") !== -1) {
-        var tfStudent = parseTfOptions(ansStudent);
+        // ansStudent là mảng từ detail, ansExam đã là mảng từ nhMap
+        var tfStudent = Array.isArray(ansStudent) ? ansStudent : parseTfOptions(ansStudent);
         var expectedTf = Array.isArray(ansExam) ? ansExam : parseTfOptions(ansExam);
+
         var point = pointtf(scTF, tfStudent, expectedTf);
         totalScore += point;
-      } 
+      }
       else if (qType === "short-answer" || qType === "sa" || qType.indexOf("phần iii") !== -1) {
         if (normalizeAns(ansStudent) === normalizeAns(ansExam)) {
           totalScore += scSA;        

@@ -567,17 +567,22 @@ if (action === 'getLG') {
   }
   // 7. LẤY CÂU HỎI THEO ID
   if (action === 'getQuestionById') {
-    var id = supper(params.id);   
+    var id = supper(params.id);    
     const lastRow = sheetNH.getLastRow();
     if (lastRow < 2) {
-    return createResponse("error", "Ngân hàng trống!");
-      }  
+      return createResponse("error", "Ngân hàng trống!");
+    }   
 
-    var dataNH = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
+    // SỬA: Lấy 9 cột (để lấy đủ đến cột datetime tại chỉ số [8])
+    var dataNH = sheetNH.getRange(2, 1, lastRow - 1, 9).getValues(); 
+    
     for (var i = 0; i < dataNH.length; i++) {
       if (dataNH[i][0].toString().trim() === id) {
         var answersheet = dataNH[i][6].toString().trim() || "";
-        var typesheet = dataNH[i][2].toString().trim().toLowCase();
+        
+        // SỬA: toLowerCase() chứ không phải toLowCase()
+        var typesheet = dataNH[i][2].toString().trim().toLowerCase(); 
+        
         var optionsheet = dataNH[i][5] || "";
         if (typesheet === "true-false") {
           answersheet = parseTfOptions(optionsheet);          
@@ -590,8 +595,7 @@ if (action === 'getLG') {
           options: optionsheet,
           answer: answersheet,
           loigiai: dataNH[i][7],
-          datetime: dataNH[i][8]
-          
+          datetime: dataNH[i][8] // Đã lấy đúng dữ liệu cột 9
         });
       }
     }

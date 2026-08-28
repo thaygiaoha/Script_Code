@@ -1056,6 +1056,25 @@ const lock = LockService.getScriptLock();
       }
     }
 
+    // ĐỒNG BỘ TỪ FIREBASE VÀO CÁC SHEET CỦA GIÁO VIÊN (GHI NỘI DUNG MỚI/CÓ THAY ĐỔI)
+    if (action === "syncFirebaseToSheets") {
+      try {
+        const targetIdgv = data.idgv || data.idnumber || "";
+        const passGV = String(data.passGV || data.pass || "").trim();
+        const sheetId2 = getSheetIdByIdgv(targetIdgv);
+        const reqSheetId = data.sheetId || sheetId2 || "";
+        const sheetsToSync = data.sheets || []; // ['danhsach', 'matran', 'ketqua', 'exams', 'exam_data']
+        const payloadData = data.data || {};
+
+        if (!targetIdgv) return createResponse("error", "Thiếu ID Giáo viên!");
+        
+        const syncResult = syncFirebaseToTeacherSheets_(targetIdgv, reqSheetId, passGV, sheetsToSync, payloadData);
+        return createResponse(syncResult.status || "success", syncResult.message || "Đã đồng bộ sang Sheet!", syncResult);
+      } catch (err) {
+        return createResponse("error", "Lỗi đồng bộ Firebase sang Sheet: " + err.toString());
+      }
+    }
+
     // 2308them1: Bổ sung xử lý action "getExamCodes" trong mainDoPost
     if (action === "getExamCodes" || data.type === "getExamCodes") {
       try {
@@ -4158,3 +4177,318 @@ function syncStudentsToFirebase(idgv, sheetId) {
     return { status: "error", message: err.toString() };
   }
 }
+
+/**
+ * Đồng bộ dữ liệu từ Firebase vào các sheet cụ thể của GV (Chỉ ghi nội dung mới hoặc có thay đổi)
+ */
+function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, payloadData) {
+  var results = {};
+  var ssTarget = getSS2(sheetId, idgv);
+
+  if (!ssTarget) {
+    return { status: "error", message: "Không tìm thấy bảng tính Google Sheet của giáo viên!" };
+  }
+
+  // 1. Đồng bộ DANH SÁCH HỌC SINH (sheet 'danhsach' / 'hocsinh')
+  if (sheetsToSync.indexOf("danhsach") !== -1 && payloadData.danhsach) {
+    try {
+      var sheetDS = ssTarget.getSheetByName("danhsach") || ssTarget.getSheetByName("hocsinh");
+      if (!sheetDS) sheetDS = ssTarget.insertSheet("danhsach");
+
+      var students = payloadData.danhsach || [];
+      var existingData = sheetDS.getDataRange().getValues();
+      var existingMap = {};
+
+      for (var r = 1; r < existingData.length; r++) {
+        var sbdKey = String(existingData[r][0] || "").trim().toUpperCase();
+        if (sbdKey) {
+          existingMap[sbdKey] = {
+            rowIndex: r + 1,
+            row: existingData[r]
+          };
+        }
+      }
+
+      var addedCount = 0;
+      var updatedCount = 0;
+
+      students.forEach(function(st) {
+        var sbd = String(st.sbd || "").trim().toUpperCase();
+        if (!sbd) return;
+
+        var name = st.name || st.hoten || "";
+        var lop = st.class || st.lop || "";
+        var limit = st.limit !== undefined ? st.limit : 1;
+        var limittab = st.limittab !== undefined ? st.limittab : 3;
+        var pass = st.pass || st.password || "";
+        var phone = st.phoneNumber || st.sdt || "";
+
+        if (existingMap[sbd]) {
+          var item = existingMap[sbd];
+          var curRow = item.row;
+          // Kiểm tra xem có thay đổi nội dung không
+          var isChanged = (curRow[1] !== name || curRow[2] !== lop || curRow[3] != limit || curRow[4] != limittab || String(curRow[8] || "") !== pass);
+          if (isChanged) {
+            sheetDS.getRange(item.rowIndex, 2, 1, 8).setValues([[
+              name, lop, limit, limittab, idgv, phone, sbd + "." + idgv, pass
+            ]]);
+            updatedCount++;
+          }
+        } else {
+          // Thêm mới dòng vào cuối
+          sheetDS.appendRow([sbd, name, lop, limit, limittab, idgv, phone, sbd + "." + idgv, pass]);
+          addedCount++;
+        }
+      });
+
+      results.danhsach = { added: addedCount, updated: updatedCount };
+    } catch (eDS) {
+      results.danhsach = { error: eDS.toString() };
+    }
+  }
+
+  // 2. Đồng bộ MA TRẬN (sheet 'matran')
+  if (sheetsToSync.indexOf("matran") !== -1 && payloadData.matran) {
+    try {
+      var sheetMT = ssTarget.getSheetByName("matran");
+      if (!sheetMT) sheetMT = ssTarget.insertSheet("matran");
+
+      var matrixList = payloadData.matran || [];
+      var existingMT = sheetMT.getDataRange().getValues();
+      var existingMTMap = {};
+
+      for (var r = 1; r < existingMT.length; r++) {
+        var codeKey = String(existingMT[r][0] || "").trim().toUpperCase();
+        if (codeKey) existingMTMap[codeKey] = r + 1;
+      }
+
+      var mtAdded = 0;
+      var mtUpdated = 0;
+
+      matrixList.forEach(function(mt) {
+        var code = String(mt.code || mt.makiemtra || mt.examCode || "").trim().toUpperCase();
+        if (!code) return;
+
+        var rowData = [
+          code,
+          mt.openTime || mt.tgmats || "",
+          mt.closeTime || mt.tgdongs || "",
+          mt.duration || 90,
+          mt.minSubmitTime || 0,
+          mt.tabLimit || 3,
+          mt.maxAttempts || 1,
+          mt.scoreMCQ || 0.25,
+          mt.scoreTF || 1.0,
+          mt.scoreSA || 0.5,
+          mt.matrixDetail ? JSON.stringify(mt.matrixDetail) : (mt.matrixJSON || "")
+        ];
+
+        if (existingMTMap[code]) {
+          sheetMT.getRange(existingMTMap[code], 1, 1, rowData.length).setValues([rowData]);
+          mtUpdated++;
+        } else {
+          sheetMT.appendRow(rowData);
+          mtAdded++;
+        }
+      });
+
+      results.matran = { added: mtAdded, updated: mtUpdated };
+    } catch (eMT) {
+      results.matran = { error: eMT.toString() };
+    }
+  }
+
+  // 3. Đồng bộ KẾT QUẢ THI (sheet 'ketqua')
+  if (sheetsToSync.indexOf("ketqua") !== -1 && payloadData.ketqua) {
+    try {
+      var sheetKQ = ssTarget.getSheetByName("ketqua");
+      if (!sheetKQ) sheetKQ = ssTarget.insertSheet("ketqua");
+
+      var kqList = payloadData.ketqua || [];
+      var existingKQ = sheetKQ.getDataRange().getValues();
+      var existingKQMap = {};
+
+      for (var r = 1; r < existingKQ.length; r++) {
+        // Khóa định danh: examCode + "_" + SBD + "_" + time
+        var kKey = String(existingKQ[r][0] || "").trim() + "_" + String(existingKQ[r][1] || "").trim();
+        if (kKey) existingKQMap[kKey] = r + 1;
+      }
+
+      var kqAdded = 0;
+      kqList.forEach(function(kq) {
+        var sbd = String(kq.sbd || "").trim().toUpperCase();
+        var examCode = String(kq.exams || kq.examCode || "").trim().toUpperCase();
+        var kKey = examCode + "_" + sbd;
+
+        if (!existingKQMap[kKey]) {
+          sheetKQ.appendRow([
+            examCode,
+            sbd,
+            kq.name || kq.hoten || "",
+            kq.class || kq.lop || "",
+            kq.scoreTotal || kq.diem || 0,
+            kq.scoreMCQ || 0,
+            kq.scoreTF || 0,
+            kq.scoreSA || 0,
+            kq.submittedAt || new Date().toISOString(),
+            kq.details ? JSON.stringify(kq.details) : ""
+          ]);
+          existingKQMap[kKey] = true;
+          kqAdded++;
+        }
+      });
+
+      results.ketqua = { added: kqAdded };
+    } catch (eKQ) {
+      results.ketqua = { error: eKQ.toString() };
+    }
+  }
+
+  // 4. Đồng bộ CẤU HÌNH ĐỀ (sheet 'exams')
+  if (sheetsToSync.indexOf("exams") !== -1 && payloadData.exams) {
+    try {
+      var sheetEx = ssTarget.getSheetByName("exams");
+      if (!sheetEx) sheetEx = ssTarget.insertSheet("exams");
+
+      var exList = payloadData.exams || [];
+      var existingEx = sheetEx.getDataRange().getValues();
+      var existingExMap = {};
+
+      for (var r = 1; r < existingEx.length; r++) {
+        var eKey = String(existingEx[r][0] || "").trim().toUpperCase();
+        if (eKey) existingExMap[eKey] = r + 1;
+      }
+
+      var exAdded = 0;
+      var exUpdated = 0;
+
+      exList.forEach(function(ex) {
+        var code = String(ex.code || ex.examCode || "").trim().toUpperCase();
+        if (!code) return;
+
+        var exRow = [
+          code,
+          ex.title || code,
+          ex.duration || 90,
+          ex.minTime || 0,
+          ex.tabLimit || 3,
+          ex.numMCQ || 0,
+          ex.numTF || 0,
+          ex.numSA || 0,
+          ex.scoreMCQ || 0.25,
+          ex.scoreTF || 1.0,
+          ex.scoreSA || 0.5,
+          ex.open || "",
+          ex.close || "",
+          ex.maxthi || 1
+        ];
+
+        if (existingExMap[code]) {
+          sheetEx.getRange(existingExMap[code], 1, 1, exRow.length).setValues([exRow]);
+          exUpdated++;
+        } else {
+          sheetEx.appendRow(exRow);
+          exAdded++;
+        }
+      });
+
+      results.exams = { added: exAdded, updated: exUpdated };
+    } catch (eEX) {
+      results.exams = { error: eEX.toString() };
+    }
+  }
+
+  // 5. Đồng bộ DỮ LIỆU ĐỀ THI / CÂU HỎI (sheet 'exam_data' hoặc 'cauhoi')
+  if (sheetsToSync.indexOf("exam_data") !== -1 && payloadData.exam_data) {
+    try {
+      var sheetED = ssTarget.getSheetByName("exam_data") || ssTarget.getSheetByName("cauhoi");
+      if (!sheetED) sheetED = ssTarget.insertSheet("exam_data");
+
+      var qList = payloadData.exam_data || [];
+      var existingED = sheetED.getDataRange().getValues();
+      var existingEDMap = {};
+
+      for (var r = 1; r < existingED.length; r++) {
+        var qKey = String(existingED[r][0] || "").trim().toUpperCase();
+        if (qKey) existingEDMap[qKey] = r + 1;
+      }
+
+      var qAdded = 0;
+      var qUpdated = 0;
+
+      qList.forEach(function(q) {
+        var qId = String(q.id || q.idquestion || "").trim().toUpperCase();
+        if (!qId) return;
+
+        var qRow = [
+          qId,
+          q.classTag || "",
+          q.type || "mcq",
+          q.part || "",
+          typeof q.question === "object" ? JSON.stringify(q.question) : (q.question || ""),
+          q.o ? JSON.stringify(q.o) : (q.s ? JSON.stringify(q.s) : ""),
+          q.a || "",
+          q.loigiai || ""
+        ];
+
+        if (existingEDMap[qId]) {
+          sheetED.getRange(existingEDMap[qId], 1, 1, qRow.length).setValues([qRow]);
+          qUpdated++;
+        } else {
+          sheetED.appendRow(qRow);
+          qAdded++;
+        }
+      });
+
+      results.exam_data = { added: qAdded, updated: qUpdated };
+    } catch (eED) {
+      results.exam_data = { error: eED.toString() };
+    }
+  }
+
+  return {
+    status: "success",
+    message: "Đồng bộ hoàn tất!",
+    details: results
+  };
+}
+
+/**
+ * Tự động đồng bộ 2 chiều dữ liệu sheet(idgv) của Admin với Firebase
+ */
+function syncAdminIdgvData() {
+  try {
+    if (typeof ssAdmin === "undefined" || !ssAdmin) return { status: "error", message: "Chưa cấu hình ssAdmin" };
+    var sheet = ssAdmin.getSheetByName("idgv");
+    if (!sheet) return { status: "error", message: "Không tìm thấy sheet idgv!" };
+
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { status: "success", count: 0 };
+
+    var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+    var count = 0;
+
+    for (var i = 0; i < data.length; i++) {
+      var idgvVal = String(data[i][0] || "").trim();
+      if (!idgvVal) continue;
+
+      var teacherObj = {
+        idgv: idgvVal,
+        name: String(data[i][1] || "").trim(),
+        subject: String(data[i][2] || "").trim(),
+        sheetId: String(data[i][3] || "").trim(),
+        pass: String(data[i][4] || "").trim(),
+        vip: String(data[i][5] || "").trim(),
+        firebaseConfig: String(data[i][12] || "").trim() // Cột M
+      };
+
+      setFirestoreDoc_("edunovavn", "admin_idgv", idgvVal, teacherObj);
+      count++;
+    }
+
+    return { status: "success", count: count, message: "Đã đồng bộ " + count + " giáo viên từ sheet idgv sang Firebase!" };
+  } catch (err) {
+    return { status: "error", message: err.toString() };
+  }
+}
+

@@ -936,6 +936,15 @@ if (action === "getRegradeExamsList") {
   return getRegradeExamsList(targetIdgv, reqSheetId, reqTheloai);
 }  
 
+// ROUTE ĐỒNG BỘ GOOGLE SHEET SANG FIREBASE (GET)
+if (action === "syncToFirebase" || action === "syncStudentsToFirebase") {
+  const targetIdgv = e.parameter.idgv || e.parameter.idnumber || "";
+  const sheetId2 = getSheetIdByIdgv(targetIdgv);
+  const reqSheetId = sheetId2 || e.parameter.sheetId || "";
+  const syncRes = syncStudentsToFirebase(targetIdgv, reqSheetId);
+  return createResponse(syncRes.status || "success", syncRes.message || "OK", syncRes);
+}  
+
   // 4. THỐNG KÊ ĐÁNH GIÁ
   if (type === 'getStats') {
     const stats = { ratings: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
@@ -1031,6 +1040,19 @@ const lock = LockService.getScriptLock();
         return createResponse("error", "Số báo danh hoặc ID Giáo viên không chính xác!");
       } catch (err) {
         return createResponse("error", "Lỗi xác minh học sinh: " + err.toString());
+      }
+    }
+
+    // ĐỒNG BỘ DỮ LIỆU TỪ SHEET SANG FIREBASE (POST)
+    if (action === "syncToFirebase" || action === "syncStudentsToFirebase" || data.type === "syncToFirebase") {
+      try {
+        const targetIdgv = data.idgv || data.idnumber || (e.parameter && e.parameter.idgv) || "";
+        const sheetId2 = getSheetIdByIdgv(targetIdgv);
+        const reqSheetId = data.sheetId || sheetId2 || (e.parameter && e.parameter.sheetId) || "";
+        const syncRes = syncStudentsToFirebase(targetIdgv, reqSheetId);
+        return createResponse(syncRes.status || "success", syncRes.message || "OK", syncRes);
+      } catch (err) {
+        return createResponse("error", "Lỗi đồng bộ Firebase: " + err.toString());
       }
     }
 

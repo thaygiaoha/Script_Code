@@ -3955,7 +3955,7 @@ function demoSuDung() {
 }
 
 
-function normalizeAns(str) {
+function normalizeAns2(str) {
   if (str === null || str === undefined) return "";
   
   var s = String(str).trim();
@@ -3971,5 +3971,21 @@ function normalizeAns(str) {
     .trim()                      // Xóa khoảng trắng đầu/cuối
     .replace(/\.$/, "")          // Xóa duy nhất dấu chấm thừa ở cuối câu
     .trim()                      // Trim lại phòng trường hợp còn khoảng trắng trước dấu chấm
+    .toLowerCase();
+}
+function normalizeAns(str) {
+  if (str === null || str === undefined) return "";
+  
+  var s = String(str).trim();
+  
+  // 1. Bỏ dấu nháy bọc ngoài nếu có (ví dụ: "\"$E \\subset F$.\"")
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  
+  return s
+    .replace(/[\\{}]/g, "")      // Xóa sạch dấu '\', '{', '}'
+    .replace(/\s+/g, "")          // Xóa toàn bộ khoảng trắng (đầu, cuối, giữa) và dòng mới
+    .replace(/\.$/, "")          // Xóa dấu chấm thừa ở cuối (nếu có)
     .toLowerCase();
 }

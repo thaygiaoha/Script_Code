@@ -1052,16 +1052,23 @@ const lock = LockService.getScriptLock();
         const sheetId2 = getSheetIdByIdgv(targetIdgv);
         const reqSheetId = data.sheetId || sheetId2 || "";
 
-        // Kiểm tra xác thực (Giáo viên hoặc Admin)
+        // 1. Kiểm tra xác thực Admin
         const isAdmin = (typeof supper === "function" && typeof passAdmin !== "undefined" && supper(passGV) === supper(passAdmin));
         
+        // 2. Nếu người dùng chọn đồng bộ sheet 'idgv' (Danh sách GV hệ thống), bắt buộc phải có mật khẩu Admin
+        const wantsIdgv = sheetsToPull.indexOf("idgv") !== -1;
+        if (wantsIdgv && !isAdmin) {
+          return createResponse("error", "Đồng bộ sheet 'idgv' (Danh sách giáo viên hệ thống) yêu cầu Mật khẩu Admin!");
+        }
+
+        // 3. Nếu đồng bộ các sheet của giáo viên, kiểm tra mật khẩu giáo viên (hoặc admin)
         let isValidTeacher = isAdmin;
         if (!isValidTeacher && targetIdgv) {
           isValidTeacher = verifyGiaoVien_(targetIdgv, passGV);
         }
 
         if (!isValidTeacher) {
-          return createResponse("error", "Sai ID Giáo viên hoặc Mật khẩu xác thực!");
+          return createResponse("error", "Mật khẩu của Giáo viên [" + targetIdgv + "] không chính xác!");
         }
 
         const pullResult = pullSheetsDataForFirebase_(targetIdgv, reqSheetId, sheetsToPull, isAdmin);
@@ -4525,23 +4532,41 @@ function syncAdminIdgvData() {
  */
 function verifyGiaoVien_(idgv, passGV) {
   try {
-    if (typeof ssAdmin === "undefined" || !ssAdmin) return false;
-    var sheet = ssAdmin.getSheetByName("idgv");
-    if (!sheet) return false;
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return false;
+    var adminSS = (typeof ssAdmin !== "undefined" && ssAdmin) ? ssAdmin : ((typeof ss !== "undefined" && ss) ? ss : SpreadsheetApp.getActiveSpreadsheet());
+    if (adminSS) {
+      var sheet = adminSS.getSheetByName("idgv");
+      if (sheet && sheet.getLastRow() >= 2) {
+        var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
+        var cleanId = String(idgv || "").trim().toUpperCase();
+        var cleanPass = String(passGV || "").trim();
 
-    var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
-    var cleanId = String(idgv || "").trim().toUpperCase();
-    var cleanPass = String(passGV || "").trim();
+        for (var i = 0; i < data.length; i++) {
+          var colA = String(data[i][0] || "").trim().toUpperCase();
+          var colB = String(data[i][1] || "").trim(); // Cột B
+          var colE = String(data[i][4] || "").trim(); // Cột E: mật khẩu chính
+          var colF = String(data[i][5] || "").trim(); // Cột F
 
-    for (var i = 0; i < data.length; i++) {
-      var colA = String(data[i][0] || "").trim().toUpperCase();
-      var colE = String(data[i][4] || "").trim(); // Cột E: mật khẩu
-      var colB = String(data[i][1] || "").trim(); // Cột B: dự phòng mật khẩu
+          if (colA === cleanId || colA === String(idgv || "").trim()) {
+            if (cleanPass === colE || cleanPass === colB || cleanPass === colF) return true;
+          }
+        }
+      }
+    }
 
-      if (colA === cleanId) {
-        if (colE === cleanPass || colB === cleanPass) return true;
+    // Kiểm tra trực tiếp qua sheet của Giáo viên (ô L1 của sheet danhsach)
+    var cleanId2 = String(idgv || "").trim();
+    var cleanPass2 = String(passGV || "").trim();
+    if (typeof getSheetIdByIdgv === "function" && typeof getSS2 === "function") {
+      var sid = getSheetIdByIdgv(cleanId2);
+      if (sid) {
+        var ssGv = getSS2(sid, cleanId2);
+        if (ssGv) {
+          var sheetDs = ssGv.getSheetByName("danhsach") || ssGv.getSheetByName("hocsinh");
+          if (sheetDs) {
+            var passL1 = String(sheetDs.getRange("L1").getValue() || "").trim();
+            if (passL1 && passL1 === cleanPass2) return true;
+          }
+        }
       }
     }
   } catch (e) {}

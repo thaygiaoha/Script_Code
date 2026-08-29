@@ -1043,6 +1043,34 @@ const lock = LockService.getScriptLock();
       }
     }
 
+    // ĐỒNG BỘ TỪ SHEET SANG FIREBASE: KÉO DỮ LIỆU CÁC SHEET TỪ GOOGLE SANG CLIENT (POST)
+    if (action === "pullSheetsData") {
+      try {
+        const targetIdgv = data.idgv || data.idnumber || "";
+        const passGV = String(data.passGV || data.pass || "").trim();
+        const sheetsToPull = data.sheets || [];
+        const sheetId2 = getSheetIdByIdgv(targetIdgv);
+        const reqSheetId = data.sheetId || sheetId2 || "";
+
+        // Kiểm tra xác thực (Giáo viên hoặc Admin)
+        const isAdmin = (typeof supper === "function" && typeof passAdmin !== "undefined" && supper(passGV) === supper(passAdmin));
+        
+        let isValidTeacher = isAdmin;
+        if (!isValidTeacher && targetIdgv) {
+          isValidTeacher = verifyGiaoVien_(targetIdgv, passGV);
+        }
+
+        if (!isValidTeacher) {
+          return createResponse("error", "Sai ID Giáo viên hoặc Mật khẩu xác thực!");
+        }
+
+        const pullResult = pullSheetsDataForFirebase_(targetIdgv, reqSheetId, sheetsToPull, isAdmin);
+        return createResponse(pullResult.status || "success", pullResult.message || "Lấy dữ liệu thành công!", pullResult.data || {});
+      } catch (err) {
+        return createResponse("error", "Lỗi kéo dữ liệu từ Sheets: " + err.toString());
+      }
+    }
+
     // ĐỒNG BỘ DỮ LIỆU TỪ SHEET SANG FIREBASE (POST)
     if (action === "syncToFirebase" || action === "syncStudentsToFirebase" || data.type === "syncToFirebase") {
       try {
@@ -4491,4 +4519,246 @@ function syncAdminIdgvData() {
     return { status: "error", message: err.toString() };
   }
 }
+
+/**
+ * Kiểm tra xác thực Giáo viên qua IDGV và Mật khẩu
+ */
+function verifyGiaoVien_(idgv, passGV) {
+  try {
+    if (typeof ssAdmin === "undefined" || !ssAdmin) return false;
+    var sheet = ssAdmin.getSheetByName("idgv");
+    if (!sheet) return false;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return false;
+
+    var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    var cleanId = String(idgv || "").trim().toUpperCase();
+    var cleanPass = String(passGV || "").trim();
+
+    for (var i = 0; i < data.length; i++) {
+      var colA = String(data[i][0] || "").trim().toUpperCase();
+      var colE = String(data[i][4] || "").trim(); // Cột E: mật khẩu
+      var colB = String(data[i][1] || "").trim(); // Cột B: dự phòng mật khẩu
+
+      if (colA === cleanId) {
+        if (colE === cleanPass || colB === cleanPass) return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+/**
+ * Đọc dữ liệu từ Google Sheets để phục vụ việc nạp lên Firebase
+ */
+function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
+  var results = {};
+  var ssTarget = getSS2(sheetId, idgv);
+
+  if (!ssTarget && !isAdmin) {
+    return { status: "error", message: "Không tìm thấy bảng tính Google Sheet của giáo viên!" };
+  }
+
+  // 1. KÉO SHEET 'idgv' (Chỉ Admin)
+  if (sheetsToPull.indexOf("idgv") !== -1) {
+    try {
+      if (typeof ssAdmin !== "undefined" && ssAdmin) {
+        var sheetAdminIdgv = ssAdmin.getSheetByName("idgv");
+        if (sheetAdminIdgv && sheetAdminIdgv.getLastRow() >= 2) {
+          var dataAdminIdgv = sheetAdminIdgv.getRange(2, 1, sheetAdminIdgv.getLastRow() - 1, 13).getValues();
+          var listIdgv = [];
+          for (var i = 0; i < dataAdminIdgv.length; i++) {
+            var tid = String(dataAdminIdgv[i][0] || "").trim();
+            if (tid) {
+              listIdgv.push({
+                idgv: tid,
+                name: String(dataAdminIdgv[i][1] || "").trim(),
+                subject: String(dataAdminIdgv[i][2] || "").trim(),
+                sheetId: String(dataAdminIdgv[i][3] || "").trim(),
+                pass: String(dataAdminIdgv[i][4] || "").trim(),
+                vip: String(dataAdminIdgv[i][5] || "").trim(),
+                firebaseConfig: String(dataAdminIdgv[i][12] || "").trim() // Cột M
+              });
+            }
+          }
+          results.idgv = listIdgv;
+        }
+      }
+    } catch (eIDGV) {
+      results.idgv = [];
+    }
+  }
+
+  // 2. KÉO SHEET 'danhsach' (Học sinh của GV)
+  if (sheetsToPull.indexOf("danhsach") !== -1 && ssTarget) {
+    try {
+      var sheetDS = ssTarget.getSheetByName("danhsach") || ssTarget.getSheetByName("hocsinh");
+      if (sheetDS && sheetDS.getLastRow() >= 2) {
+        var dataDS = sheetDS.getRange(2, 1, sheetDS.getLastRow() - 1, 9).getValues();
+        var listStudents = [];
+        for (var d = 0; d < dataDS.length; d++) {
+          var sbd = String(dataDS[d][0] || "").trim();
+          if (sbd) {
+            listStudents.push({
+              sbd: sbd,
+              name: String(dataDS[d][1] || "").trim(),
+              class: String(dataDS[d][2] || "").trim(),
+              limit: dataDS[d][3] !== undefined ? dataDS[d][3] : 1,
+              limittab: dataDS[d][4] !== undefined ? dataDS[d][4] : 3,
+              idgv: String(dataDS[d][5] || idgv).trim(),
+              taikhoanapp: String(dataDS[d][6] || "").trim(),
+              pass: String(dataDS[d][8] || "").trim()
+            });
+          }
+        }
+        results.danhsach = listStudents;
+      }
+    } catch (eDS) {
+      results.danhsach = [];
+    }
+  }
+
+  // 3. KÉO SHEET 'matran'
+  if (sheetsToPull.indexOf("matran") !== -1 && ssTarget) {
+    try {
+      var sheetMT = ssTarget.getSheetByName("matran");
+      if (sheetMT && sheetMT.getLastRow() >= 2) {
+        var dataMT = sheetMT.getRange(2, 1, sheetMT.getLastRow() - 1, 24).getValues();
+        var listMT = [];
+        for (var m = 0; m < dataMT.length; m++) {
+          var code = String(dataMT[m][1] || dataMT[m][0] || "").trim();
+          if (code) {
+            listMT.push({
+              idgv: String(dataMT[m][0] || idgv).trim(),
+              code: code,
+              examCode: code,
+              name: String(dataMT[m][2] || "").trim(),
+              topics: dataMT[m][3] ? JSON.parse(String(dataMT[m][3])) : [],
+              duration: dataMT[m][4] || 90,
+              scoreMC: dataMT[m][6] || 0.25,
+              scoreTF: dataMT[m][10] || 1.0,
+              scoreSA: dataMT[m][14] || 0.5,
+              openDate: String(dataMT[m][19] || ""),
+              closeDate: String(dataMT[m][20] || ""),
+              targetClass: String(dataMT[m][22] || "")
+            });
+          }
+        }
+        results.matran = listMT;
+      }
+    } catch (eMT) {
+      results.matran = [];
+    }
+  }
+
+  // 4. KÉO SHEET 'exams'
+  if (sheetsToPull.indexOf("exams") !== -1 && ssTarget) {
+    try {
+      var sheetEx = ssTarget.getSheetByName("exams");
+      if (sheetEx && sheetEx.getLastRow() >= 2) {
+        var dataEx = sheetEx.getRange(2, 1, sheetEx.getLastRow() - 1, 16).getValues();
+        var listEx = [];
+        for (var x = 0; x < dataEx.length; x++) {
+          var eCode = String(dataEx[x][0] || "").trim();
+          if (eCode) {
+            listEx.push({
+              code: eCode,
+              examCode: eCode,
+              title: String(dataEx[x][1] || eCode).trim(),
+              duration: dataEx[x][2] || 90,
+              minTime: dataEx[x][3] || 0,
+              tabLimit: dataEx[x][4] || 3,
+              numMCQ: dataEx[x][5] || 0,
+              numTF: dataEx[x][6] || 0,
+              numSA: dataEx[x][7] || 0,
+              scoreMCQ: dataEx[x][8] || 0.25,
+              scoreTF: dataEx[x][9] || 1.0,
+              scoreSA: dataEx[x][10] || 0.5,
+              open: String(dataEx[x][11] || ""),
+              close: String(dataEx[x][12] || ""),
+              maxthi: dataEx[x][13] || 1
+            });
+          }
+        }
+        results.exams = listEx;
+      }
+    } catch (eEX) {
+      results.exams = [];
+    }
+  }
+
+  // 5. KÉO SHEET 'exam_data' (Câu hỏi của GV)
+  if (sheetsToPull.indexOf("exam_data") !== -1 && ssTarget) {
+    try {
+      var sheetED = ssTarget.getSheetByName("exam_data") || ssTarget.getSheetByName("cauhoi");
+      if (sheetED && sheetED.getLastRow() >= 2) {
+        var dataED = sheetED.getRange(2, 1, sheetED.getLastRow() - 1, 10).getValues();
+        var listQuestions = [];
+        for (var q = 0; q < dataED.length; q++) {
+          var qId = String(dataED[q][0] || "").trim();
+          if (qId) {
+            var rawQ = dataED[q][4];
+            var parsedQ = null;
+            if (rawQ) {
+              try { parsedQ = JSON.parse(String(rawQ)); } catch(e) { parsedQ = String(rawQ); }
+            }
+            listQuestions.push({
+              id: qId,
+              idquestion: qId,
+              classTag: String(dataED[q][1] || "").trim(),
+              type: String(dataED[q][2] || "mcq").trim(),
+              part: String(dataED[q][3] || "").trim(),
+              question: parsedQ,
+              loigiai: String(dataED[q][5] || dataED[q][7] || "").trim()
+            });
+          }
+        }
+        results.exam_data = listQuestions;
+      }
+    } catch (eED) {
+      results.exam_data = [];
+    }
+  }
+
+  // 6. KÉO SHEET 'ketqua'
+  if (sheetsToPull.indexOf("ketqua") !== -1 && ssTarget) {
+    try {
+      var sheetKQ = ssTarget.getSheetByName("ketqua");
+      if (sheetKQ && sheetKQ.getLastRow() >= 2) {
+        var dataKQ = sheetKQ.getRange(2, 1, sheetKQ.getLastRow() - 1, 14).getValues();
+        var listKQ = [];
+        for (var k = 0; k < dataKQ.length; k++) {
+          var sbdKq = String(dataKQ[k][2] || "").trim();
+          var examKq = String(dataKQ[k][1] || "").trim();
+          if (sbdKq && examKq) {
+            listKQ.push({
+              timestamp: String(dataKQ[k][0] || ""),
+              exams: examKq,
+              examCode: examKq,
+              sbd: sbdKq,
+              name: String(dataKQ[k][3] || "").trim(),
+              class: String(dataKQ[k][4] || "").trim(),
+              scoreTotal: dataKQ[k][5] || 0,
+              time: dataKQ[k][6] || 0,
+              idgv: String(dataKQ[k][7] || idgv).trim(),
+              vipham: dataKQ[k][8] || 0,
+              theloai: String(dataKQ[k][11] || ""),
+              details: String(dataKQ[k][12] || "")
+            });
+          }
+        }
+        results.ketqua = listKQ;
+      }
+    } catch (eKQ) {
+      results.ketqua = [];
+    }
+  }
+
+  return {
+    status: "success",
+    message: "Trích xuất dữ liệu thành công!",
+    data: results
+  };
+}
+
 

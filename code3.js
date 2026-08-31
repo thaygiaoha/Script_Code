@@ -4684,29 +4684,35 @@ function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
     }
   }
 
-  // 2. KÉO SHEET 'danhsach' (Học sinh của GV)
+  // 2. KÉO SHEET 'danhsach' (Học sinh của GV) & Ô L1 (PassLG)
   if (sheetsToPull.indexOf("danhsach") !== -1 && ssTarget) {
     try {
       var sheetDS = ssTarget.getSheetByName("danhsach") || ssTarget.getSheetByName("hocsinh");
-      if (sheetDS && sheetDS.getLastRow() >= 2) {
-        var dataDS = sheetDS.getRange(2, 1, sheetDS.getLastRow() - 1, 9).getValues();
-        var listStudents = [];
-        for (var d = 0; d < dataDS.length; d++) {
-          var sbd = String(dataDS[d][0] || "").trim();
-          if (sbd) {
-            listStudents.push({
-              sbd: sbd,
-              name: String(dataDS[d][1] || "").trim(),
-              class: String(dataDS[d][2] || "").trim(),
-              limit: dataDS[d][3] !== undefined ? dataDS[d][3] : 1,
-              limittab: dataDS[d][4] !== undefined ? dataDS[d][4] : 3,
-              idgv: String(dataDS[d][5] || idgv).trim(),
-              taikhoanapp: String(dataDS[d][6] || "").trim(),
-              pass: String(dataDS[d][8] || "").trim()
-            });
+      if (sheetDS) {
+        var rawPassL1 = String(sheetDS.getRange("L1").getValue() || "").trim();
+        results.passLG = rawPassL1;
+        if (sheetDS.getLastRow() >= 2) {
+          var dataDS = sheetDS.getRange(2, 1, sheetDS.getLastRow() - 1, 9).getValues();
+          var listStudents = [];
+          for (var d = 0; d < dataDS.length; d++) {
+            var sbd = String(dataDS[d][0] || "").trim();
+            if (sbd) {
+              listStudents.push({
+                sbd: sbd,
+                name: String(dataDS[d][1] || "").trim(),
+                class: String(dataDS[d][2] || "").trim(),
+                limit: dataDS[d][3] !== undefined ? dataDS[d][3] : 1,
+                limittab: dataDS[d][4] !== undefined ? dataDS[d][4] : 3,
+                idgv: String(dataDS[d][5] || idgv).trim(),
+                taikhoanapp: String(dataDS[d][6] || "").trim(),
+                pass: String(dataDS[d][8] || "").trim()
+              });
+            }
           }
+          results.danhsach = listStudents;
+        } else {
+          results.danhsach = [];
         }
-        results.danhsach = listStudents;
       }
     } catch (eDS) {
       results.danhsach = [];

@@ -4264,7 +4264,7 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
     }
   }
 
-  // 2. Đồng bộ MA TRẬN (sheet 'matran') - GHI 100% TỪ FIREBASE
+  // 2. Đồng bộ MA TRẬN (sheet 'matran') - GHI 100% TỪ FIREBASE exams_Matrix
   if (sheetsToSync.indexOf("matran") !== -1 && payloadData.matran) {
     try {
       var sheetMT = ssTarget.getSheetByName("matran");
@@ -4272,7 +4272,7 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
 
       var lastRow = sheetMT.getLastRow();
       if (lastRow >= 2) {
-        var lastCol = Math.max(sheetMT.getLastColumn(), 11);
+        var lastCol = Math.max(sheetMT.getLastColumn(), 27);
         sheetMT.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
 
@@ -4280,26 +4280,54 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
       var rows = [];
 
       matrixList.forEach(function(mt) {
-        var code = String(mt.code || mt.makiemtra || mt.examCode || "").trim().toUpperCase();
+        var code = String(mt.code || mt.exams || mt.makiemtra || mt.examCode || "").trim().toUpperCase();
         if (!code) return;
 
+        var teacherId = String(mt.idgv || idgv).trim();
+        var topicsStr = typeof mt.topics === "object" ? JSON.stringify(mt.topics) : (mt.topics || "");
+        var numMC = mt.numMC ? (Array.isArray(mt.numMC) ? JSON.stringify(mt.numMC) : mt.numMC) : "[12]";
+        var mcL3 = mt.mcL3 ? (Array.isArray(mt.mcL3) ? JSON.stringify(mt.mcL3) : mt.mcL3) : "[0]";
+        var mcL4 = mt.mcL4 ? (Array.isArray(mt.mcL4) ? JSON.stringify(mt.mcL4) : mt.mcL4) : "[0]";
+        var numTF = mt.numTF ? (Array.isArray(mt.numTF) ? JSON.stringify(mt.numTF) : mt.numTF) : "[4]";
+        var tfL3 = mt.tfL3 ? (Array.isArray(mt.tfL3) ? JSON.stringify(mt.tfL3) : mt.tfL3) : "[0]";
+        var tfL4 = mt.tfL4 ? (Array.isArray(mt.tfL4) ? JSON.stringify(mt.tfL4) : mt.tfL4) : "[0]";
+        var numSA = mt.numSA ? (Array.isArray(mt.numSA) ? JSON.stringify(mt.numSA) : mt.numSA) : "[6]";
+        var saL3 = mt.saL3 ? (Array.isArray(mt.saL3) ? JSON.stringify(mt.saL3) : mt.saL3) : "[0]";
+        var saL4 = mt.saL4 ? (Array.isArray(mt.saL4) ? JSON.stringify(mt.saL4) : mt.saL4) : "[0]";
+
         rows.push([
-          code,
-          mt.openTime || mt.tgmats || "",
-          mt.closeTime || mt.tgdongs || "",
-          mt.duration || 90,
-          mt.minSubmitTime || 0,
-          mt.tabLimit || 3,
-          mt.maxAttempts || 1,
-          mt.scoreMCQ || 0.25,
-          mt.scoreTF || 1.0,
-          mt.scoreSA || 0.5,
-          mt.matrixDetail ? JSON.stringify(mt.matrixDetail) : (mt.matrixJSON || "")
+          teacherId, // 1: idgv
+          code, // 2: exams
+          mt.name || mt.title || code, // 3: name
+          topicsStr, // 4: topics
+          Number(mt.duration) || 90, // 5: duration
+          numMC, // 6: numMC
+          mt.scoreMC !== undefined ? mt.scoreMC : (mt.scoreMCQ !== undefined ? mt.scoreMCQ : 0.25), // 7: scoreMC
+          mcL3, // 8: mcL3
+          mcL4, // 9: mcL4
+          numTF, // 10: numTF
+          mt.scoreTF !== undefined ? mt.scoreTF : 1.0, // 11: scoreTF
+          tfL3, // 12: tfL3
+          tfL4, // 13: tfL4
+          numSA, // 14: numSA
+          mt.scoreSA !== undefined ? mt.scoreSA : 0.5, // 15: scoreSA
+          saL3, // 16: saL3
+          saL4, // 17: saL4
+          teacherId, // 18: idgv(18)
+          code + "." + teacherId, // 19: exams.idgv
+          mt.openDate || mt.openTime || mt.open || "", // 20: OpenDate
+          mt.closeDate || mt.closeTime || mt.close || "", // 21: CloseDate
+          mt.date || mt.Date || "", // 22: Date
+          mt.targetClass || mt.lop || mt.class || "", // 23: lớp
+          mt.thuong || mt.reward || "", // 24: thưởng
+          mt.v1 || mt.V1 || "", // 25: V1
+          mt.v2 || mt.V2 || "", // 26: V2
+          mt.v3 || mt.V3 || ""  // 27: V3
         ]);
       });
 
       if (rows.length > 0) {
-        sheetMT.getRange(2, 1, rows.length, 11).setValues(rows);
+        sheetMT.getRange(2, 1, rows.length, 27).setValues(rows);
       }
 
       results.matran = { count: rows.length };
@@ -4362,7 +4390,7 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
     }
   }
 
-  // 4. Đồng bộ CẤU HÌNH ĐỀ (sheet 'exams') - GHI 100% TỪ FIREBASE
+  // 4. Đồng bộ CẤU HÌNH ĐỀ (sheet 'exams') - GHI 100% TỪ FIREBASE (Gồm cả Word và PDF)
   if (sheetsToSync.indexOf("exams") !== -1 && payloadData.exams) {
     try {
       var sheetEx = ssTarget.getSheetByName("exams");
@@ -4370,7 +4398,7 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
 
       var lastRow = sheetEx.getLastRow();
       if (lastRow >= 2) {
-        var lastCol = Math.max(sheetEx.getLastColumn(), 14);
+        var lastCol = Math.max(sheetEx.getLastColumn(), 20);
         sheetEx.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
 
@@ -4378,29 +4406,39 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
       var rows = [];
 
       exList.forEach(function(ex) {
-        var code = String(ex.code || ex.examCode || "").trim().toUpperCase();
+        var code = String(ex.code || ex.exams || ex.examCode || "").trim().toUpperCase();
         if (!code) return;
 
+        var rawType = String(ex.theloai || ex.type || "").toUpperCase();
+        var theloaiVal = (rawType === "PDF" || rawType.includes("PDF") || ex.fromPdf) ? "PDF" : "Word";
+        var teacherId = String(ex.idgv || idgv).trim();
+
         rows.push([
-          code,
-          ex.title || code,
-          ex.duration || 90,
-          ex.minTime || 0,
-          ex.tabLimit || 3,
-          ex.numMCQ || 0,
-          ex.numTF || 0,
-          ex.numSA || 0,
-          ex.scoreMCQ || 0.25,
-          ex.scoreTF || 1.0,
-          ex.scoreSA || 0.5,
-          ex.open || "",
-          ex.close || "",
-          ex.maxthi || 1
+          code, // 1: Exams
+          teacherId, // 2: idgv
+          ex.numMCQ !== undefined ? ex.numMCQ : (ex.MCQ || 0), // 3: MCQ
+          ex.scoreMCQ !== undefined ? ex.scoreMCQ : (ex.scoremcq || 0.25), // 4: scoremcq
+          ex.numTF !== undefined ? ex.numTF : (ex.TF || 0), // 5: TF
+          ex.scoreTF !== undefined ? ex.scoreTF : (ex.scoretf || 1.0), // 6: scoretf
+          ex.numSA !== undefined ? ex.numSA : (ex.SA || 0), // 7: SA
+          ex.scoreSA !== undefined ? ex.scoreSA : (ex.scoresa || 0.5), // 8: scoresa
+          ex.fulltime || ex.duration || 90, // 9: fulltime
+          ex.minitime !== undefined ? ex.minitime : (ex.minTime || 0), // 10: minitime
+          ex.tab !== undefined ? ex.tab : (ex.tabLimit || 3), // 11: tab
+          ex.close || ex.closeDate || "", // 12: close
+          ex.open || ex.openDate || "", // 13: open
+          ex.limit !== undefined ? ex.limit : (ex.maxthi || 1), // 14: limit
+          code + "." + teacherId, // 15: exams.idgv
+          ex.id || "", // 16: id
+          ex.data ? (typeof ex.data === "object" ? JSON.stringify(ex.data) : ex.data) : "", // 17: data
+          "", // 18: Trống
+          "", // 19: Trống
+          theloaiVal // 20 (Cột T): theloai (PDF hoặc Word)
         ]);
       });
 
       if (rows.length > 0) {
-        sheetEx.getRange(2, 1, rows.length, 14).setValues(rows);
+        sheetEx.getRange(2, 1, rows.length, 20).setValues(rows);
       }
 
       results.exams = { count: rows.length };
@@ -4417,7 +4455,7 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
 
       var lastRow = sheetED.getLastRow();
       if (lastRow >= 2) {
-        var lastCol = Math.max(sheetED.getLastColumn(), 8);
+        var lastCol = Math.max(sheetED.getLastColumn(), 10);
         sheetED.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
 
@@ -4425,23 +4463,46 @@ function syncFirebaseToTeacherSheets_(idgv, sheetId, passGV, sheetsToSync, paylo
       var rows = [];
 
       qList.forEach(function(q) {
-        var qId = String(q.id || q.idquestion || "").trim().toUpperCase();
+        var qId = String(q.id || q.idquestion || "").trim();
         if (!qId) return;
 
+        var fullQuestionObj = null;
+        if (typeof q.question === "object" && q.question !== null) {
+          fullQuestionObj = q.question;
+        } else if (typeof q === "object") {
+          fullQuestionObj = {
+            id: q.id !== undefined ? q.id : (q.idquestion || 1),
+            classTag: q.classTag || "",
+            part: q.part || (q.type === "mcq" ? "PHẦN I" : (q.type === "true-false" ? "PHẦN II" : "PHẦN III")),
+            type: q.type || "mcq",
+            question: typeof q.question === "string" ? q.question : (q.q || ""),
+            loigiai: q.loigiai || q.explain || "",
+            ...(q.o ? { o: q.o } : {}),
+            ...(q.s ? { s: q.s } : {}),
+            ...(q.a !== undefined ? { a: q.a } : {})
+          };
+        }
+
+        var questionJsonStr = fullQuestionObj ? JSON.stringify(fullQuestionObj) : (typeof q.question === "string" ? q.question : "");
+        var teacherId = String(q.idgv || idgv).trim();
+        var examCode = String(q.exams || q.examCode || "").trim().toUpperCase();
+
         rows.push([
-          qId,
-          q.classTag || "",
-          q.type || "mcq",
-          q.part || "",
-          typeof q.question === "object" ? JSON.stringify(q.question) : (q.question || ""),
-          q.o ? (typeof q.o === "object" ? JSON.stringify(q.o) : q.o) : (q.s ? (typeof q.s === "object" ? JSON.stringify(q.s) : q.s) : ""),
-          q.a || "",
-          q.loigiai || ""
+          examCode, // 1: exams
+          qId, // 2: idquestion
+          q.classTag || "", // 3: classTag
+          q.type || "mcq", // 4: type
+          questionJsonStr, // 5: question (JSON chuỗi đầy đủ)
+          q.loigiai || q.explain || "", // 6: Lời giải
+          q.datetime || new Date().toISOString(), // 7: datetime
+          teacherId, // 8: idgv(8)
+          examCode + "." + teacherId, // 9: exams.idgv
+          examCode + "." + qId + "." + teacherId // 10: exams.idq.idgv
         ]);
       });
 
       if (rows.length > 0) {
-        sheetED.getRange(2, 1, rows.length, 8).setValues(rows);
+        sheetED.getRange(2, 1, rows.length, 10).setValues(rows);
       }
 
       results.exam_data = { count: rows.length };
@@ -4652,29 +4713,59 @@ function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
     }
   }
 
-  // 3. KÉO SHEET 'matran'
+  // 3. KÉO SHEET 'matran' (27 cột)
   if (sheetsToPull.indexOf("matran") !== -1 && ssTarget) {
     try {
       var sheetMT = ssTarget.getSheetByName("matran");
       if (sheetMT && sheetMT.getLastRow() >= 2) {
-        var dataMT = sheetMT.getRange(2, 1, sheetMT.getLastRow() - 1, 24).getValues();
+        var numColsMT = Math.max(sheetMT.getLastColumn(), 27);
+        var dataMT = sheetMT.getRange(2, 1, sheetMT.getLastRow() - 1, numColsMT).getValues();
         var listMT = [];
         for (var m = 0; m < dataMT.length; m++) {
-          var code = String(dataMT[m][1] || dataMT[m][0] || "").trim();
+          var code = String(dataMT[m][1] || dataMT[m][0] || "").trim().toUpperCase();
           if (code) {
+            var rawTopics = dataMT[m][3];
+            var topicsParsed = [];
+            if (rawTopics) {
+              try {
+                topicsParsed = typeof rawTopics === "string" ? JSON.parse(rawTopics) : rawTopics;
+              } catch(e) {
+                topicsParsed = String(rawTopics);
+              }
+            }
+
             listMT.push({
               idgv: String(dataMT[m][0] || idgv).trim(),
               code: code,
+              exams: code,
               examCode: code,
-              name: String(dataMT[m][2] || "").trim(),
-              topics: dataMT[m][3] ? JSON.parse(String(dataMT[m][3])) : [],
-              duration: dataMT[m][4] || 90,
-              scoreMC: dataMT[m][6] || 0.25,
-              scoreTF: dataMT[m][10] || 1.0,
-              scoreSA: dataMT[m][14] || 0.5,
+              name: String(dataMT[m][2] || code).trim(),
+              topics: topicsParsed,
+              duration: Number(dataMT[m][4]) || 90,
+              numMC: dataMT[m][5] || [12],
+              scoreMC: dataMT[m][6] !== undefined && dataMT[m][6] !== "" ? Number(dataMT[m][6]) : 0.25,
+              mcL3: dataMT[m][7] || [0],
+              mcL4: dataMT[m][8] || [0],
+              numTF: dataMT[m][9] || [4],
+              scoreTF: dataMT[m][10] !== undefined && dataMT[m][10] !== "" ? Number(dataMT[m][10]) : 1.0,
+              tfL3: dataMT[m][11] || [0],
+              tfL4: dataMT[m][12] || [0],
+              numSA: dataMT[m][13] || [6],
+              scoreSA: dataMT[m][14] !== undefined && dataMT[m][14] !== "" ? Number(dataMT[m][14]) : 0.5,
+              saL3: dataMT[m][15] || [0],
+              saL4: dataMT[m][16] || [0],
+              idgv18: String(dataMT[m][17] || "").trim(),
+              exams_idgv: String(dataMT[m][18] || "").trim(),
               openDate: String(dataMT[m][19] || ""),
               closeDate: String(dataMT[m][20] || ""),
-              targetClass: String(dataMT[m][22] || "")
+              date: String(dataMT[m][21] || ""),
+              targetClass: String(dataMT[m][22] || "").trim(),
+              lop: String(dataMT[m][22] || "").trim(),
+              thuong: String(dataMT[m][23] || "").trim(),
+              v1: String(dataMT[m][24] || "").trim(),
+              v2: String(dataMT[m][25] || "").trim(),
+              v3: String(dataMT[m][26] || "").trim(),
+              theloai: "Matrix"
             });
           }
         }
@@ -4685,32 +4776,53 @@ function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
     }
   }
 
-  // 4. KÉO SHEET 'exams'
+  // 4. KÉO SHEET 'exams' (20 cột, cột 20/T là theloai: PDF hoặc Word)
   if (sheetsToPull.indexOf("exams") !== -1 && ssTarget) {
     try {
       var sheetEx = ssTarget.getSheetByName("exams");
       if (sheetEx && sheetEx.getLastRow() >= 2) {
-        var dataEx = sheetEx.getRange(2, 1, sheetEx.getLastRow() - 1, 16).getValues();
+        var numColsEx = Math.max(sheetEx.getLastColumn(), 20);
+        var dataEx = sheetEx.getRange(2, 1, sheetEx.getLastRow() - 1, numColsEx).getValues();
         var listEx = [];
         for (var x = 0; x < dataEx.length; x++) {
-          var eCode = String(dataEx[x][0] || "").trim();
+          var eCode = String(dataEx[x][0] || "").trim().toUpperCase();
           if (eCode) {
+            var rawType = String(dataEx[x][19] || dataEx[x][1] || "").trim().toUpperCase();
+            var theloaiVal = (rawType === "PDF" || rawType.includes("PDF")) ? "PDF" : "Word";
+
             listEx.push({
               code: eCode,
+              exams: eCode,
               examCode: eCode,
-              title: String(dataEx[x][1] || eCode).trim(),
-              duration: dataEx[x][2] || 90,
-              minTime: dataEx[x][3] || 0,
-              tabLimit: dataEx[x][4] || 3,
-              numMCQ: dataEx[x][5] || 0,
-              numTF: dataEx[x][6] || 0,
-              numSA: dataEx[x][7] || 0,
-              scoreMCQ: dataEx[x][8] || 0.25,
-              scoreTF: dataEx[x][9] || 1.0,
-              scoreSA: dataEx[x][10] || 0.5,
-              open: String(dataEx[x][11] || ""),
-              close: String(dataEx[x][12] || ""),
-              maxthi: dataEx[x][13] || 1
+              idgv: String(dataEx[x][1] || idgv).trim(),
+              MCQ: dataEx[x][2] !== undefined ? dataEx[x][2] : 0,
+              numMCQ: dataEx[x][2] !== undefined ? dataEx[x][2] : 0,
+              scoremcq: dataEx[x][3] !== undefined ? dataEx[x][3] : 0.25,
+              scoreMCQ: dataEx[x][3] !== undefined ? dataEx[x][3] : 0.25,
+              TF: dataEx[x][4] !== undefined ? dataEx[x][4] : 0,
+              numTF: dataEx[x][4] !== undefined ? dataEx[x][4] : 0,
+              scoretf: dataEx[x][5] !== undefined ? dataEx[x][5] : 1.0,
+              scoreTF: dataEx[x][5] !== undefined ? dataEx[x][5] : 1.0,
+              SA: dataEx[x][6] !== undefined ? dataEx[x][6] : 0,
+              numSA: dataEx[x][6] !== undefined ? dataEx[x][6] : 0,
+              scoresa: dataEx[x][7] !== undefined ? dataEx[x][7] : 0.5,
+              scoreSA: dataEx[x][7] !== undefined ? dataEx[x][7] : 0.5,
+              fulltime: Number(dataEx[x][8]) || 90,
+              duration: Number(dataEx[x][8]) || 90,
+              minitime: Number(dataEx[x][9]) || 0,
+              minTime: Number(dataEx[x][9]) || 0,
+              tab: Number(dataEx[x][10]) || 3,
+              tabLimit: Number(dataEx[x][10]) || 3,
+              close: String(dataEx[x][11] || ""),
+              closeDate: String(dataEx[x][11] || ""),
+              open: String(dataEx[x][12] || ""),
+              openDate: String(dataEx[x][12] || ""),
+              limit: Number(dataEx[x][13]) || 1,
+              maxthi: Number(dataEx[x][13]) || 1,
+              exams_idgv: String(dataEx[x][14] || "").trim(),
+              id: String(dataEx[x][15] || "").trim(),
+              data: String(dataEx[x][16] || "").trim(),
+              theloai: theloaiVal
             });
           }
         }
@@ -4721,30 +4833,52 @@ function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
     }
   }
 
-  // 5. KÉO SHEET 'exam_data' (Câu hỏi của GV)
+  // 5. KÉO SHEET 'exam_data' (10 cột: exams, idquestion, classTag, type, question, Lời giải, datetime, idgv, exams.idgv, exams.idq.idgv)
   if (sheetsToPull.indexOf("exam_data") !== -1 && ssTarget) {
     try {
       var sheetED = ssTarget.getSheetByName("exam_data") || ssTarget.getSheetByName("cauhoi");
       if (sheetED && sheetED.getLastRow() >= 2) {
-        var dataED = sheetED.getRange(2, 1, sheetED.getLastRow() - 1, 10).getValues();
+        var numColsED = Math.max(sheetED.getLastColumn(), 10);
+        var dataED = sheetED.getRange(2, 1, sheetED.getLastRow() - 1, numColsED).getValues();
         var listQuestions = [];
         for (var q = 0; q < dataED.length; q++) {
-          var qId = String(dataED[q][0] || "").trim();
-          if (qId) {
+          var examCode = String(dataED[q][0] || "").trim().toUpperCase();
+          var qId = String(dataED[q][1] || "").trim();
+          if (qId || examCode) {
             var rawQ = dataED[q][4];
             var parsedQ = null;
             if (rawQ) {
-              try { parsedQ = JSON.parse(String(rawQ)); } catch(e) { parsedQ = String(rawQ); }
+              try { 
+                parsedQ = typeof rawQ === "string" ? JSON.parse(rawQ) : rawQ; 
+              } catch(e) { 
+                parsedQ = String(rawQ); 
+              }
             }
-            listQuestions.push({
+
+            var qObj = {
+              exams: examCode,
+              examCode: examCode,
               id: qId,
               idquestion: qId,
-              classTag: String(dataED[q][1] || "").trim(),
-              type: String(dataED[q][2] || "mcq").trim(),
-              part: String(dataED[q][3] || "").trim(),
+              classTag: String(dataED[q][2] || "").trim(),
+              type: String(dataED[q][3] || "mcq").trim(),
               question: parsedQ,
-              loigiai: String(dataED[q][5] || dataED[q][7] || "").trim()
-            });
+              loigiai: String(dataED[q][5] || "").trim(),
+              datetime: String(dataED[q][6] || ""),
+              idgv: String(dataED[q][7] || idgv).trim(),
+              exams_idgv: String(dataED[q][8] || "").trim(),
+              exams_idq_idgv: String(dataED[q][9] || "").trim()
+            };
+
+            // Nếu question là object có cấu trúc { id, classTag, part, type, question, loigiai, o, a, s }, gộp phẳng để dễ query
+            if (parsedQ && typeof parsedQ === "object") {
+              if (parsedQ.o) qObj.o = parsedQ.o;
+              if (parsedQ.a !== undefined) qObj.a = parsedQ.a;
+              if (parsedQ.s) qObj.s = parsedQ.s;
+              if (parsedQ.part) qObj.part = parsedQ.part;
+            }
+
+            listQuestions.push(qObj);
           }
         }
         results.exam_data = listQuestions;
@@ -4794,4 +4928,5 @@ function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
     data: results
   };
 }
+
 

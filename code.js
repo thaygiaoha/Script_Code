@@ -3085,7 +3085,31 @@ function regradeExams(idgv, password, examCode) {
     return createResponse("error", "Lỗi trong quá trình chấm lại: " + err.toString());
   }
 }
+function fixMathJaxString(str) {
+  if (!str) return "";
+  
+  var valStr = str.toString();
 
+  // 1. Tự động sửa lỗi thiếu dấu \ cho các lệnh toán viết sau dấu $ (Ví dụ: $Leftrightarrow -> $\Leftrightarrow)
+  valStr = valStr.replace(/\$([a-zA-Z]+)/g, function(match, word) {
+    var commonMathCmds = [
+      "Leftrightarrow", "Leftarrow", "rightarrow", "Rightarrow", 
+      "overrightarrow", "overline", "le", "ge", "sin", "cos", "tan", 
+      "cot", "in", "notin", "subset", "cap", "cup"
+    ];
+    if (commonMathCmds.indexOf(word) !== -1) {
+      return "$\\\\" + word; // Thêm \ trong chuỗi GAS
+    }
+    return match;
+  });
+
+  // 2. CHUẨN HÓA DẤU GẠCH CHÉO AN TOÀN:
+  // Chuyển \\ command thành \ command (Ví dụ: \\overrightarrow -> \overrightarrow, \\Leftrightarrow -> \Leftrightarrow)
+  // NHƯNG KHÔNG chạm vào \\ ở cuối dòng hoặc trong \\begin{cases}...\\end{cases}
+  valStr = valStr.replace(/\\\\([a-zA-Z]+)/g, "\\$1");
+
+  return valStr;
+}
 // Hàm chuẩn hóa lại ngân hàng
 function normalizeQuestionBank_1() {
   // Sử dụng biến ss toàn cục được khai báo ở đầu file của bạn
@@ -3120,9 +3144,12 @@ function normalizeQuestionBank_1() {
       if (row[c] !== null && row[c] !== undefined) {
         var valStr = row[c].toString();
         if (/<\/?[kK][eE][yY][^>]*>/g.test(valStr)) {
-          row[c] = valStr.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
+          valStr = valStr.replace(/<\/?[kK][eE][yY][^>]*>/g, '').trim();
           hasChange = true;
         }
+        // Chuẩn hóa MathJax
+        valStr = fixMathJaxString(valStr);        
+        row[c] = valStr;
       }
     }
     

@@ -644,25 +644,41 @@ if (action === 'getLG') {
 
         // Điều kiện: Đã đến giờ mở đề VÀ Chưa vượt quá giờ đóng đề thì mới cho hiện mã đề
         if (isPastOpen && !isPastClose) {
+          // 1209them1: Hàm parse mảng số an toàn cho cấu hình ma trận đề thi
+          var parseNumArray_ = function(val) {
+            if (val === null || val === undefined || val === "") return [];
+            if (Array.isArray(val)) return val.map(Number);
+            if (typeof val === "number") return [val];
+            try {
+              var parsed = JSON.parse(val);
+              if (Array.isArray(parsed)) return parsed.map(Number);
+              if (typeof parsed === "number") return [parsed];
+            } catch (e) {}
+            var str = String(val).trim().replace(/^\[|\]$/g, "");
+            if (!str) return [];
+            return str.split(/[,;\s]+/).map(Number).filter(function(n) { return !isNaN(n); });
+          };
+
           results.push({
             code: row[1].toString(), 
             name: row[2].toString(), 
             topics: JSON.parse(row[3]),
             targetClass: targetClass, // 2208them1: Lớp dành cho mã đề
+            // 1209sua1: Parse an toàn toàn bộ mảng số câu hỏi và mức độ LV3, LV4 tránh lỗi JSON hoặc mất dữ liệu
             fixedConfig: {
-              duration: parseInt(row[4]), 
-              numMC: JSON.parse(row[5]), 
-              scoreMC: parseFloat(row[6]),
-              mcL3: JSON.parse(row[7]), 
-              mcL4: JSON.parse(row[8]), 
-              numTF: JSON.parse(row[9]),
-              scoreTF: parseFloat(row[10]), 
-              tfL3: JSON.parse(row[11]), 
-              tfL4: JSON.parse(row[12]),
-              numSA: JSON.parse(row[13]), 
-              scoreSA: parseFloat(row[14]), 
-              saL3: JSON.parse(row[15]), 
-              saL4: JSON.parse(row[16])
+              duration: parseInt(row[4]) || 90, 
+              numMC: parseNumArray_(row[5]), 
+              scoreMC: parseFloat(row[6]) || 0.25,
+              mcL3: parseNumArray_(row[7]), 
+              mcL4: parseNumArray_(row[8]), 
+              numTF: parseNumArray_(row[9]),
+              scoreTF: parseFloat(row[10]) || 1.0, 
+              tfL3: parseNumArray_(row[11]), 
+              tfL4: parseNumArray_(row[12]),
+              numSA: parseNumArray_(row[13]), 
+              scoreSA: parseFloat(row[14]) || 0.5, 
+              saL3: parseNumArray_(row[15]), 
+              saL4: parseNumArray_(row[16])
             }
           });
         }
@@ -3632,19 +3648,23 @@ function normalizeQuestionBank() {
   };
 }
 /**
- * Hàm sửa các lỗi gõ thiếu dấu \ trong công thức MathJax/LaTeX
+ * 1209sua1: Hàm sửa các lỗi gõ thiếu dấu \ và chuẩn hóa các biến thể backslash trong công thức MathJax/LaTeX
  */
 function fixMathJaxString(str) {
   if (!str) return "";
   var valStr = str.toString();
 
-  return valStr
-    // 0. CHUẨN HÓA DẤU GẠCH CHÉO KÉP: Chuyển \\ command thành \ command
-    // Sửa dứt điểm lỗi \\lim\\limits -> \lim\limits, \\overrightarrow -> \overrightarrow
-    .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
+  // 1209sua1: Chuẩn hóa triệt để chuỗi dấu gạch chéo \\, \\\, \\\\... trước tên lệnh thành 1 dấu \ (ví dụ \\overrightarrow, \\\\overrightarrow -> \overrightarrow)
+  while (/\\{2,}([a-zA-Z]+)/.test(valStr)) {
+    valStr = valStr.replace(/\\{2,}([a-zA-Z]+)/g, '\\$1');
+  }
 
-    // 1. Sửa vec{a}, overrightarrow{AB}... bị thiếu \ ở đầu
-    .replace(/(^|[^\\])\b(vec|overrightarrow|overleftarrow|hat|bar|tilde|dot|ddot)\{/g, '$1\\$2{')
+  // 1209them1: Đảm bảo các biến thể overrightarrow (\overrightarrow, \\overrightarrow, \\\overrightarrow, \\\\overrightarrow,...) luôn về \overrightarrow chuẩn
+  valStr = valStr.replace(/\\+(overrightarrow)/gi, '\\$1');
+
+  return valStr
+    // 1209sua1: 1. Sửa vec{a}, overrightarrow{AB}... bị thiếu \ ở đầu
+    .replace(/(^|[^\\])\b(vec|overrightarrow|overleftarrow|hat|bar|tilde|dot|ddot)\s*\{/g, '$1\\$2{')
 
     // 2. Sửa left{ hoặc left( ... bị thiếu \ ở left
     .replace(/(^|[^\\])\b(left|right)([\{\}\(\)\[\]\|\.\ \t])/g, '$1\\$2$3')

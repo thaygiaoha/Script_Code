@@ -46,6 +46,70 @@ function getSheetIdByIdgv(idgv) {
   return "";
 }
 
+// Phân tích cú pháp JSON an toàn cho môi trường Google Apps Script, xử lý triệt để ký tự LaTeX backslash
+function safeParseJsonGAS(str) {
+  if (!str) return null;
+  if (typeof str === "object") return str;
+  var s = String(str).trim();
+  if (!s) return null;
+
+  try {
+    return JSON.parse(s);
+  } catch (e) {}
+
+  try {
+    var fixed = s.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, "\\\\");
+    return JSON.parse(fixed);
+  } catch (e2) {}
+
+  try {
+    var fixed2 = s.replace(/[\r\n\t]/g, " ").replace(/\\/g, "\\\\").replace(/\\\\"/g, '\\"');
+    return JSON.parse(fixed2);
+  } catch (e3) {}
+
+  try {
+    if (s.charAt(0) === "[" && s.charAt(s.length - 1) === "]") {
+      var inner = s.substring(1, s.length - 1).trim();
+      var items = [];
+      var regex = /"((?:[^"\\]|\\.)*)"/g;
+      var match;
+      while ((match = regex.exec(inner)) !== null) {
+        items.push(match[1].replace(/\\\\/g, "\\"));
+      }
+      if (items.length > 0) return items;
+    }
+  } catch (e4) {}
+
+  return null;
+}
+
+function parseArrayFieldGAS(val) {
+  if (val === null || val === undefined) return [0];
+  if (Array.isArray(val)) return val;
+  var s = String(val).trim();
+  if (!s) return [0];
+  try {
+    var p = JSON.parse(s);
+    if (Array.isArray(p)) return p;
+    if (typeof p === "number") return [p];
+  } catch (e) {}
+  var parts = s.replace(/^\[|\]$/g, "").split(",");
+  var nums = parts.map(function(x) { var n = parseFloat(x.trim()); return isNaN(n) ? 0 : n; });
+  return nums.length > 0 ? nums : [0];
+}
+
+function parseTopicsFieldGAS(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  var s = String(val).trim();
+  if (!s) return [];
+  try {
+    var p = JSON.parse(s);
+    if (Array.isArray(p)) return p;
+  } catch (e) {}
+  return s.replace(/^\[|\]$/g, "").split(",").map(function(x) { return x.trim(); }).filter(Boolean);
+}
+
 // Mở Spreadsheet của Giáo viên (ss2) theo sheetId hoặc tự động tra cứu từ idgv
 function getSS2(sheetId, idgv) {
   var sid = String(sheetId || "").trim();
@@ -670,22 +734,22 @@ if (action === 'getLG') {
           results.push({
             code: row[1].toString(), 
             name: row[2].toString(), 
-            topics: JSON.parse(row[3]),
+            topics: parseTopicsFieldGAS(row[3]),
             targetClass: targetClass, // 2208them1: Lớp dành cho mã đề
             fixedConfig: {
-              duration: parseInt(row[4]), 
-              numMC: JSON.parse(row[5]), 
-              scoreMC: parseFloat(row[6]),
-              mcL3: JSON.parse(row[7]), 
-              mcL4: JSON.parse(row[8]), 
-              numTF: JSON.parse(row[9]),
-              scoreTF: parseFloat(row[10]), 
-              tfL3: JSON.parse(row[11]), 
-              tfL4: JSON.parse(row[12]),
-              numSA: JSON.parse(row[13]), 
-              scoreSA: parseFloat(row[14]), 
-              saL3: JSON.parse(row[15]), 
-              saL4: JSON.parse(row[16])
+              duration: parseInt(row[4]) || 45, 
+              numMC: parseArrayFieldGAS(row[5]), 
+              scoreMC: parseFloat(row[6]) || 0.25,
+              mcL3: parseArrayFieldGAS(row[7]), 
+              mcL4: parseArrayFieldGAS(row[8]), 
+              numTF: parseArrayFieldGAS(row[9]),
+              scoreTF: parseFloat(row[10]) || 1, 
+              tfL3: parseArrayFieldGAS(row[11]), 
+              tfL4: parseArrayFieldGAS(row[12]),
+              numSA: parseArrayFieldGAS(row[13]), 
+              scoreSA: parseFloat(row[14]) || 0.5, 
+              saL3: parseArrayFieldGAS(row[15]), 
+              saL4: parseArrayFieldGAS(row[16])
             }
           });
         }
@@ -704,21 +768,17 @@ if (action === 'getLG') {
   for (var i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
 
-    var parsedOptions = null;
-    try {
-      parsedOptions = rows[i][5] ? JSON.parse(rows[i][5]) : null;
-    } catch(e) {
-      parsedOptions = null;
-    }
+    var rawOptionsStr = rows[i][5] ? String(rows[i][5]).trim() : "";
+    var parsedOptions = safeParseJsonGAS(rawOptionsStr);
     var qText = String(rows[i][4] || "");
     var qloigiai = String(rows[i][7] || "");
     var randomVersion = Math.floor(Math.random() * 9000) + 1000;
 
     if (qText.indexOf(".png'") !== -1) {
-    qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+      qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
     if (qloigiai.indexOf(".png'") !== -1) {
-    qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+      qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
     var qObj = {
       id: rows[i][0],
@@ -726,6 +786,7 @@ if (action === 'getLG') {
       type: rows[i][2] || "",
       part: rows[i][3] || "",
       question: qText,
+      options: rawOptionsStr,
       a: rows[i][6] || "",
       loigiai: qloigiai
     };
@@ -736,6 +797,7 @@ if (action === 'getLG') {
 
     if (qObj.type === "true-false") {
       qObj.s = parsedOptions;
+      qObj.o = parsedOptions;
     }
 
     if (qObj.type === "short-answer") {
@@ -1637,21 +1699,16 @@ if (closeTime && now > closeTime) {
             if (!raw) return null;
 
                 let contentStr = raw.toString().trim();
-                    try {
-                return JSON.parse(contentStr);
-                  } catch (e) {
-                      try {
-                       let fixed = contentStr.replace(/\\/g, "\\\\").replace(/\\\\"/g, "\\\"");
-                      return JSON.parse(fixed);
-                        } catch (e2) {
-                      return {
-                    type: "mcq",
-                      question: contentStr,
-                    id: r[1],
-              error: "Lỗi định dạng JSON"
-    };
-  }
-}
+                let parsed = safeParseJsonGAS(contentStr);
+                if (parsed && typeof parsed === "object") {
+                  return parsed;
+                }
+                return {
+                  type: "mcq",
+                  question: contentStr,
+                  id: r[1],
+                  error: "Lỗi định dạng JSON"
+                };
           })
           .filter(Boolean);
 

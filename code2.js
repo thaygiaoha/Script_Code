@@ -644,41 +644,25 @@ if (action === 'getLG') {
 
         // Điều kiện: Đã đến giờ mở đề VÀ Chưa vượt quá giờ đóng đề thì mới cho hiện mã đề
         if (isPastOpen && !isPastClose) {
-          // 1209them1: Hàm parse mảng số an toàn cho cấu hình ma trận đề thi
-          var parseNumArray_ = function(val) {
-            if (val === null || val === undefined || val === "") return [];
-            if (Array.isArray(val)) return val.map(Number);
-            if (typeof val === "number") return [val];
-            try {
-              var parsed = JSON.parse(val);
-              if (Array.isArray(parsed)) return parsed.map(Number);
-              if (typeof parsed === "number") return [parsed];
-            } catch (e) {}
-            var str = String(val).trim().replace(/^\[|\]$/g, "");
-            if (!str) return [];
-            return str.split(/[,;\s]+/).map(Number).filter(function(n) { return !isNaN(n); });
-          };
-
           results.push({
             code: row[1].toString(), 
             name: row[2].toString(), 
             topics: JSON.parse(row[3]),
             targetClass: targetClass, // 2208them1: Lớp dành cho mã đề
-            // 1209sua1: Parse an toàn toàn bộ mảng số câu hỏi và mức độ LV3, LV4 tránh lỗi JSON hoặc mất dữ liệu
             fixedConfig: {
-              duration: parseInt(row[4]) || 90, 
-              numMC: parseNumArray_(row[5]), 
-              scoreMC: parseFloat(row[6]) || 0.25,
-              mcL3: parseNumArray_(row[7]), 
-              mcL4: parseNumArray_(row[8]), 
-              numTF: parseNumArray_(row[9]),
-              scoreTF: parseFloat(row[10]) || 1.0, 
-              tfL3: parseNumArray_(row[11]), 
-              tfL4: parseNumArray_(row[12]),
-              numSA: parseNumArray_(row[13]), 
-              scoreSA: parseFloat(row[14]) || 0.5, 
-              saL3: parseNumArray_(row[15]), 
-              saL4: parseNumArray_(row[16])
+              duration: parseInt(row[4]), 
+              numMC: JSON.parse(row[5]), 
+              scoreMC: parseFloat(row[6]),
+              mcL3: JSON.parse(row[7]), 
+              mcL4: JSON.parse(row[8]), 
+              numTF: JSON.parse(row[9]),
+              scoreTF: parseFloat(row[10]), 
+              tfL3: JSON.parse(row[11]), 
+              tfL4: JSON.parse(row[12]),
+              numSA: JSON.parse(row[13]), 
+              scoreSA: parseFloat(row[14]), 
+              saL3: JSON.parse(row[15]), 
+              saL4: JSON.parse(row[16])
             }
           });
         }
@@ -697,60 +681,42 @@ if (action === 'getLG') {
   for (var i = 1; i < rows.length; i++) {
     if (!rows[i][0]) continue;
 
-    var rawOptions = rows[i][5] ? String(rows[i][5]).trim() : "";
     var parsedOptions = null;
-    if (rawOptions) {
-      try {
-        parsedOptions = JSON.parse(rawOptions);
-      } catch(e) {
-        try {
-          // Sửa lỗi unescaped backslashes trong công thức LaTeX (JSON không chấp nhận \infty, \sqrt, \alpha, \vec...)
-          var repairedStr = rawOptions.replace(/\\(?![/"\\bfnrtu]|u[0-9a-fA-F]{4})/g, "\\\\");
-          parsedOptions = JSON.parse(repairedStr);
-        } catch(e2) {
-          try {
-            var repairedQuotes = rawOptions
-              .replace(/\\(?![/"\\bfnrtu]|u[0-9a-fA-F]{4})/g, "\\\\")
-              .replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
-            parsedOptions = JSON.parse(repairedQuotes);
-          } catch(e3) {
-            parsedOptions = null;
-          }
-        }
-      }
+    try {
+      parsedOptions = rows[i][5] ? JSON.parse(rows[i][5]) : null;
+    } catch(e) {
+      parsedOptions = null;
     }
-
     var qText = String(rows[i][4] || "");
     var qloigiai = String(rows[i][7] || "");
     var randomVersion = Math.floor(Math.random() * 9000) + 1000;
 
     if (qText.indexOf(".png'") !== -1) {
-      qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    qText = qText.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
     if (qloigiai.indexOf(".png'") !== -1) {
-      qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
+    qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
-
-    var qType = (rows[i][2] || "").toString().trim().toLowerCase();
     var qObj = {
       id: rows[i][0],
       classTag: rows[i][1] || "",
-      type: qType,
+      type: rows[i][2] || "",
       part: rows[i][3] || "",
       question: qText,
-      options: rawOptions,
-      rawOptions: rawOptions,
       a: rows[i][6] || "",
       loigiai: qloigiai
     };
 
-    if (qType === "mcq") {
-      qObj.o = parsedOptions || rawOptions;
-    } else if (qType === "true-false") {
-      qObj.s = parsedOptions || rawOptions;
-      qObj.o = parsedOptions || rawOptions;
-    } else {
+    if (qObj.type === "mcq") {
       qObj.o = parsedOptions;
+    }
+
+    if (qObj.type === "true-false") {
+      qObj.s = parsedOptions;
+    }
+
+    if (qObj.type === "short-answer") {
+      // không cần options
     }
 
     questions.push(qObj);
@@ -3666,39 +3632,29 @@ function normalizeQuestionBank() {
   };
 }
 /**
- * 1209sua1: Hàm sửa các lỗi gõ thiếu dấu \ và chuẩn hóa các biến thể backslash trong công thức MathJax/LaTeX
+ * Hàm sửa các lỗi gõ thiếu dấu \ trong công thức MathJax/LaTeX
  */
 function fixMathJaxString(str) {
-  if (!str) return "";
-  var valStr = str.toString();
+  if (!str || typeof str !== 'string') return str;
 
-  // 1209sua1: Chuẩn hóa triệt để chuỗi dấu gạch chéo \\, \\\, \\\\... trước tên lệnh thành 1 dấu \ (ví dụ \\overrightarrow, \\\\overrightarrow -> \overrightarrow)
-  while (/\\{2,}([a-zA-Z]+)/.test(valStr)) {
-    valStr = valStr.replace(/\\{2,}([a-zA-Z]+)/g, '\\$1');
-  }
-
-  // 1209them1: Đảm bảo các biến thể overrightarrow (\overrightarrow, \\overrightarrow, \\\overrightarrow, \\\\overrightarrow,...) luôn về \overrightarrow chuẩn
-  valStr = valStr.replace(/\\+(overrightarrow)/gi, '\\$1');
-
-  return valStr
-    // 1209sua1: 1. Sửa vec{a}, overrightarrow{AB}... bị thiếu \ ở đầu
-    .replace(/(^|[^\\])\b(vec|overrightarrow|overleftarrow|hat|bar|tilde|dot|ddot)\s*\{/g, '$1\\$2{')
+  return str
+    // 1. Sửa vec{a}, overrightarrow{AB}... bị thiếu \ ở đầu
+    .replace(/(^|[^\\])\b(vec|overrightarrow|overleftarrow|hat|bar|tilde|dot|ddot)\{/g, '$1\\$2{')
 
     // 2. Sửa left{ hoặc left( ... bị thiếu \ ở left
     .replace(/(^|[^\\])\b(left|right)([\{\}\(\)\[\]\|\.\ \t])/g, '$1\\$2$3')
 
     // 3. Khắc phục riêng trường hợp \left... thiếu \right. hoặc thiếu dấu . ở cuối right
+    // Chuyển left{ thành \left\{ nếu thiếu \ trước ngoặc nhọn
     .replace(/\\left\{/g, '\\left\\{')
+    // Nếu có \right bị đứng một mình ở cuối mà không có dấu . hoặc ngoặc đi kèm -> tự động thêm \right.
     .replace(/\\right(?!\s*[\{\}\(\)\[\]\|\.])/g, '\\right.')
 
     // 4. Sửa các môi trường bị thiếu \ trước begin / end (ví dụ: begin{aligned}, end{cases})
     .replace(/(^|[^\\])\b(begin|end)\{/g, '$1\\$2{')
 
-    // 5. Sửa các lệnh toán học thông dụng bị gõ thiếu \ ở đầu (Đã bổ sung thêm các lệnh hình học & lượng giác)
-    .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|phi|sigma|omega|infty|le|ge|neq|approx|times|div|cdot|Leftrightarrow|Rightarrow|rightarrow|Leftarrow|sin|cos|tan|cot|log|ln|in|notin|subset|cap|cup)\b/g, '$1\\$2')
-
-    // 6. Đảm bảo có khoảng trắng giữa $ số $ và chữ tiếng Việt (tránh dính khối toán)
-    .replace(/\$([0-9a-zA-Z_]+)\$([a-zA-ZÀ-ỹ])/g, '$$1$ $2');
+    // 5. Sửa các lệnh toán học thông dụng khác bị gõ thiếu \ ở đầu
+    .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|infty|le|ge|neq|approx|times|div|cdot)\b/g, '$1\\$2');
 }
 function layNhanXet(diem) {
   const nx1 = "🌟 Bài làm rất tốt, cần tiếp tục phát huy nhé";

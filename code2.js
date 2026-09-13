@@ -114,6 +114,29 @@ function getSS2Sheet(sheetId, idgv, sheetName) {
   return null;
 }
 
+// Điểm vào chuẩn (Standard Entry Points) cho Google Apps Script Web App
+function doGet(e) {
+  try {
+    return mainDoGet(e);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: "Lỗi thực thi doGet: " + (err ? err.toString() : "Unknown error")
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    return mainDoPost(e);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: "Lỗi thực thi doPost: " + (err ? err.toString() : "Unknown error")
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 function mainDoGet(e) {
 const params = e.parameter;
   const type = params.type;

@@ -3635,14 +3635,9 @@ function normalizeQuestionBank() {
  * Hàm sửa các lỗi gõ thiếu dấu \ trong công thức MathJax/LaTeX
  */
 function fixMathJaxString(str) {
-  if (!str) return "";
-  var valStr = str.toString();
+  if (!str || typeof str !== 'string') return str;
 
-  return valStr
-    // 0. CHUẨN HÓA DẤU GẠCH CHÉO KÉP: Chuyển \\ command thành \ command
-    // Sửa dứt điểm lỗi \\lim\\limits -> \lim\limits, \\overrightarrow -> \overrightarrow
-    .replace(/\\\\([a-zA-Z]+)/g, '\\$1')
-
+  return str
     // 1. Sửa vec{a}, overrightarrow{AB}... bị thiếu \ ở đầu
     .replace(/(^|[^\\])\b(vec|overrightarrow|overleftarrow|hat|bar|tilde|dot|ddot)\{/g, '$1\\$2{')
 
@@ -3650,17 +3645,16 @@ function fixMathJaxString(str) {
     .replace(/(^|[^\\])\b(left|right)([\{\}\(\)\[\]\|\.\ \t])/g, '$1\\$2$3')
 
     // 3. Khắc phục riêng trường hợp \left... thiếu \right. hoặc thiếu dấu . ở cuối right
+    // Chuyển left{ thành \left\{ nếu thiếu \ trước ngoặc nhọn
     .replace(/\\left\{/g, '\\left\\{')
+    // Nếu có \right bị đứng một mình ở cuối mà không có dấu . hoặc ngoặc đi kèm -> tự động thêm \right.
     .replace(/\\right(?!\s*[\{\}\(\)\[\]\|\.])/g, '\\right.')
 
     // 4. Sửa các môi trường bị thiếu \ trước begin / end (ví dụ: begin{aligned}, end{cases})
     .replace(/(^|[^\\])\b(begin|end)\{/g, '$1\\$2{')
 
-    // 5. Sửa các lệnh toán học thông dụng bị gõ thiếu \ ở đầu (Đã bổ sung thêm các lệnh hình học & lượng giác)
-    .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|phi|sigma|omega|infty|le|ge|neq|approx|times|div|cdot|Leftrightarrow|Rightarrow|rightarrow|Leftarrow|sin|cos|tan|cot|log|ln|in|notin|subset|cap|cup)\b/g, '$1\\$2')
-
-    // 6. Đảm bảo có khoảng trắng giữa $ số $ và chữ tiếng Việt (tránh dính khối toán)
-    .replace(/\$([0-9a-zA-Z_]+)\$([a-zA-ZÀ-ỹ])/g, '$$1$ $2');
+    // 5. Sửa các lệnh toán học thông dụng khác bị gõ thiếu \ ở đầu
+    .replace(/(^|[^\\])\b(frac|sqrt|limits|int|sum|prod|lim|alpha|beta|gamma|delta|pi|theta|infty|le|ge|neq|approx|times|div|cdot)\b/g, '$1\\$2');
 }
 function layNhanXet(diem) {
   const nx1 = "🌟 Bài làm rất tốt, cần tiếp tục phát huy nhé";

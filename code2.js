@@ -569,7 +569,7 @@ if (type === 'verifyStudent' || action === 'verifyStudent') {
     if (lastRow < 2) {
     return createResponse("error", "Ngân hàng trống!");
       }  
-    const values = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
+    const rows = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
     // var headers = values[0]; // có cần lệnh này không?
     // var rows = values.slice(1);
     var result = rows.map(function (r) {

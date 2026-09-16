@@ -46,12 +46,17 @@ function getSheetIdByIdgv(idgv) {
   return "";
 }
 
-// Lấy thông tin Firebase cấu hình riêng của Giáo viên từ Cột M (Cột 13) của sheet 'idgv' trong ssAdmin
+// 1609sua1: Lấy thông tin Firebase cấu hình riêng của Giáo viên từ Cột M (Cột 13) của sheet 'idgv' trong ssAdmin, nếu không có cấu hình thì dùng quanlythicuonline
 function getFirebaseConfigByIdgv(idgv) {
+  // 1609sua1: Cấu hình Firebase mặc định cho giáo viên
   var defaultConfig = {
-    projectId: "edunovavn",
-    apiKey: "AIzaSyCh8_UWCRazY04HZKMgjVIZLcb-JhxaIMA",
-    authDomain: "edunovavn.firebaseapp.com"
+    projectId: "quanlythicuonline",
+    apiKey: "AIzaSyADI6QQURcKq-6-ptp8qNY984gALONn28w",
+    authDomain: "quanlythicuonline.firebaseapp.com",
+    storageBucket: "quanlythicuonline.firebasestorage.app",
+    messagingSenderId: "100818532900",
+    appId: "1:100818532900:web:a6234ef421d31492d476b1",
+    measurementId: "G-95PY5HTLGF"
   };
 
   if (!idgv) return defaultConfig;
@@ -4180,7 +4185,8 @@ function syncStudentsToFirebase(idgv, sheetId) {
     if (!sheetHS) return { status: "error", message: "Không tìm thấy sheet học sinh!" };
 
     var fbConfig = getFirebaseConfigByIdgv(idgv);
-    var projectId = fbConfig.projectId || "edunovavn";
+    // 1609sua1: Fallback projectId là quanlythicuonline
+    var projectId = fbConfig.projectId || "quanlythicuonline";
     var cleanIdgv = String(idgv || "").replace(/[^0-9a-zA-Z]/g, "").trim().toLowerCase();
 
     var values = sheetHS.getDataRange().getValues();
@@ -4940,5 +4946,4 @@ function pullSheetsDataForFirebase_(idgv, sheetId, sheetsToPull, isAdmin) {
     data: results
   };
 }
-
 

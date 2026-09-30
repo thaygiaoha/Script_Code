@@ -3558,7 +3558,7 @@ function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
 // 2508ketthucsua1
 
 // Hàm chuẩn hóa lại ngân hàng
-function normalizeQuestionBank_1() {
+function normalizeQuestionBank() {
   // Sử dụng biến ss toàn cục được khai báo ở đầu file của bạn
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
@@ -3666,7 +3666,7 @@ function checkValueEmpty(val) {
   return false;
 }
 // Hàm chuẩn hóa ngân hàng câu hỏi (Tối ưu In-Memory)
-function normalizeQuestionBank() {
+function normalizeQuestionBank_1() {
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
   var lastRow = sheet.getLastRow();

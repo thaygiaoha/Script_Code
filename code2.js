@@ -3508,9 +3508,7 @@ function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
 
 // Hàm chuẩn hóa lại ngân hàng
 function normalizeQuestionBank() {
-  // Sử dụng biến ss toàn cục được khai báo ở đầu file của bạn
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
-  
   var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
   
@@ -3518,24 +3516,23 @@ function normalizeQuestionBank() {
     throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
   }
   
-  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết (bỏ qua dòng tiêu đề số 1)
+  // Đọc toàn bộ dữ liệu 1 LẦN DUY NHẤT
   var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
   var values = range.getValues();
   
+  var cleanedValues = []; // Lưu các dòng hợp lệ giữ lại
   var activeCount = 0;
   var deletedCount = 0;
-  var rowsToDelete = []; // Lưu lại các dòng thực tế cần xóa
 
   for (var i = 0; i < values.length; i++) {
     var row = values[i];
-    var actualRowIndex = i + 2; // Số thứ tự dòng thực tế trên Sheet
     
-    // Nếu dòng trống hoàn toàn (cột ID rỗng và các cột khác không có chữ) thì bỏ qua
+    // Bỏ qua dòng trống hoàn toàn
     if (!row[0] && row.join("").trim() === "") continue;
     
     var hasChange = false;
     
-    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> lỗi trong toàn bộ các cột
+    // 1. Quét sạch các cụm <key...> lỗi
     for (var c = 0; c < row.length; c++) {
       if (row[c] !== null && row[c] !== undefined) {
         var valStr = row[c].toString();
@@ -3546,20 +3543,15 @@ function normalizeQuestionBank() {
       }
     }
     
-    // Thứ tự cột cố định:
-    // 0: idquestion (A) | 1: classTag (B) | 2: type (C) | 3: part (D) | 4: question (E)
-    // 5: options (F)    | 6: answer (G)   | 7: loigiai (H) | 8: date (I)
     var typeRaw = row[2] !== null ? row[2].toString().trim() : "";
     var optionRaw = row[5];
     var answerRaw = row[6];
     
-    // Kiểm tra trống toàn diện
     var isOptionEmpty = checkValueEmpty(optionRaw);
     var isAnswerEmpty = checkValueEmpty(answerRaw);
     
-    // 2. MỤC TIÊU 4: Nếu F rỗng và G rỗng -> XÓA NGAY dòng đó
+    // 2. Nếu F rỗng và G rỗng -> BỎ QUA (Không đưa vào mảng cleanedValues = Tương đương XÓA)
     if (isOptionEmpty && isAnswerEmpty) {
-      rowsToDelete.push(actualRowIndex);
       deletedCount++;
       continue;
     }
@@ -3567,33 +3559,34 @@ function normalizeQuestionBank() {
     var targetType = "";
     var targetPart = "";
     
-    // 3. Phân loại chuẩn theo logic yêu cầu
+    // 3. Phân loại
     if (!isOptionEmpty && !isAnswerEmpty) {
       targetType = "mcq";
       targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
-    } 
-    else if (!isOptionEmpty && isAnswerEmpty) {
+    } else if (!isOptionEmpty && isAnswerEmpty) {
       targetType = "true-false";
       targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
-    } 
-    else if (isOptionEmpty && !isAnswerEmpty) {
+    } else if (isOptionEmpty && !isAnswerEmpty) {
       targetType = "short-answer";
       targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
     }
     
-    // CHỈ KHI TYPE HIỆN TẠI KHÁC TYPE CHUẨN (HOẶC CÓ THẺ KEY LỖI) THÌ MỚI GHI ĐÈ
     if (typeRaw !== targetType || hasChange) {
       row[2] = targetType;
       row[3] = targetPart;
-      
-      sheet.getRange(actualRowIndex, 1, 1, lastColumn).setValues([row]);
       activeCount++;
     }
+
+    cleanedValues.push(row);
   }
   
-  // 4. Tiến hành xóa các dòng rác (Duyệt ngược từ dưới lên để tránh bị chạy lệch index dòng)
-  for (var d = rowsToDelete.length - 1; d >= 0; d--) {
-    sheet.deleteRow(rowsToDelete[d]);
+  // 4. Ghi ngược lại dữ liệu đã làm sạch vào Sheet trong 1 THAO TÁC DUY NHẤT
+  // Dọn dẹp vùng dữ liệu cũ từ dòng 2
+  sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
+  
+  // Nếu có dữ liệu sạch thì ghi lại
+  if (cleanedValues.length > 0) {
+    sheet.getRange(2, 1, cleanedValues.length, lastColumn).setValues(cleanedValues);
   }
   
   return {
@@ -3609,7 +3602,7 @@ function checkValueEmpty(val) {
   var str = val.toString().trim();
   
   // Các trường hợp được coi là trống trong cấu trúc ngân hàng câu hỏi
-  if (str === "" || str === "0" || str === "[]" || str === "{}" || str === "['']" || str === '[""]') {
+  if (str === "" || str === "[]" || str === "{}" || str === "['']" || str === '[""]') {
     return true;
   }
   return false;

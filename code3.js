@@ -3829,16 +3829,21 @@ function sapxep_1(cot, sheet) {
   }
 }
 function sapxep_2(cot1, x, cot2, y, sheet) {
+  // Bỏ qua nếu không truyền sheet hoặc sheet rỗng
+  if (!sheet) return;
+
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  // Nếu có dữ liệu từ dòng 2 trở đi thì mới sắp xếp
-  if (lastRow > 1) {
+  // Chỉ thực hiện khi có từ 2 dòng trở lên (tính cả tiêu đề ở dòng 1)
+  if (lastRow > 1 && lastCol > 0) {
+    // Xác định vùng dữ liệu từ dòng 2, cột 1 đến hết bảng
     var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
-    
+
+    // Tiến hành sắp xếp theo 2 điều kiện
     dataRange.sort([
-      { column: cot1, ascending: x === 1 },
-      { column: cot2, ascending: y === 1 }
+      { column: cot1, ascending: x === 1 }, // x = 1 -> Tăng dần, ngược lại x = 0 -> Giảm dần
+      { column: cot2, ascending: y === 1 }  // y = 1 -> Tăng dần, ngược lại y = 0 -> Giảm dần
     ]);
   }
 }

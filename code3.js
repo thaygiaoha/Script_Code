@@ -530,35 +530,129 @@ if (type === 'verifyStudent' || action === 'verifyStudent') {
   }
 }
 
+// Hàm giải mã an toàn chuỗi JSON của phương án trắc nghiệm / đúng-sai (xử lý triệt để ký tự escape của LaTeX như \sqrt, \infty, \sin, \cos...)
+function safeParseJsonOptions(raw) {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "object") return raw;
+  if (typeof raw !== "string") return null;
+
+  var str = raw.trim();
+  if (!str) return null;
+
+  // 1. Parse trực tiếp
+  try {
+    return JSON.parse(str);
+  } catch (e1) {}
+
+  // 2. Tháo lớp bọc nháy kép ngoài cùng nếu dữ liệu bị stringify 2 lần
+  if ((str.startsWith('"[') && str.endsWith(']"')) || (str.startsWith('"{') && str.endsWith('}"'))) {
+    try {
+      var unquoted = JSON.parse(str);
+      if (typeof unquoted === "string") return safeParseJsonOptions(unquoted);
+      if (unquoted && typeof unquoted === "object") return unquoted;
+    } catch (eQuote) {}
+  }
+
+  // 3. Chuẩn hóa escape quotes: [\"...\"] -> ["..."]
+  var cleaned = str;
+  if (cleaned.startsWith('[\\"') || cleaned.includes(',\\"') || cleaned.includes(', \\"')) {
+    cleaned = cleaned.replace(/\\"/g, '"');
+  }
+
+  // 4. Khử lỗi control characters (xuống dòng hoặc tab thô bên trong chuỗi JSON)
+  cleaned = cleaned.replace(/[\r\n\t]+/g, " ");
+
+  // 5. Thử sửa escape LaTeX: biến các backslash không phải JSON escape thành \\
+  try {
+    var fixLatex = cleaned.replace(/\\([^"\\\/bfnrtu]|u(?![0-9a-fA-F]{4}))/g, "\\\\$1");
+    return JSON.parse(fixLatex);
+  } catch (e2) {}
+
+  // 6. Thử escape mọi backslash không đứng trước dấu nháy kép
+  try {
+    var fixAllBackslashes = cleaned.replace(/\\(?!")/g, "\\\\");
+    return JSON.parse(fixAllBackslashes);
+  } catch (e3) {}
+
+  // 7. Xử lý dấu nháy đơn dạng Python/JS: [ '...' , ... ]
+  if (cleaned.startsWith("['") || cleaned.startsWith("[ '") || cleaned.startsWith("{'")) {
+    try {
+      var fixSingle = cleaned.replace(/'([^']*?)'/g, '"$1"');
+      return safeParseJsonOptions(fixSingle);
+    } catch (e4) {}
+  }
+
+  // 8. Cứu hộ Regex cho Đúng/Sai (True-False): [{"text": "...", "a": true/false}]
+  if (str.includes('"text"') || str.includes('text:')) {
+    try {
+      var tfItems = [];
+      var tfRegex = /\{\s*["']?text["']?\s*:\s*["'](.*?)["']\s*,\s*["']?[a|answer]["']?\s*:\s*(true|false)/gi;
+      var matchTf;
+      while ((matchTf = tfRegex.exec(str)) !== null) {
+        tfItems.push({
+          text: matchTf[1].replace(/\\\\/g, "\\"),
+          a: matchTf[2].toLowerCase() === "true"
+        });
+      }
+      if (tfItems.length > 0) return tfItems;
+    } catch (eTf) {}
+  }
+
+  // 9. Cứu hộ Regex cho MCQ: ["...", "...", "...", "..."]
+  if (str.startsWith("[") && str.endsWith("]")) {
+    try {
+      var mcqItems = [];
+      var mcqRegex = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
+      var matchMcq;
+      while ((matchMcq = mcqRegex.exec(str)) !== null) {
+        var val = matchMcq[1] !== undefined ? matchMcq[1] : matchMcq[2];
+        mcqItems.push(val.replace(/\\\\/g, "\\"));
+      }
+      if (mcqItems.length > 0) return mcqItems;
+    } catch (eMcq) {}
+  }
+
+  return null;
+}
+
 // #02 Thi theo ma trận
 // load ngân hàng đề
   if (action === "loadQuestions") {    
     const lastRow = sheetNH.getLastRow();
     if (lastRow < 2) {
-    return createResponse("error", "Ngân hàng trống!");
-      }  
+      return createResponse("error", "Ngân hàng trống!");
+    }  
     const values = sheetNH.getRange(2, 1, lastRow - 1, 8).getValues();
-    // var headers = values[0]; // có cần lệnh này không?
-    // var rows = values.slice(1);
-    var result = rows.map(function (r) {
+    var result = values.map(function (r) {
+      var rawType = String(r[2] || "").trim().toLowerCase();
+      if (rawType === "mc") rawType = "mcq";
+      if (rawType === "tf") rawType = "true-false";
+      if (rawType === "sa") rawType = "short-answer";
+
       var obj = {
         id: r[0],
-        classTag: r[1],
-        type: r[2],
-        part: r[3],
-        question: r[4]
+        classTag: r[1] || "",
+        type: rawType || "mcq",
+        part: r[3] || "",
+        question: r[4] || ""
       };
 
-      if (r[2] === "mcq") {
-        obj.o = r[5] ? JSON.parse(r[5]) : [];
+      var parsedOpt = r[5] ? safeParseJsonOptions(r[5]) : null;
+      var optVal = parsedOpt || r[5] || [];
+
+      obj.o = optVal;
+      obj.options = optVal;
+
+      if (rawType === "true-false" || (Array.isArray(parsedOpt) && parsedOpt[0] && parsedOpt[0].text !== undefined)) {
+        obj.s = optVal;
+      }
+
+      if (rawType === "mcq") {
         obj.a = r[6];
       }
 
-      if (r[2] === "true-false") {
-        obj.s = r[5] ? JSON.parse(r[5]) : [];
-      }
-
-      if (r[2] === "short-answer") {
+      if (rawType === "short-answer") {
         obj.a = r[6];
       }
 
@@ -738,7 +832,7 @@ if (action === 'getLG') {
 
     var parsedOptions = null;
     try {
-      parsedOptions = rows[i][5] ? JSON.parse(rows[i][5]) : null;
+      parsedOptions = rows[i][5] ? safeParseJsonOptions(rows[i][5]) : null;
     } catch(e) {
       parsedOptions = null;
     }
@@ -752,26 +846,27 @@ if (action === 'getLG') {
     if (qloigiai.indexOf(".png'") !== -1) {
     qloigiai = qloigiai.replaceAll(".png'", ".png?v=" + randomVersion + "'");
     }
+    var rawType = String(rows[i][2] || "").trim().toLowerCase();
+    if (rawType === "mc") rawType = "mcq";
+    if (rawType === "tf") rawType = "true-false";
+    if (rawType === "sa") rawType = "short-answer";
+
     var qObj = {
       id: rows[i][0],
       classTag: rows[i][1] || "",
-      type: rows[i][2] || "",
+      type: rawType || "mcq",
       part: rows[i][3] || "",
       question: qText,
       a: rows[i][6] || "",
       loigiai: qloigiai
     };
 
-    if (qObj.type === "mcq") {
-      qObj.o = parsedOptions;
-    }
+    var optVal = parsedOptions || rows[i][5] || [];
+    qObj.o = optVal;
+    qObj.options = optVal;
 
-    if (qObj.type === "true-false") {
-      qObj.s = parsedOptions;
-    }
-
-    if (qObj.type === "short-answer") {
-      // không cần options
+    if (rawType === "true-false" || (Array.isArray(parsedOptions) && parsedOptions[0] && parsedOptions[0].text !== undefined)) {
+      qObj.s = optVal;
     }
 
     questions.push(qObj);
@@ -3558,8 +3653,10 @@ function regradeMatrixExams_(ss2, targetExamSupper, matchingDetails) {
 // 2508ketthucsua1
 
 // Hàm chuẩn hóa lại ngân hàng
-function normalizeQuestionBank() {
+function normalizeQuestionBank_1() {
+  // Sử dụng biến ss toàn cục được khai báo ở đầu file của bạn
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
+  
   var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
   
@@ -3567,23 +3664,24 @@ function normalizeQuestionBank() {
     throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
   }
   
-  // Đọc toàn bộ dữ liệu 1 LẦN DUY NHẤT
+  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết (bỏ qua dòng tiêu đề số 1)
   var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
   var values = range.getValues();
   
-  var cleanedValues = []; // Lưu các dòng hợp lệ giữ lại
   var activeCount = 0;
   var deletedCount = 0;
+  var rowsToDelete = []; // Lưu lại các dòng thực tế cần xóa
 
   for (var i = 0; i < values.length; i++) {
     var row = values[i];
+    var actualRowIndex = i + 2; // Số thứ tự dòng thực tế trên Sheet
     
-    // Bỏ qua dòng trống hoàn toàn
+    // Nếu dòng trống hoàn toàn (cột ID rỗng và các cột khác không có chữ) thì bỏ qua
     if (!row[0] && row.join("").trim() === "") continue;
     
     var hasChange = false;
     
-    // 1. Quét sạch các cụm <key...> lỗi
+    // 1. Quét sạch tất cả các cụm <key...> hoặc </key...> lỗi trong toàn bộ các cột
     for (var c = 0; c < row.length; c++) {
       if (row[c] !== null && row[c] !== undefined) {
         var valStr = row[c].toString();
@@ -3594,15 +3692,20 @@ function normalizeQuestionBank() {
       }
     }
     
+    // Thứ tự cột cố định:
+    // 0: idquestion (A) | 1: classTag (B) | 2: type (C) | 3: part (D) | 4: question (E)
+    // 5: options (F)    | 6: answer (G)   | 7: loigiai (H) | 8: date (I)
     var typeRaw = row[2] !== null ? row[2].toString().trim() : "";
     var optionRaw = row[5];
     var answerRaw = row[6];
     
+    // Kiểm tra trống toàn diện
     var isOptionEmpty = checkValueEmpty(optionRaw);
     var isAnswerEmpty = checkValueEmpty(answerRaw);
     
-    // 2. Nếu F rỗng và G rỗng -> BỎ QUA (Không đưa vào mảng cleanedValues = Tương đương XÓA)
+    // 2. MỤC TIÊU 4: Nếu F rỗng và G rỗng -> XÓA NGAY dòng đó
     if (isOptionEmpty && isAnswerEmpty) {
+      rowsToDelete.push(actualRowIndex);
       deletedCount++;
       continue;
     }
@@ -3610,34 +3713,33 @@ function normalizeQuestionBank() {
     var targetType = "";
     var targetPart = "";
     
-    // 3. Phân loại
+    // 3. Phân loại chuẩn theo logic yêu cầu
     if (!isOptionEmpty && !isAnswerEmpty) {
       targetType = "mcq";
       targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
-    } else if (!isOptionEmpty && isAnswerEmpty) {
+    } 
+    else if (!isOptionEmpty && isAnswerEmpty) {
       targetType = "true-false";
       targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
-    } else if (isOptionEmpty && !isAnswerEmpty) {
+    } 
+    else if (isOptionEmpty && !isAnswerEmpty) {
       targetType = "short-answer";
       targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
     }
     
+    // CHỈ KHI TYPE HIỆN TẠI KHÁC TYPE CHUẨN (HOẶC CÓ THẺ KEY LỖI) THÌ MỚI GHI ĐÈ
     if (typeRaw !== targetType || hasChange) {
       row[2] = targetType;
       row[3] = targetPart;
+      
+      sheet.getRange(actualRowIndex, 1, 1, lastColumn).setValues([row]);
       activeCount++;
     }
-
-    cleanedValues.push(row);
   }
   
-  // 4. Ghi ngược lại dữ liệu đã làm sạch vào Sheet trong 1 THAO TÁC DUY NHẤT
-  // Dọn dẹp vùng dữ liệu cũ từ dòng 2
-  sheet.getRange(2, 1, lastRow - 1, lastColumn).clearContent();
-  
-  // Nếu có dữ liệu sạch thì ghi lại
-  if (cleanedValues.length > 0) {
-    sheet.getRange(2, 1, cleanedValues.length, lastColumn).setValues(cleanedValues);
+  // 4. Tiến hành xóa các dòng rác (Duyệt ngược từ dưới lên để tránh bị chạy lệch index dòng)
+  for (var d = rowsToDelete.length - 1; d >= 0; d--) {
+    sheet.deleteRow(rowsToDelete[d]);
   }
   
   return {
@@ -3653,13 +3755,13 @@ function checkValueEmpty(val) {
   var str = val.toString().trim();
   
   // Các trường hợp được coi là trống trong cấu trúc ngân hàng câu hỏi
-  if (str === "" || str === "[]" || str === "{}" || str === "['']" || str === '[""]') {
+  if (str === "" || str === "0" || str === "[]" || str === "{}" || str === "['']" || str === '[""]') {
     return true;
   }
   return false;
 }
 // Hàm chuẩn hóa ngân hàng câu hỏi (Tối ưu In-Memory)
-function normalizeQuestionBank_1() {
+function normalizeQuestionBank() {
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
   var lastRow = sheet.getLastRow();
@@ -3829,21 +3931,16 @@ function sapxep_1(cot, sheet) {
   }
 }
 function sapxep_2(cot1, x, cot2, y, sheet) {
-  // Bỏ qua nếu không truyền sheet hoặc sheet rỗng
-  if (!sheet) return;
-
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
 
-  // Chỉ thực hiện khi có từ 2 dòng trở lên (tính cả tiêu đề ở dòng 1)
-  if (lastRow > 1 && lastCol > 0) {
-    // Xác định vùng dữ liệu từ dòng 2, cột 1 đến hết bảng
+  // Nếu có dữ liệu từ dòng 2 trở đi thì mới sắp xếp
+  if (lastRow > 1) {
     var dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol);
-
-    // Tiến hành sắp xếp theo 2 điều kiện
+    
     dataRange.sort([
-      { column: cot1, ascending: x === 1 }, // x = 1 -> Tăng dần, ngược lại x = 0 -> Giảm dần
-      { column: cot2, ascending: y === 1 }  // y = 1 -> Tăng dần, ngược lại y = 0 -> Giảm dần
+      { column: cot1, ascending: x === 1 },
+      { column: cot2, ascending: y === 1 }
     ]);
   }
 }
@@ -3979,7 +4076,7 @@ function parseTfOptions(tfInput) {
 
   var list = [];
   try {
-    list = typeof tfInput === "string" ? JSON.parse(tfInput) : tfInput;
+    list = typeof tfInput === "string" ? safeParseJsonOptions(tfInput) : tfInput;
   } catch (e) {
     Logger.log("Lỗi parse JSON True-False: " + e.toString());
     return arrayTfBool;

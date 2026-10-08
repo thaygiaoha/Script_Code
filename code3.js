@@ -3761,7 +3761,7 @@ function checkValueEmpty(val) {
   return false;
 }
 // Hàm chuẩn hóa ngân hàng câu hỏi (Tối ưu In-Memory)
-function normalizeQuestionBank() {
+function normalizeQuestionBank_2() {
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
   var lastRow = sheet.getLastRow();
@@ -3852,6 +3852,234 @@ function normalizeQuestionBank() {
     sheet.getRange(2, 1, cleanedValues.length, lastColumn).setValues(cleanedValues);
   }
   
+  return {
+    activeCount: activeCount,
+    deletedCount: deletedCount
+  };
+}
+// ==========================================================
+// CHUẨN HÓA BACKSLASH TRONG CÔNG THỨC MATHJAX
+// ==========================================================
+function normalizeMathBackslashes(str) {
+  if (!str) return str;
+
+  // Chỉ xử lý phần nằm trong $...$, $$...$$, \(...\), \[...\]
+  // để không làm ảnh hưởng đến văn bản bình thường.
+  var result = str;
+
+  // --------------------------------------------------------
+  // 1. Công thức dạng $$ ... $$ hoặc $ ... $
+  // --------------------------------------------------------
+  result = result.replace(
+    /(\${1,2})([\s\S]*?)(\1)/g,
+    function(match, open, formula, close) {
+
+      // Chuẩn hóa các cụm có từ 2 backslash trở lên
+      // về 1 backslash.
+      //
+      // Ví dụ:
+      // \\overrightarrow  -> \overrightarrow
+      // \\\overrightarrow -> \overrightarrow
+      // \\\\overrightarrow -> \overrightarrow
+      //
+      // NHƯNG giữ nguyên \\ nếu đó là lệnh xuống dòng
+      // trong aligned / array / cases.
+      formula = formula.replace(/\\{2,}/g, function(bs, offset, whole) {
+
+        // Phần ngay sau cụm backslash
+        var after = whole.substring(offset + bs.length);
+
+        // Các trường hợp \\ bắt buộc để xuống dòng
+        // Ví dụ: \\[6pt], \\[4pt], \\[-2pt]
+        if (/^\s*\[[^\]]*\]/.test(after)) {
+          return "\\\\";
+        }
+
+        // Nếu trước đó là môi trường cần xuống dòng
+        // thì giữ lại 2 dấu \
+        var before = whole.substring(0, offset);
+
+        if (
+          /\\begin\s*\{(?:aligned|array|matrix|pmatrix|bmatrix|cases|vmatrix|Vmatrix)\}\s*[\s\S]*$/i.test(before)
+          ||
+          /\\(?:aligned|array|matrix|pmatrix|bmatrix|cases|vmatrix|Vmatrix)\s*[\s\S]*$/i.test(before)
+        ) {
+          return "\\\\";
+        }
+
+        // Mặc định gom tất cả về 1 \
+        return "\\";
+      });
+
+      return open + formula + close;
+    }
+  );
+
+  // --------------------------------------------------------
+  // 2. Công thức dạng \( ... \) hoặc \[ ... \]
+  // --------------------------------------------------------
+  result = result.replace(
+    /(\\\(|\\\[)([\s\S]*?)(\\\)|\\\])/g,
+    function(match, open, formula, close) {
+
+      formula = formula.replace(/\\{2,}/g, function(bs, offset, whole) {
+
+        var after = whole.substring(offset + bs.length);
+
+        // Giữ \\[...]
+        if (/^\s*\[[^\]]*\]/.test(after)) {
+          return "\\\\";
+        }
+
+        var before = whole.substring(0, offset);
+
+        // Giữ \\ trong môi trường xuống dòng
+        if (
+          /\\begin\s*\{(?:aligned|array|matrix|pmatrix|bmatrix|cases|vmatrix|Vmatrix)\}\s*[\s\S]*$/i.test(before)
+        ) {
+          return "\\\\";
+        }
+
+        return "\\";
+      });
+
+      return open + formula + close;
+    }
+  );
+
+  return result;
+}
+
+
+// ==========================================================
+// CHUẨN HÓA NGÂN HÀNG CÂU HỎI
+// ==========================================================
+function normalizeQuestionBank() {
+  var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
+
+  var lastRow = sheet.getLastRow();
+  var lastColumn = sheet.getLastColumn();
+
+  if (lastRow < 2) {
+    throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
+  }
+
+  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết
+  var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
+  var values = range.getValues();
+
+  var cleanedValues = [];
+  var activeCount = 0;
+  var deletedCount = 0;
+
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+
+    // Nếu dòng trống hoàn toàn -> Xóa
+    if (!row[0] && row.join("").trim() === "") {
+      deletedCount++;
+      continue;
+    }
+
+    // ======================================================
+    // 1. QUÉT VÀ CHUẨN HÓA TOÀN BỘ CÁC CỘT
+    // ======================================================
+    for (var c = 0; c < row.length; c++) {
+
+      if (row[c] !== null && row[c] !== undefined) {
+
+        var valStr = row[c].toString();
+
+        // --------------------------------------------------
+        // Xóa tất cả cụm <key...>
+        // --------------------------------------------------
+        if (/<\/?[kK][eE][yY][^>]*>/g.test(valStr)) {
+          valStr = valStr
+            .replace(/<\/?[kK][eE][yY][^>]*>/g, '')
+            .trim();
+        }
+
+        // --------------------------------------------------
+        // QUAN TRỌNG:
+        // Chuẩn hóa \\ / \\\ / \\\\ / ... trong công thức
+        // --------------------------------------------------
+        valStr = normalizeMathBackslashes(valStr);
+
+        // --------------------------------------------------
+        // Tiếp tục các chuẩn hóa MathJax hiện có
+        // --------------------------------------------------
+        valStr = fixMathJaxString(valStr);
+
+        row[c] = valStr;
+      }
+    }
+
+    // ======================================================
+    // Cột F (index 5): options
+    // Cột G (index 6): answer
+    // ======================================================
+    var optionRaw = row[5];
+    var answerRaw = row[6];
+
+    var isOptionEmpty = checkValueEmpty(optionRaw);
+    var isAnswerEmpty = checkValueEmpty(answerRaw);
+
+    // ======================================================
+    // 2. Nếu F và G đều rỗng -> XÓA
+    // ======================================================
+    if (isOptionEmpty && isAnswerEmpty) {
+      deletedCount++;
+      continue;
+    }
+
+    // ======================================================
+    // 3. PHÂN LOẠI CÂU HỎI
+    // ======================================================
+    var targetType = "";
+    var targetPart = "";
+
+    if (!isOptionEmpty && !isAnswerEmpty) {
+
+      targetType = "mcq";
+      targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
+
+    }
+    else if (!isOptionEmpty && isAnswerEmpty) {
+
+      targetType = "true-false";
+      targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
+
+    }
+    else if (isOptionEmpty && !isAnswerEmpty) {
+
+      targetType = "short-answer";
+      targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
+    }
+
+    // Cập nhật Type (cột 3) và Part (cột 4)
+    row[2] = targetType;
+    row[3] = targetPart;
+
+    cleanedValues.push(row);
+    activeCount++;
+  }
+
+  // ========================================================
+  // 4. XÓA DỮ LIỆU CŨ
+  // ========================================================
+  sheet
+    .getRange(2, 1, sheet.getMaxRows() - 1, lastColumn)
+    .clearContent();
+
+  // ========================================================
+  // 5. GHI LẠI DỮ LIỆU ĐÃ CHUẨN HÓA
+  // ========================================================
+  if (cleanedValues.length > 0) {
+    sheet
+      .getRange(2, 1, cleanedValues.length, lastColumn)
+      .setValues(cleanedValues);
+  }
+
   return {
     activeCount: activeCount,
     deletedCount: deletedCount

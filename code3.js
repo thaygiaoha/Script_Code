@@ -530,61 +530,116 @@ if (type === 'verifyStudent' || action === 'verifyStudent') {
   }
 }
 
+function healLatexChars(s) {
+  if (!s) return s;
+  if (Array.isArray(s)) {
+    return s.map(function(item) { return healLatexChars(item); });
+  }
+  if (typeof s === "object" && s !== null) {
+    var copy = {};
+    for (var k in s) {
+      if (Object.prototype.hasOwnProperty.call(s, k)) {
+        copy[k] = healLatexChars(s[k]);
+      }
+    }
+    return copy;
+  }
+  if (typeof s !== "string") return s;
+  return s
+    .replace(/\x0crac\b/gi, "\\frac")
+    .replace(/\x0corall\b/gi, "\\forall")
+    .replace(/\x0clat\b/gi, "\\flat")
+    .replace(/\x08egin\b/gi, "\\begin")
+    .replace(/\x08eta\b/gi, "\\beta")
+    .replace(/\x08ar\b/gi, "\\bar")
+    .replace(/\x08ullet\b/gi, "\\bullet")
+    .replace(/\x08inom\b/gi, "\\binom")
+    .replace(/\x08ot\b/gi, "\\bot")
+    .replace(/\x08oldsymbol\b/gi, "\\boldsymbol")
+    .replace(/\x08old\b/gi, "\\bold")
+    .replace(/\x08ig\b/gi, "\\big")
+    .replace(/\x0dightarrow\b/gi, "\\rightarrow")
+    .replace(/\x0dight\b/gi, "\\right")
+    .replace(/\x0dho\b/gi, "\\rho")
+    .replace(/\x0dangle\b/gi, "\\rangle")
+    .replace(/\x0dm\b/gi, "\\rm")
+    .replace(/\t(times|tan|tanh|theta|tau|tilde|text|triangle|top)\b/gi, "\\$1")
+    .replace(/\to\b/g, "\\to ")
+    .replace(/(\$[^$]*?)[\r\n]+(eq|otin|nabla|neg|nparallel|nexists)\b/gi, "$1\\$2");
+}
+
+function protectLatexBeforeJson(str) {
+  if (!str || typeof str !== "string") return str;
+  return str.replace(
+    /\\(frac|forall|flat|begin|beta|bar|bullet|binom|bot|boldsymbol|bold|big|Big|right|rho|rangle|rm|rightarrow|Rightarrow|to|times|tan|tanh|theta|tau|tilde|text|triangle|top|neq|notin|nabla|neg|nparallel|nexists)\b/gi,
+    "\\\\$1"
+  );
+}
+
 // Hàm giải mã an toàn chuỗi JSON của phương án trắc nghiệm / đúng-sai (xử lý triệt để ký tự escape của LaTeX như \sqrt, \infty, \sin, \cos...)
 function safeParseJsonOptions(raw) {
   if (!raw) return null;
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "object") return raw;
+  if (Array.isArray(raw)) return healLatexChars(raw);
+  if (typeof raw === "object") return healLatexChars(raw);
   if (typeof raw !== "string") return null;
 
   var str = raw.trim();
   if (!str) return null;
 
-  // 1. Parse trực tiếp
+  // 0. Giải mã HTML entities
+  str = str.replace(/&quot;/g, '"')
+           .replace(/&#34;/g, '"')
+           .replace(/&apos;/g, "'")
+           .replace(/&#39;/g, "'")
+           .replace(/&amp;/g, '&');
+
+  // 1. Parse trực tiếp sau khi bảo vệ các lệnh LaTeX không bị nuốt bởi escape JSON (\f, \b, \r, \t, \n)
   try {
-    return JSON.parse(str);
+    var protectedDirect = protectLatexBeforeJson(str);
+    var res = JSON.parse(protectedDirect);
+    if (Array.isArray(res) || (res && typeof res === "object")) return healLatexChars(res);
+    if (typeof res === "string") return safeParseJsonOptions(res);
   } catch (e1) {}
 
   // 2. Tháo lớp bọc nháy kép ngoài cùng nếu dữ liệu bị stringify 2 lần
-  if ((str.startsWith('"[') && str.endsWith(']"')) || (str.startsWith('"{') && str.endsWith('}"'))) {
-    try {
-      var unquoted = JSON.parse(str);
-      if (typeof unquoted === "string") return safeParseJsonOptions(unquoted);
-      if (unquoted && typeof unquoted === "object") return unquoted;
-    } catch (eQuote) {}
+  if ((str.startsWith('"[') && str.endsWith(']"')) || (str.startsWith('"{') && str.endsWith('}"')) || (str.startsWith('"') && str.endsWith('"') && str.length > 2)) {
+    var stripped = str.slice(1, -1).trim();
+    var res2 = safeParseJsonOptions(stripped);
+    if (res2) return healLatexChars(res2);
   }
 
   // 3. Chuẩn hóa escape quotes: [\"...\"] -> ["..."]
-  var cleaned = str;
-  if (cleaned.startsWith('[\\"') || cleaned.includes(',\\"') || cleaned.includes(', \\"')) {
-    cleaned = cleaned.replace(/\\"/g, '"');
+  var unescapedQuotes = str;
+  if (unescapedQuotes.includes('\\"')) {
+    unescapedQuotes = unescapedQuotes.replace(/\\"/g, '"');
+    try {
+      var protectedQuotes = protectLatexBeforeJson(unescapedQuotes);
+      var res3 = JSON.parse(protectedQuotes);
+      if (Array.isArray(res3) || (res3 && typeof res3 === "object")) return healLatexChars(res3);
+    } catch (eQuote) {}
   }
 
-  // 4. Khử lỗi control characters (xuống dòng hoặc tab thô bên trong chuỗi JSON)
-  cleaned = cleaned.replace(/[\r\n\t]+/g, " ");
+  // 4. Khử lỗi control characters
+  var cleaned = str.replace(/[\r\n\t]+/g, " ");
 
   // 5. Thử sửa escape LaTeX: biến các backslash không phải JSON escape thành \\
   try {
-    var fixLatex = cleaned.replace(/\\([^"\\\/bfnrtu]|u(?![0-9a-fA-F]{4}))/g, "\\\\$1");
-    return JSON.parse(fixLatex);
+    var protectedCleaned = protectLatexBeforeJson(cleaned);
+    var fixLatex = protectedCleaned.replace(/\\([^"\\\/bfnrtu]|u(?![0-9a-fA-F]{4}))/g, "\\\\$1");
+    var res4 = JSON.parse(fixLatex);
+    if (Array.isArray(res4) || (res4 && typeof res4 === "object")) return healLatexChars(res4);
   } catch (e2) {}
 
   // 6. Thử escape mọi backslash không đứng trước dấu nháy kép
   try {
-    var fixAllBackslashes = cleaned.replace(/\\(?!")/g, "\\\\");
-    return JSON.parse(fixAllBackslashes);
+    var protectedCleaned2 = protectLatexBeforeJson(cleaned);
+    var fixAllBackslashes = protectedCleaned2.replace(/\\(?!")/g, "\\\\");
+    var res5 = JSON.parse(fixAllBackslashes);
+    if (Array.isArray(res5) || (res5 && typeof res5 === "object")) return healLatexChars(res5);
   } catch (e3) {}
 
-  // 7. Xử lý dấu nháy đơn dạng Python/JS: [ '...' , ... ]
-  if (cleaned.startsWith("['") || cleaned.startsWith("[ '") || cleaned.startsWith("{'")) {
-    try {
-      var fixSingle = cleaned.replace(/'([^']*?)'/g, '"$1"');
-      return safeParseJsonOptions(fixSingle);
-    } catch (e4) {}
-  }
-
-  // 8. Cứu hộ Regex cho Đúng/Sai (True-False): [{"text": "...", "a": true/false}]
-  if (str.includes('"text"') || str.includes('text:')) {
+  // 7. Cứu hộ Regex cho Đúng/Sai (True-False): [{"text": "...", "a": true/false}]
+  if (str.includes('text') && (str.includes('true') || str.includes('false') || str.includes('True') || str.includes('False'))) {
     try {
       var tfItems = [];
       var tfRegex = /\{\s*["']?text["']?\s*:\s*["'](.*?)["']\s*,\s*["']?[a|answer]["']?\s*:\s*(true|false)/gi;
@@ -595,22 +650,60 @@ function safeParseJsonOptions(raw) {
           a: matchTf[2].toLowerCase() === "true"
         });
       }
-      if (tfItems.length > 0) return tfItems;
+      if (tfItems.length > 0) return healLatexChars(tfItems);
     } catch (eTf) {}
   }
 
-  // 9. Cứu hộ Regex cho MCQ: ["...", "...", "...", "..."]
-  if (str.startsWith("[") && str.endsWith("]")) {
+  // 8. Cứu hộ Tokenizer cho mảng ngoặc vuông [...]
+  var arrayStr = cleaned;
+  if ((arrayStr.startsWith('"[') && arrayStr.endsWith(']"')) || (arrayStr.startsWith("'[") && arrayStr.endsWith("]'"))) {
+    arrayStr = arrayStr.slice(1, -1).trim();
+  }
+  if (arrayStr.startsWith("[") && arrayStr.endsWith("]")) {
     try {
-      var mcqItems = [];
-      var mcqRegex = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
-      var matchMcq;
-      while ((matchMcq = mcqRegex.exec(str)) !== null) {
-        var val = matchMcq[1] !== undefined ? matchMcq[1] : matchMcq[2];
-        mcqItems.push(val.replace(/\\\\/g, "\\"));
+      var inner = arrayStr.slice(1, -1).trim();
+      var items = [];
+      var inDouble = false;
+      var inSingle = false;
+      var current = "";
+
+      for (var i = 0; i < inner.length; i++) {
+        var ch = inner[i];
+        var prev = i > 0 ? inner[i - 1] : "";
+
+        if (ch === '"' && prev !== '\\') {
+          if (!inSingle) { inDouble = !inDouble; continue; }
+        } else if (ch === "'" && prev !== '\\') {
+          if (!inDouble) { inSingle = !inSingle; continue; }
+        } else if (ch === ',' && !inDouble && !inSingle) {
+          items.push(current.trim());
+          current = "";
+          continue;
+        }
+        current += ch;
       }
-      if (mcqItems.length > 0) return mcqItems;
-    } catch (eMcq) {}
+      if (current.trim()) items.push(current.trim());
+
+      if (items.length > 0) {
+        var parsed = items.map(function(it) {
+          var cleanItem = it.trim();
+          if ((cleanItem.startsWith('"') && cleanItem.endsWith('"')) || (cleanItem.startsWith("'") && cleanItem.endsWith("'"))) {
+            cleanItem = cleanItem.slice(1, -1);
+          }
+          return cleanItem
+            .replace(/\\"/g, '"')
+            .replace(/\\'/g, "'")
+            .replace(/\\\\/g, '\\');
+        });
+        return healLatexChars(parsed);
+      }
+    } catch (eToken) {}
+  }
+
+  // 9. Cứu hộ phân cách pipe | hoặc xuống dòng
+  if (str.includes('|') || str.includes('\n')) {
+    var parts = str.split(/[|\n]+/).map(function(p) { return p.trim(); }).filter(Boolean);
+    if (parts.length >= 2) return healLatexChars(parts);
   }
 
   return null;
@@ -3761,7 +3854,7 @@ function checkValueEmpty(val) {
   return false;
 }
 // Hàm chuẩn hóa ngân hàng câu hỏi (Tối ưu In-Memory)
-function normalizeQuestionBank_2() {
+function normalizeQuestionBank() {
   var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
   
   var lastRow = sheet.getLastRow();
@@ -3852,234 +3945,6 @@ function normalizeQuestionBank_2() {
     sheet.getRange(2, 1, cleanedValues.length, lastColumn).setValues(cleanedValues);
   }
   
-  return {
-    activeCount: activeCount,
-    deletedCount: deletedCount
-  };
-}
-// ==========================================================
-// CHUẨN HÓA BACKSLASH TRONG CÔNG THỨC MATHJAX
-// ==========================================================
-function normalizeMathBackslashes(str) {
-  if (!str) return str;
-
-  // Chỉ xử lý phần nằm trong $...$, $$...$$, \(...\), \[...\]
-  // để không làm ảnh hưởng đến văn bản bình thường.
-  var result = str;
-
-  // --------------------------------------------------------
-  // 1. Công thức dạng $$ ... $$ hoặc $ ... $
-  // --------------------------------------------------------
-  result = result.replace(
-    /(\${1,2})([\s\S]*?)(\1)/g,
-    function(match, open, formula, close) {
-
-      // Chuẩn hóa các cụm có từ 2 backslash trở lên
-      // về 1 backslash.
-      //
-      // Ví dụ:
-      // \\overrightarrow  -> \overrightarrow
-      // \\\overrightarrow -> \overrightarrow
-      // \\\\overrightarrow -> \overrightarrow
-      //
-      // NHƯNG giữ nguyên \\ nếu đó là lệnh xuống dòng
-      // trong aligned / array / cases.
-      formula = formula.replace(/\\{2,}/g, function(bs, offset, whole) {
-
-        // Phần ngay sau cụm backslash
-        var after = whole.substring(offset + bs.length);
-
-        // Các trường hợp \\ bắt buộc để xuống dòng
-        // Ví dụ: \\[6pt], \\[4pt], \\[-2pt]
-        if (/^\s*\[[^\]]*\]/.test(after)) {
-          return "\\\\";
-        }
-
-        // Nếu trước đó là môi trường cần xuống dòng
-        // thì giữ lại 2 dấu \
-        var before = whole.substring(0, offset);
-
-        if (
-          /\\begin\s*\{(?:aligned|array|matrix|pmatrix|bmatrix|cases|vmatrix|Vmatrix)\}\s*[\s\S]*$/i.test(before)
-          ||
-          /\\(?:aligned|array|matrix|pmatrix|bmatrix|cases|vmatrix|Vmatrix)\s*[\s\S]*$/i.test(before)
-        ) {
-          return "\\\\";
-        }
-
-        // Mặc định gom tất cả về 1 \
-        return "\\";
-      });
-
-      return open + formula + close;
-    }
-  );
-
-  // --------------------------------------------------------
-  // 2. Công thức dạng \( ... \) hoặc \[ ... \]
-  // --------------------------------------------------------
-  result = result.replace(
-    /(\\\(|\\\[)([\s\S]*?)(\\\)|\\\])/g,
-    function(match, open, formula, close) {
-
-      formula = formula.replace(/\\{2,}/g, function(bs, offset, whole) {
-
-        var after = whole.substring(offset + bs.length);
-
-        // Giữ \\[...]
-        if (/^\s*\[[^\]]*\]/.test(after)) {
-          return "\\\\";
-        }
-
-        var before = whole.substring(0, offset);
-
-        // Giữ \\ trong môi trường xuống dòng
-        if (
-          /\\begin\s*\{(?:aligned|array|matrix|pmatrix|bmatrix|cases|vmatrix|Vmatrix)\}\s*[\s\S]*$/i.test(before)
-        ) {
-          return "\\\\";
-        }
-
-        return "\\";
-      });
-
-      return open + formula + close;
-    }
-  );
-
-  return result;
-}
-
-
-// ==========================================================
-// CHUẨN HÓA NGÂN HÀNG CÂU HỎI
-// ==========================================================
-function normalizeQuestionBank() {
-  var sheet = ss.getSheetByName("nganhang") || ss.getSheets()[0];
-
-  var lastRow = sheet.getLastRow();
-  var lastColumn = sheet.getLastColumn();
-
-  if (lastRow < 2) {
-    throw new Error("Bảng tính trống hoặc không có dữ liệu để chuẩn hóa!");
-  }
-
-  // Đọc toàn bộ dữ liệu từ dòng 2 đến hết
-  var range = sheet.getRange(2, 1, lastRow - 1, lastColumn);
-  var values = range.getValues();
-
-  var cleanedValues = [];
-  var activeCount = 0;
-  var deletedCount = 0;
-
-  for (var i = 0; i < values.length; i++) {
-    var row = values[i];
-
-    // Nếu dòng trống hoàn toàn -> Xóa
-    if (!row[0] && row.join("").trim() === "") {
-      deletedCount++;
-      continue;
-    }
-
-    // ======================================================
-    // 1. QUÉT VÀ CHUẨN HÓA TOÀN BỘ CÁC CỘT
-    // ======================================================
-    for (var c = 0; c < row.length; c++) {
-
-      if (row[c] !== null && row[c] !== undefined) {
-
-        var valStr = row[c].toString();
-
-        // --------------------------------------------------
-        // Xóa tất cả cụm <key...>
-        // --------------------------------------------------
-        if (/<\/?[kK][eE][yY][^>]*>/g.test(valStr)) {
-          valStr = valStr
-            .replace(/<\/?[kK][eE][yY][^>]*>/g, '')
-            .trim();
-        }
-
-        // --------------------------------------------------
-        // QUAN TRỌNG:
-        // Chuẩn hóa \\ / \\\ / \\\\ / ... trong công thức
-        // --------------------------------------------------
-        valStr = normalizeMathBackslashes(valStr);
-
-        // --------------------------------------------------
-        // Tiếp tục các chuẩn hóa MathJax hiện có
-        // --------------------------------------------------
-        valStr = fixMathJaxString(valStr);
-
-        row[c] = valStr;
-      }
-    }
-
-    // ======================================================
-    // Cột F (index 5): options
-    // Cột G (index 6): answer
-    // ======================================================
-    var optionRaw = row[5];
-    var answerRaw = row[6];
-
-    var isOptionEmpty = checkValueEmpty(optionRaw);
-    var isAnswerEmpty = checkValueEmpty(answerRaw);
-
-    // ======================================================
-    // 2. Nếu F và G đều rỗng -> XÓA
-    // ======================================================
-    if (isOptionEmpty && isAnswerEmpty) {
-      deletedCount++;
-      continue;
-    }
-
-    // ======================================================
-    // 3. PHÂN LOẠI CÂU HỎI
-    // ======================================================
-    var targetType = "";
-    var targetPart = "";
-
-    if (!isOptionEmpty && !isAnswerEmpty) {
-
-      targetType = "mcq";
-      targetPart = "PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn";
-
-    }
-    else if (!isOptionEmpty && isAnswerEmpty) {
-
-      targetType = "true-false";
-      targetPart = "PHẦN II. Câu trắc nghiệm đúng sai";
-
-    }
-    else if (isOptionEmpty && !isAnswerEmpty) {
-
-      targetType = "short-answer";
-      targetPart = "PHẦN III. Câu trắc nghiệm trả lời ngắn";
-    }
-
-    // Cập nhật Type (cột 3) và Part (cột 4)
-    row[2] = targetType;
-    row[3] = targetPart;
-
-    cleanedValues.push(row);
-    activeCount++;
-  }
-
-  // ========================================================
-  // 4. XÓA DỮ LIỆU CŨ
-  // ========================================================
-  sheet
-    .getRange(2, 1, sheet.getMaxRows() - 1, lastColumn)
-    .clearContent();
-
-  // ========================================================
-  // 5. GHI LẠI DỮ LIỆU ĐÃ CHUẨN HÓA
-  // ========================================================
-  if (cleanedValues.length > 0) {
-    sheet
-      .getRange(2, 1, cleanedValues.length, lastColumn)
-      .setValues(cleanedValues);
-  }
-
   return {
     activeCount: activeCount,
     deletedCount: deletedCount

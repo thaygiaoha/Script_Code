@@ -570,10 +570,7 @@ function healLatexChars(s) {
 
 function protectLatexBeforeJson(str) {
   if (!str || typeof str !== "string") return str;
-  return str.replace(
-    /\\(frac|forall|flat|begin|beta|bar|bullet|binom|bot|boldsymbol|bold|big|Big|right|rho|rangle|rm|rightarrow|Rightarrow|to|times|tan|tanh|theta|tau|tilde|text|triangle|top|neq|notin|nabla|neg|nparallel|nexists)\b/gi,
-    "\\\\$1"
-  );
+  return str.replace(/(?<!\\)\\([a-zA-Z])/g, "\\\\$1");
 }
 
 // Hàm giải mã an toàn chuỗi JSON của phương án trắc nghiệm / đúng-sai (xử lý triệt để ký tự escape của LaTeX như \sqrt, \infty, \sin, \cos...)
